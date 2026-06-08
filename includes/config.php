@@ -13,7 +13,7 @@ $_env = function(string $key, string $default): string {
 
 return [
     'app_name'    => $_env('APP_NAME', 'Sekolah Grading'),
-    'base_url'    => $_env('APP_BASE_URL', '/sekolah-grading/public/'),
+    'base_url' => $_env('APP_BASE_URL', '/public/')
     'env'         => $_env('APP_ENV', 'development'), // 'production' | 'development'
     'db' => [
         'host'    => $_env('DB_HOST', '127.0.0.1'),
