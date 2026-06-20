@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 // Simple .env loader
 $envFile = dirname(__DIR__) . '/.env';
 
@@ -31,10 +33,7 @@ if (is_readable($envFile)) {
 /**
  * App configuration.
  * Reads from environment variables when available; falls back to defaults.
- * Set these as env vars in production (Apache SetEnv, .htaccess, or server config).
  */
-declare(strict_types=1);
-
 $_env = function(string $key, string $default): string {
     $val = getenv($key);
     return ($val !== false && $val !== '') ? $val : $default;
