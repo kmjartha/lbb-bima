@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <title>Login · <?= esc(cfg()['app_name']) ?></title>
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
 </head><body><div class="auth-wrap"><div class="auth-card">
-  <div class="auth-logo">SG</div>
+  <div class="auth-logo"><img src="..\assets\img\logo.png" width="50px"></div>
   <h2>Masuk</h2>
   <p class="text-muted mb-4">Gunakan NIY pegawai. Default password = 4 digit terakhir NIY.</p>
   <?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>
