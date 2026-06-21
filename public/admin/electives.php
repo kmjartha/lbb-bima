@@ -16,7 +16,7 @@ $allRombels = $pdo->prepare(
     "SELECT id, jenjang, tingkat, nama
      FROM rombel
      WHERE academic_year_id = :y AND deleted_at IS NULL
-     ORDER BY FIELD(jenjang,'SD','SMP','SMA'), tingkat, nama"
+     ORDER BY FIELD(jenjang,'TK','SD','SMP','SMA'), tingkat, nama"
 );
 $allRombels->execute(['y' => $yearId]);
 $allRombels = $allRombels->fetchAll();
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $kode = req_str($_POST, 'kode', 20);
             $nama = req_str($_POST, 'nama', 120);
             $jenjang = req_str($_POST, 'jenjang', 4);
-            if (!in_array($jenjang, ['SD','SMP','SMA'], true)) {
+            if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) {
                 throw new RuntimeException('Jenjang invalid.');
             }
 
@@ -182,7 +182,7 @@ require __DIR__ . '/../../includes/header.php';
           <label class="label">Jenjang *</label>
           <select id="elective-jenjang" class="select" name="jenjang" onchange="filterRombels()" required>
             <option value="">— Pilih jenjang —</option>
-            <?php foreach (['SD','SMP','SMA'] as $j): ?>
+            <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
               <option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '') === $j ? 'selected' : '' ?>><?= $j ?></option>
             <?php endforeach; ?>
           </select>
