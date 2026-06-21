@@ -9,7 +9,7 @@ $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
 // jenjang filter
-$jf = in_array(($_GET['jenjang'] ?? ''), ['SD','SMP','SMA'], true) ? $_GET['jenjang'] : '';
+$jf = in_array(($_GET['jenjang'] ?? ''), ['TK','SD','SMP','SMA'], true) ? $_GET['jenjang'] : '';
 $q  = trim((string)($_GET['q'] ?? ''));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -36,8 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!valid_nisn($nisn)) throw new RuntimeException('NISN harus 10 digit angka.');
             if (!valid_nis($nis))   throw new RuntimeException('NIS harus 7 digit angka.');
-            if (!in_array($jenjang, ['SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
-            $valid = ($jenjang==='SD' && $tingkat>=1 && $tingkat<=6) || ($jenjang==='SMP' && $tingkat>=7 && $tingkat<=9) || ($jenjang==='SMA' && $tingkat>=10 && $tingkat<=12);
+            if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
+            $valid = ($jenjang==='TK' && $tingkat>=1 && $tingkat<=3)||($jenjang==='SD' && $tingkat>=1 && $tingkat<=6) || ($jenjang==='SMP' && $tingkat>=7 && $tingkat<=9) || ($jenjang==='SMA' && $tingkat>=10 && $tingkat<=12);
             if (!$valid) throw new RuntimeException('Tingkat tidak sesuai jenjang.');
             if (!in_array($jk, ['L','P'], true)) throw new RuntimeException('JK invalid.');
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl)) throw new RuntimeException('Format tanggal lahir invalid.');
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$ids) throw new RuntimeException('Pilih minimal 1 siswa.');
             $sets = [];
             $params = [];
-            if (in_array($newJenjang, ['SD','SMP','SMA'], true)) { $sets[] = "jenjang = :j"; $params['j'] = $newJenjang; }
+            if (in_array($newJenjang, ['TK','SD','SMP','SMA'], true)) { $sets[] = "jenjang = :j"; $params['j'] = $newJenjang; }
             if ($newTingkat !== null) { $sets[] = "tingkat = :t"; $params['t'] = $newTingkat; }
             if (!$sets) throw new RuntimeException('Pilih jenjang atau tingkat baru.');
             $in = implode(',', array_fill(0, count($ids), '?'));
@@ -175,7 +175,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="row">
           <div class="field"><label class="label">Jenjang *</label>
             <select class="select" name="jenjang" required>
-              <?php foreach (['SD','SMP','SMA'] as $j): ?><option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '')===$j?'selected':'' ?>><?= $j ?></option><?php endforeach; ?>
+              <?php foreach (['TK','SD','SMP','SMA'] as $j): ?><option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '')===$j?'selected':'' ?>><?= $j ?></option><?php endforeach; ?>
             </select>
           </div>
           <div class="field"><label class="label">Tingkat *</label><input class="input" type="number" name="tingkat" min="1" max="12" required value="<?= esc($edit['tingkat'] ?? '') ?>"></div>
@@ -219,7 +219,7 @@ require __DIR__ . '/../../includes/header.php';
       <form method="get" class="row" style="gap: var(--sp-2); flex: 0 0 auto; margin: 0">
         <select class="select" name="jenjang" onchange="this.form.submit()">
           <option value="">Semua Jenjang</option>
-          <?php foreach (['SD','SMP','SMA'] as $j): ?><option value="<?= $j ?>" <?= $jf===$j?'selected':'' ?>><?= $j ?></option><?php endforeach; ?>
+          <?php foreach (['TK','SD','SMP','SMA'] as $j): ?><option value="<?= $j ?>" <?= $jf===$j?'selected':'' ?>><?= $j ?></option><?php endforeach; ?>
         </select>
         <input class="input" name="q" placeholder="Cari NISN/NIS/Nama" value="<?= esc($q) ?>">
         <button class="btn btn-secondary btn-sm" type="submit">Filter</button>
@@ -230,7 +230,7 @@ require __DIR__ . '/../../includes/header.php';
         <?= csrf_field() ?><input type="hidden" name="op" value="batch_promote">
         <div class="row" style="gap: var(--sp-2); align-items:end">
           <div class="field" style="flex: 0 0 160px"><label class="label">Promote Jenjang</label>
-            <select class="select" name="new_jenjang"><option value="">— Tetap —</option><?php foreach (['SD','SMP','SMA'] as $j): ?><option><?= $j ?></option><?php endforeach; ?></select>
+            <select class="select" name="new_jenjang"><option value="">— Tetap —</option><?php foreach (['TK','SD','SMP','SMA'] as $j): ?><option><?= $j ?></option><?php endforeach; ?></select>
           </div>
           <div class="field" style="flex: 0 0 140px"><label class="label">Promote Tingkat</label>
             <input class="input" type="number" name="new_tingkat" min="1" max="12" placeholder="—">
