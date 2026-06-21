@@ -86,12 +86,6 @@ include __DIR__ . '/_layout.php';
   </form>
 </div>
 
-<a class="p-link-card" href="<?= esc(url('parent/notes.php')) ?>">
-  <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H6l-2 4z"/></svg></div>
-  <div class="tt"><div class="a">Catatan Wali &amp; Karakter</div><div class="b">Hanya tampil jika periode dipublikasi</div></div>
-  <div class="arr">›</div>
-</a>
-
 <form method="post" action="<?= esc(url('parent/logout.php')) ?>" style="margin-top:.5rem">
   <?= csrf_field() ?>
   <button class="btn btn-ghost" type="submit" style="width:100%; color:#b91c1c; border-color:#fecaca;">Keluar dari Akun</button>

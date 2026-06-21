@@ -321,8 +321,6 @@ $fgStatuses = fg_statuses();
               <th style="width:36px">#</th>
               <th>NISN</th>
               <th>Nama</th>
-<<<<<<< HEAD
-              
               <?php if ($isTK): ?>
                 <th style="width:100px; text-align:center;"><span class="badge badge-warning">Nilai Bintang</span></th>
                 <th style="width:150px; text-align:center;">Indikator</th>
@@ -334,14 +332,6 @@ $fgStatuses = fg_statuses();
                 <th style="width:140px">Σ Gabungan SPK · Predikat</th>
                 <th>Catatan Guru</th>
               <?php endif; ?>
-
-=======
-              <th style="width:90px"><span class="badge badge-info">Sikap</span></th>
-              <th style="width:110px"><span class="badge badge-primary">Pengetahuan</span></th>
-              <th style="width:110px"><span class="badge badge-success">Keterampilan</span></th>
-              <th style="width:140px">Σ Gabungan SPK · Predikat</th>
-              <th>Catatan Guru <span class="text-danger">(wajib)</span></th>
->>>>>>> c041b12 (validasi all feature & rapor fixing)
               <th style="width:100px">Status</th>
             </tr>
           </thead>
@@ -375,8 +365,6 @@ $fgStatuses = fg_statuses();
               <td><?= $i+1 ?></td>
               <td><?= esc($m['nisn']) ?></td>
               <td><strong><?= esc($m['nama']) ?></strong></td>
-<<<<<<< HEAD
-              
               <?php if ($isTK): ?>
                 <td class="text-center">
                     <?= $vBintang !== null ? '<strong>'.esc((string)(float)$vBintang).'</strong>' : '<span class="text-muted">—</span>' ?>
@@ -411,23 +399,6 @@ $fgStatuses = fg_statuses();
                 <td><input class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000"
                            value="<?= esc((string)$vCa) ?>" placeholder="(opsional)" <?= $disabledAttr ?>></td>
               <?php endif; ?>
-
-=======
-              <td class="text-center"><?= $vSi !== '' && $vSi !== null ? '<strong>'.esc((string)(float)$vSi).'</strong>' : '<span class="text-muted">—</span>' ?></td>
-              <td class="text-center"><?= $vPe !== '' && $vPe !== null ? '<strong>'.esc((string)(float)$vPe).'</strong>' : '<span class="text-muted">—</span>' ?></td>
-              <td class="text-center"><?= $vKe !== '' && $vKe !== null ? '<strong>'.esc((string)(float)$vKe).'</strong>' : '<span class="text-muted">—</span>' ?></td>
-              <td class="text-center">
-                <?php if ($avg !== null): ?>
-                  <strong><?= esc((string)round($avg,2)) ?></strong>
-                  <div class="text-xs text-muted"><?= esc($pk['grade']) ?> · <?= esc($pk['predikat']) ?></div>
-                <?php else: ?><span class="text-muted">—</span><?php endif; ?>
-              </td>
-              <td>
-                <textarea class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000" rows="4"
-                          style="min-width:240px; min-height:4.5rem; resize:vertical;"
-                          placeholder="Catatan Guru wajib diisi" <?= $disabledAttr ?>><?= esc((string)$vCa) ?></textarea>
-              </td>
->>>>>>> c041b12 (validasi all feature & rapor fixing)
               <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
             </tr>
           <?php endforeach; ?>

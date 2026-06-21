@@ -228,6 +228,42 @@ function dashboard_counters_for(array $user, ?int $yearId = null): array
         );
         $st->execute(['uid1' => $user['id'], 'uid2' => $user['id'], 'y' => $yearId]);
         $base['my_rombel'] = (int)$st->fetchColumn();
+
+        $st = $pdo->prepare(
+            "SELECT COUNT(DISTINCT s.id) FROM subjects s
+              JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
+              JOIN rombel r ON r.id = rst.rombel_id
+              JOIN teachers t ON t.id = rst.teacher_id
+             WHERE s.deleted_at IS NULL AND r.deleted_at IS NULL
+               AND r.academic_year_id = :y AND t.user_id = :uid"
+        );
+        $st->execute(['uid' => $user['id'], 'y' => $yearId]);
+        $base['my_subjects'] = (int)$st->fetchColumn();
+
+        $st = $pdo->prepare(
+            "SELECT COUNT(DISTINCT s.id) FROM students s
+              JOIN rombel_members rm ON rm.student_id = s.id
+              JOIN rombel r ON r.id = rm.rombel_id
+              LEFT JOIN teachers t ON t.user_id = :uid1
+              LEFT JOIN rombel_subject_teachers rst ON rst.rombel_id = r.id AND rst.teacher_id = t.id
+             WHERE s.deleted_at IS NULL AND r.deleted_at IS NULL
+               AND r.academic_year_id = :y
+               AND (r.wali_id = :uid2 OR rst.id IS NOT NULL)"
+        );
+        $st->execute(['uid1' => $user['id'], 'uid2' => $user['id'], 'y' => $yearId]);
+        $base['my_students'] = (int)$st->fetchColumn();
+
+        $st = $pdo->prepare(
+            "SELECT COUNT(*) FROM final_grades fg
+              JOIN rombel r ON r.id = fg.rombel_id
+              LEFT JOIN teachers t ON t.user_id = :uid1
+              LEFT JOIN rombel_subject_teachers rst ON rst.rombel_id = r.id AND rst.teacher_id = t.id
+             WHERE r.deleted_at IS NULL AND r.academic_year_id = :y
+               AND (r.wali_id = :uid2 OR rst.id IS NOT NULL)
+               AND fg.status = 'draft'"
+        );
+        $st->execute(['uid1' => $user['id'], 'uid2' => $user['id'], 'y' => $yearId]);
+        $base['my_draft_grades'] = (int)$st->fetchColumn();
     }
 
     return $base;

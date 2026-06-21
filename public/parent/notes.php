@@ -7,6 +7,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/parent_helpers.php';
 
+redirect('parent/home.php');
+
 $p       = require_parent();
 $student = parent_student($p);
 $sc      = active_scope();

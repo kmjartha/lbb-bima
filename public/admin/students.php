@@ -139,7 +139,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $where = ['s.deleted_at IS NULL', 's.academic_year_id = :y'];
 $params = ['y' => $yearId];
 if ($jf) { $where[] = 's.jenjang = :j'; $params['j'] = $jf; }
-if ($q !== '') { $where[] = '(s.nama LIKE :q OR s.nisn LIKE :q OR s.nis LIKE :q)'; $params['q'] = '%' . $q . '%'; }
+if ($q !== '') {
+    $where[] = '(s.nama LIKE :q_nama OR s.nisn LIKE :q_nisn OR s.nis LIKE :q_nis)';
+    $params['q_nama'] = '%' . $q . '%';
+    $params['q_nisn'] = '%' . $q . '%';
+    $params['q_nis'] = '%' . $q . '%';
+}
 $wsql = 'WHERE ' . implode(' AND ', $where);
 
 $page = max(1, (int)($_GET['page'] ?? 1));

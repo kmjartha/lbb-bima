@@ -56,8 +56,6 @@ function rapor_render_body(array $args): string
     $subjGroups  = subjects_grouped_for_rombel($rid, $sc['semester']);
     $charEvals   = character_evals_for_student($rid, $sid, $sc['semester'], $sc['period'], $jenjang);
     $generalRow  = general_evals_for($rid, $sc['semester'], $sc['period']);
-    $waliRow     = wali_notes_for($rid, $sc['semester'], $sc['period']);
-    $ekskul      = ekskul_grades_for_student($sid, $sc['semester'], (int)$sc['year_id']);
     $att         = attendance_summary_for_rombel($rid, $sc['semester'], (int)$sc['year_id']);
     $myAtt       = $att[$sid] ?? ['h'=>0,'i'=>0,'s'=>0,'a'=>0,'total'=>0];
     $scales      = character_scales();
@@ -263,28 +261,6 @@ function rapor_render_body(array $args): string
               </div>
             <?php break;
 
-            case 'extracurricular': ?>
-              <div class="rapor-section">
-                <h3>Ekstrakurikuler</h3>
-                <?php if (!$ekskul): ?>
-                  <div class="rapor-empty-note">Tidak ada nilai ekstrakurikuler tercatat.</div>
-                <?php else: ?>
-                <table class="t-print rapor-table-narrow">
-                  <thead><tr><th>Ekstrakurikuler</th><th style="width:80px">Predikat</th><th>Catatan</th></tr></thead>
-                  <tbody>
-                  <?php foreach ($ekskul as $e): ?>
-                    <tr>
-                      <td><?= esc($e['ekskul_nama']) ?></td>
-                      <td style="text-align:center"><strong><?= esc($e['predikat'] ?? '—') ?></strong></td>
-                      <td><?= esc($e['catatan'] ?? '') ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                  </tbody>
-                </table>
-                <?php endif; ?>
-              </div>
-            <?php break;
-
             case 'attendance': ?>
               <div class="rapor-section">
                 <h3>Kehadiran Semester</h3>
@@ -296,13 +272,6 @@ function rapor_render_body(array $args): string
                     </tr>
                   </tbody>
                 </table>
-              </div>
-            <?php break;
-
-            case 'wali_note': ?>
-              <div class="rapor-section">
-                <h3>Catatan Wali Kelas</h3>
-                <div class="rapor-note-box"><?= esc($waliRow[$sid] ?? '—') ?></div>
               </div>
             <?php break;
 

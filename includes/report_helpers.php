@@ -275,16 +275,18 @@ function report_template_save(string $jenjang, ?string $headerImg, ?string $foot
  */
 function rapor_layout_resolve(?array $tpl): array
 {
+    $allowed = rapor_default_layout();
     $order = (!empty($tpl['layout_json']))
         ? (array)json_decode($tpl['layout_json'], true)
-        : rapor_default_layout();
+        : $allowed;
+    $order = array_values(array_filter($order, fn($k) => in_array($k, $allowed, true)));
     $hiddenList = (!empty($tpl['layout_hidden_json']))
         ? (array)json_decode($tpl['layout_hidden_json'], true)
         : [];
     $hidden = [];
     foreach ($hiddenList as $k) {
         $k = (string)$k;
-        if ($k !== 'identitas') $hidden[$k] = true;
+        if ($k !== 'identitas' && in_array($k, $allowed, true)) $hidden[$k] = true;
     }
     return ['order' => $order, 'hidden' => $hidden];
 }
@@ -348,9 +350,7 @@ function rapor_default_layout(): array
         'identitas',
         'character',
         'academic',
-        'extracurricular',
         'attendance',
-        'wali_note',
         'general_eval',
         'signatures',
     ];

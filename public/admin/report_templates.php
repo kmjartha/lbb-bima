@@ -95,9 +95,7 @@ $sectionLabels = [
     'identitas'       => 'Identitas Siswa',
     'character'       => 'Penilaian Karakter',
     'academic'        => 'Penilaian Akademik (Mapel)',
-    'extracurricular' => 'Ekstrakurikuler',
     'attendance'      => 'Kehadiran',
-    'wali_note'       => 'Catatan Wali Kelas',
     'general_eval'    => 'Narasi Umum',
     'signatures'      => 'Tanda Tangan',
 ];

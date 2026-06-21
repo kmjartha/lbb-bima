@@ -10,6 +10,28 @@
     bd.addEventListener('click', () => open(false));
   }
 
+  // Keep sidebar scroll position when navigating through menu links.
+  if (sb) {
+    const SIDEBAR_SCROLL_KEY = 'sg_sidebar_scroll_top';
+    const restoreSidebarScroll = () => {
+      const stored = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+      if (stored !== null) {
+        const value = Number(stored);
+        if (!Number.isNaN(value)) {
+          sb.scrollTop = value;
+        }
+      }
+    };
+
+    const saveSidebarScroll = () => {
+      sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(sb.scrollTop));
+    };
+
+    restoreSidebarScroll();
+    sb.addEventListener('scroll', saveSidebarScroll);
+    window.addEventListener('beforeunload', saveSidebarScroll);
+  }
+
   // Confirm-on-submit for forms with [data-confirm]
   document.addEventListener('submit', (e) => {
     const f = e.target;

@@ -122,11 +122,6 @@ include __DIR__ . '/_layout.php';
   <div class="tt"><div class="a">Daftar Nilai per Mapel</div><div class="b">Pengetahuan, Keterampilan, Sikap</div></div>
   <div class="arr">›</div>
 </a>
-<a class="p-link-card" href="<?= esc(url('parent/notes.php')) ?>">
-  <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H6l-2 4z"/></svg></div>
-  <div class="tt"><div class="a">Catatan Wali &amp; Karakter</div><div class="b">Komentar wali kelas dan penilaian sikap</div></div>
-  <div class="arr">›</div>
-</a>
 <a class="p-link-card" href="<?= esc(url('parent/rapor.php')) ?>">
   <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></div>
   <div class="tt"><div class="a">Cetak Rapor</div><div class="b">Tersedia setelah dipublikasi</div></div>

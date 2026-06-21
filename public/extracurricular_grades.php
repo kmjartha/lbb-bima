@@ -21,6 +21,8 @@ require_once __DIR__ . '/../includes/admin_helpers.php';
 require_once __DIR__ . '/../includes/attendance_helpers.php';
 require_once __DIR__ . '/../includes/wali_helpers.php';
 
+redirect('dashboard.php');
+
 $user = require_view('extracurricular_grades');
 $pdo  = db();
 $sc   = active_scope();

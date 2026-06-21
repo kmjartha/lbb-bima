@@ -34,6 +34,31 @@ $todayByAction = ($role === 'administrator') ? audit_today_by_action(8) : [];
 
 $page_title = 'Dashboard';
 require __DIR__ . '/../includes/header.php';
+
+$quickLinks = [];
+if ($role === 'guru') {
+    $quickLinks = [
+        ['label' => 'Input Absensi', 'href' => url('attendance.php')],
+        ['label' => 'Nilai Harian', 'href' => url('grades_daily.php')],
+        ['label' => 'Nilai Akhir', 'href' => url('final_grades.php')],
+        ['label' => 'Catatan Wali', 'href' => url('wali_notes.php')],
+        ['label' => 'Penilaian Karakter', 'href' => url('character_eval.php')],
+    ];
+} elseif ($role === 'kepsek') {
+    $quickLinks = [
+        ['label' => 'Verifikasi Rapor', 'href' => url('final_grades_review.php')],
+        ['label' => 'Rapor Siswa', 'href' => url('rapor.php')],
+        ['label' => 'Rekap Absensi', 'href' => url('attendance_recap.php')],
+        ['label' => 'Catatan Wali', 'href' => url('wali_notes.php')],
+        ['label' => 'Penilaian Karakter', 'href' => url('character_eval.php')],
+    ];
+} elseif ($role !== 'administrator') {
+    $quickLinks = [
+        ['label' => 'Rombel', 'href' => url('leger.php')],
+        ['label' => 'Absensi', 'href' => url('attendance.php')],
+        ['label' => 'Nilai Akhir', 'href' => url('final_grades.php')],
+    ];
+}
 ?>
 
 <!-- ============== Counters ============== -->
@@ -50,16 +75,23 @@ require __DIR__ . '/../includes/header.php';
     } elseif ($role === 'guru') {
         $cards = [
             ['Rombel Saya', $counts['my_rombel'] ?? 0, 'badge-primary'],
-            ['Total Siswa', $counts['siswa'], 'badge-info'],
-            ['Mata Pelajaran', $counts['mapel'], 'badge-warning'],
-            ['Rombel Total', $counts['rombel'], 'badge'],
+            ['Siswa Saya', $counts['my_students'] ?? 0, 'badge-info'],
+            ['Mata Pelajaran Saya', $counts['my_subjects'] ?? 0, 'badge-warning'],
+            ['Draft Nilai', $counts['my_draft_grades'] ?? 0, ($counts['my_draft_grades'] ?? 0) > 0 ? 'badge-danger' : 'badge-success'],
         ];
-    } else {
+    } elseif ($role === 'administrator') {
         $cards = [
             ['Siswa Aktif',   $counts['siswa'],  'badge-primary'],
             ['Guru',           $counts['guru'],   'badge-success'],
             ['Rombel',         $counts['rombel'], 'badge-info'],
             ['Mata Pelajaran', $counts['mapel'],  'badge-warning'],
+        ];
+    } else {
+        $cards = [
+            ['Siswa Aktif',   $counts['siswa'],  'badge-primary'],
+            ['Rombel',         $counts['rombel'], 'badge-info'],
+            ['Mata Pelajaran', $counts['mapel'],  'badge-warning'],
+            ['Guru',           $counts['guru'],   'badge-success'],
         ];
     }
     foreach ($cards as $c): ?>
@@ -77,8 +109,28 @@ require __DIR__ . '/../includes/header.php';
   <div class="card-header"><h3 class="card-title">Selamat datang, <?= esc($me['nama']) ?></h3></div>
   <div class="card-body">
     <p class="text-muted">Anda masuk sebagai <strong><?= esc(ucfirst($role)) ?></strong>. Pilih Tahun Ajaran, Semester, dan Periode (PTS/PAS) di topbar untuk mengubah scope global.</p>
+    <?php if ($role === 'guru'): ?>
+      <p class="text-sm">Dashboard ini menampilkan rombel, siswa, dan mapel yang Anda ampu; gunakan menu di bawah untuk langsung ke input absensi, nilai, atau catatan wali.</p>
+    <?php elseif ($role === 'kepsek'): ?>
+      <p class="text-sm">Gunakan ringkasan jenjang dan daftar verifikasi rapor untuk memantau status nilai dan publikasi.</p>
+    <?php elseif ($role !== 'administrator'): ?>
+      <p class="text-sm">Tampilan ini difokuskan ke tugas harian Anda. Hanya Administrator yang melihat audit dan statistik global penuh.</p>
+    <?php endif; ?>
   </div>
 </div>
+
+<?php if ($quickLinks): ?>
+<div class="card mt-4">
+  <div class="card-header"><h3 class="card-title">Tindakan Cepat</h3></div>
+  <div class="card-body">
+    <div class="row" style="gap: .75rem; flex-wrap: wrap;">
+      <?php foreach ($quickLinks as $link): ?>
+        <a class="btn btn-ghost" href="<?= esc($link['href']) ?>"><?= esc($link['label']) ?></a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- ============== Kepsek: pending review widget ============== -->
 <?php if ($role === 'kepsek'): ?>
