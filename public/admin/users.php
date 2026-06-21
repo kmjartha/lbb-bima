@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $active = !empty($_POST['is_active']) ? 1 : 0;
 
             if (!in_array($role, ['administrator','admin','kepsek','guru'], true)) throw new RuntimeException('Role invalid.');
-            if ($jenj && !in_array($jenj, ['SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
+            if ($jenj && !in_array($jenj, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
             if (!niy_unique($niy, $id)) throw new RuntimeException('NIY sudah digunakan.');
             $assertCanTouch($id, $role);
 
@@ -146,7 +146,7 @@ require __DIR__ . '/../../includes/header.php';
           <div class="field"><label class="label">Jenjang (Kepsek)</label>
             <select class="select" name="jenjang">
               <option value="">—</option>
-              <?php foreach (['SD','SMP','SMA'] as $j): ?><option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '')===$j?'selected':'' ?>><?= $j ?></option><?php endforeach; ?>
+              <?php foreach (['TK','SD','SMP','SMA'] as $j): ?><option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '')===$j?'selected':'' ?>><?= $j ?></option><?php endforeach; ?>
             </select>
           </div>
         </div>
