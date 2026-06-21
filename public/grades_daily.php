@@ -2,6 +2,7 @@
 /**
  * Stage 5 — Penilaian Harian SKP (enhanced UX).
  * Pick rombel + mapel + topik + tanggal, then input Si/Pe/Ke per siswa.
+ * Mode Otomatis: Jika rombel TK, mode input berubah menjadi Bintang & Deskripsi.
  * Keyboard: Tab between inputs, Enter to save, ↑↓ to move rows.
  * Absent students dimmed & locked unless Override is checked.
  */
@@ -30,9 +31,13 @@ if (!$rid && $rombels) $rid = (int)$rombels[0]['id'];
 
 $rombel = null; $subjects = []; $topics = []; $members = [];
 $existing = []; $att = []; $topic = null;
+$isTK = false;
 
 if ($rid) {
     $rombel   = assert_can_access_rombel($user, $rid);
+    // Cek apakah rombel ini TK (dari jenjang atau nama)
+    $isTK     = (stripos($rombel['jenjang'] ?? '', 'TK') !== false) || (stripos($rombel['nama'] ?? '', 'TK') !== false);
+    
     $subjects = accessible_subjects_for_rombel($user, $rid);
     if (!$sid && $subjects) $sid = (int)$subjects[0]['id'];
     if ($sid) {
@@ -58,8 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $topic) {
         if (scope_is_locked()) throw new RuntimeException('Semester aktif terkunci. Buka lock di Tahun Ajaran.');
 
         $ranahList = ['sikap', 'pengetahuan', 'keterampilan'];
-        $values    = $_POST['nilai']    ?? [];
-        $overrides = $_POST['override'] ?? [];
+        $values    = $_POST['nilai']     ?? [];
+        $descs     = $_POST['deskripsi'] ?? []; // Khusus TK
+        $overrides = $_POST['override']  ?? [];
 
         $del = $pdo->prepare(
             "DELETE FROM grades_daily
@@ -83,14 +89,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $topic) {
                        'sem'=>$sc['semester'],'b'=>$bucket,'d'=>$tanggal,'u'=>$user['id']];
 
             $any = false;
-            foreach ($ranahList as $ranah) {
-                $col = ranah_column($ranah);
-                $raw = trim((string)($values[$msid][$ranah] ?? ''));
-                if ($raw === '' || !is_numeric($raw)) continue;
-                $v = max(0.0, min(100.0, (float)$raw));
-                $cols[] = $col; $vals[] = ':' . $ranah;
-                $params[$ranah] = $v; $any = true;
+            
+            // Mode TK
+            if ($isTK) {
+                $rawBintang = trim((string)($values[$msid]['bintang'] ?? ''));
+                $rawDesc    = trim((string)($descs[$msid] ?? ''));
+                
+                if ($rawBintang !== '' || $rawDesc !== '') {
+                    if ($rawBintang !== '') {
+                        $cols[] = 'bintang'; $vals[] = ':bintang';
+                        $params['bintang'] = max(1, min(4, (int)$rawBintang));
+                    }
+                    if ($rawDesc !== '') {
+                        $cols[] = 'deskripsi'; $vals[] = ':deskripsi';
+                        $params['deskripsi'] = $rawDesc;
+                    }
+                    $any = true;
+                }
+            } 
+            // Mode Non-TK
+            else {
+                foreach ($ranahList as $ranah) {
+                    $col = ranah_column($ranah);
+                    $raw = trim((string)($values[$msid][$ranah] ?? ''));
+                    if ($raw === '' || !is_numeric($raw)) continue;
+                    $v = max(0.0, min(100.0, (float)$raw));
+                    $cols[] = $col; $vals[] = ':' . $ranah;
+                    $params[$ranah] = $v; $any = true;
+                }
             }
+
             if (!$any) continue;
 
             $ins = $pdo->prepare("INSERT INTO grades_daily (".implode(',',$cols).") VALUES (".implode(',',$vals).")");
@@ -119,7 +147,6 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
   <div class="alert alert-error"><?= esc($err) ?></div>
 <?php endif; ?>
 
-<!-- Scope context banner -->
 <div class="scope-banner">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
   <span>Anda sedang bekerja di:</span>
@@ -136,7 +163,6 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
   <?php endif; ?>
 </div>
 
-<!-- Step 1 & 2: Filter card -->
 <div class="grade-step-card">
   <div class="grade-step-header">
     <span class="step-pill">1</span>
@@ -208,13 +234,11 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
   $isTodayStr  = ($tanggal === date('Y-m-d')) ? '(hari ini)' : '';
 ?>
 
-<!-- Step 2: Topic info + grading table -->
 <div class="grade-step-card">
   <div class="grade-step-header">
     <span class="step-pill">2</span>
-    <h3>Input Nilai</h3>
+    <h3>Input Nilai <?= $isTK ? '(Mode TK)' : '' ?></h3>
     <div style="margin-left:auto; display:flex; align-items:center; gap:.5rem">
-      <!-- Live progress ring -->
       <div class="prog-ring" id="progRing" title="Siswa sudah terisi">
         <svg width="36" height="36" viewBox="0 0 36 36">
           <circle class="track" cx="18" cy="18" r="14"/>
@@ -227,7 +251,6 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
     </div>
   </div>
 
-  <!-- Topic info strip -->
   <div class="topic-strip">
     <div>
       <div class="ts-title"><?= esc($topic['judul']) ?></div>
@@ -238,15 +261,19 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
       </div>
     </div>
     <div class="ts-ranah">
-      <?php foreach ($ranahList as $r): ?>
-        <span class="ranah-badge <?= $ranahColors[$r] ?>">
-          <?= esc($ranahDefs[$r]['label']) ?>
-        </span>
-      <?php endforeach; ?>
+      <?php if ($isTK): ?>
+        <span class="ranah-badge si">Bintang (1-4)</span>
+        <span class="ranah-badge pe">Deskripsi</span>
+      <?php else: ?>
+        <?php foreach ($ranahList as $r): ?>
+          <span class="ranah-badge <?= $ranahColors[$r] ?>">
+            <?= esc($ranahDefs[$r]['label']) ?>
+          </span>
+        <?php endforeach; ?>
+      <?php endif; ?>
     </div>
   </div>
 
-  <!-- Live counter bar -->
   <div class="counter-bar">
     <div class="counter-item">
       <span class="counter-dot total"></span>
@@ -287,12 +314,19 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
             <th style="min-width:80px">NISN</th>
             <th style="min-width:180px">Nama Siswa</th>
             <th style="width:64px">Absen</th>
-            <?php foreach ($ranahList as $r): ?>
-              <th class="ranah-<?= esc($ranahColors[$r]) ?>" style="width:100px">
-                <?= esc($ranahDefs[$r]['label']) ?>
-                <span style="font-weight:400; opacity:.7">(0–100)</span>
-              </th>
-            <?php endforeach; ?>
+            
+            <?php if ($isTK): ?>
+              <th class="ranah-si" style="width:130px">Rating Bintang</th>
+              <th class="ranah-pe" style="min-width:200px">Deskripsi Perkembangan</th>
+            <?php else: ?>
+              <?php foreach ($ranahList as $r): ?>
+                <th class="ranah-<?= esc($ranahColors[$r]) ?>" style="width:100px">
+                  <?= esc($ranahDefs[$r]['label']) ?>
+                  <span style="font-weight:400; opacity:.7">(0–100)</span>
+                </th>
+              <?php endforeach; ?>
+            <?php endif; ?>
+
             <th style="width:100px">Override</th>
           </tr>
         </thead>
@@ -320,23 +354,54 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
                 <span class="text-muted">—</span>
               <?php endif; ?>
             </td>
-            <?php foreach ($ranahList as $r):
-              $col   = ranah_column($r);
-              $val   = $cur ? $cur[$col] : null;
-              $rColor = $ranahColors[$r];
-            ?>
+            
+            <?php if ($isTK): ?>
+              <?php 
+                $valBintang = $cur ? ($cur['bintang'] ?? null) : null;
+                $valDesc    = $cur ? ($cur['deskripsi'] ?? '') : '';
+              ?>
               <td>
-                <input class="grade-input <?= esc($rColor) ?>"
-                       type="number" step="0.5" min="0" max="100"
-                       name="nilai[<?= $msid ?>][<?= esc($r) ?>]"
-                       value="<?= $val !== null ? esc(number_format((float)$val, 1)) : '' ?>"
-                       data-row-idx="<?= $i ?>" data-ranah="<?= esc($r) ?>"
+                <select class="grade-input si" name="nilai[<?= $msid ?>][bintang]"
+                        data-row-idx="<?= $i ?>"
+                        <?= $isReadonly ? 'readonly disabled' : '' ?>
+                        <?= ($isAbsent && !$isReadonly) ? 'data-gated="1" disabled tabindex="-1"' : '' ?>
+                        <?= $valBintang !== null ? 'data-filled="1"' : '' ?>>
+                  <option value="">-- Pilih --</option>
+                  <option value="1" <?= $valBintang == 1 ? 'selected' : '' ?>>★ (1)</option>
+                  <option value="2" <?= $valBintang == 2 ? 'selected' : '' ?>>★★ (2)</option>
+                  <option value="3" <?= $valBintang == 3 ? 'selected' : '' ?>>★★★ (3)</option>
+                  <option value="4" <?= $valBintang == 4 ? 'selected' : '' ?>>★★★★ (4)</option>
+                </select>
+              </td>
+              <td>
+                <input class="grade-input pe" type="text" name="deskripsi[<?= $msid ?>]"
+                       value="<?= esc($valDesc) ?>" placeholder="Catatan perkembangan..."
+                       data-row-idx="<?= $i ?>"
                        <?= $isReadonly ? 'readonly disabled' : '' ?>
                        <?= ($isAbsent && !$isReadonly) ? 'data-gated="1" disabled tabindex="-1"' : '' ?>
-                       autocomplete="off"
-                       <?= $val !== null ? 'data-filled="1"' : '' ?>>
+                       <?= $valDesc !== '' ? 'data-filled="1"' : '' ?>
+                       autocomplete="off" style="width: 100%; min-width:180px;">
               </td>
-            <?php endforeach; ?>
+            <?php else: ?>
+              <?php foreach ($ranahList as $r):
+                $col   = ranah_column($r);
+                $val   = $cur ? $cur[$col] : null;
+                $rColor = $ranahColors[$r];
+              ?>
+                <td>
+                  <input class="grade-input <?= esc($rColor) ?>"
+                         type="number" step="0.5" min="0" max="100"
+                         name="nilai[<?= $msid ?>][<?= esc($r) ?>]"
+                         value="<?= $val !== null ? esc(number_format((float)$val, 1)) : '' ?>"
+                         data-row-idx="<?= $i ?>" data-ranah="<?= esc($r) ?>"
+                         <?= $isReadonly ? 'readonly disabled' : '' ?>
+                         <?= ($isAbsent && !$isReadonly) ? 'data-gated="1" disabled tabindex="-1"' : '' ?>
+                         autocomplete="off"
+                         <?= $val !== null ? 'data-filled="1"' : '' ?>>
+                </td>
+              <?php endforeach; ?>
+            <?php endif; ?>
+
             <td>
               <?php if ($isAbsent && !$isReadonly): ?>
                 <label class="check" title="Izinkan penilaian meski absen">
@@ -368,7 +433,6 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
   </form>
 </div>
 
-<!-- Toast container -->
 <div class="sg-toast-wrap" id="toastWrap"></div>
 
 <script>
@@ -382,6 +446,9 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
   const cntEmpty = document.getElementById('cntEmpty');
   const total    = <?= $totalMembers ?>;
   const CIRCUM   = 88; // 2π × r(14)
+  
+  // Tentukan jumlah kolom input per baris (2 untuk TK, 3 untuk Non-TK)
+  const colsPerRow = <?= $isTK ? 2 : count($ranahList) ?>;
 
   /* --- Counters & progress ring --- */
   function refreshCounters() {
@@ -414,20 +481,16 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
     if (!inp.classList.contains('grade-input')) return;
     const all = getInputs();
     const idx = all.indexOf(inp);
-    const ranahCount = <?= count($ranahList) ?>;
 
-    if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey && idx === all.length - 1)) {
-      // Wrap bottom → top
-    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const next = all[idx + ranahCount];
-      if (next) { next.focus(); next.select(); }
+      const next = all[idx + colsPerRow];
+      if (next) { next.focus(); if(next.tagName !== 'SELECT') next.select(); }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const prev = all[idx - ranahCount];
-      if (prev) { prev.focus(); prev.select(); }
-    } else if (e.key === 'Enter') {
+      const prev = all[idx - colsPerRow];
+      if (prev) { prev.focus(); if(prev.tagName !== 'SELECT') prev.select(); }
+    } else if (e.key === 'Enter' && inp.tagName !== 'TEXTAREA') {
       e.preventDefault();
       document.getElementById('btnSave')?.click();
     }
