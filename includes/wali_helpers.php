@@ -178,10 +178,26 @@ function wali_notes_for(int $rombelId, string $sem, string $period): array
     return $out;
 }
 
-/** All character aspects ordered by kategori, nama. */
-function character_aspects_all(): array
+/** All character aspects ordered by kategori, nama and optionally filtered by jenjang. */
+function character_aspects_all(?string $jenjang = null): array
 {
-    return db()->query("SELECT * FROM character_aspects ORDER BY FIELD(kategori,'spiritual','sosial'), nama")->fetchAll();
+    $yearId = active_scope()['year_id'];
+    if ($jenjang) {
+        $st = db()->prepare(
+            "SELECT * FROM character_aspects
+             WHERE academic_year_id = :y AND jenjang = :j
+             ORDER BY jenjang, FIELD(kategori,'Spiritual and morality','Discipline','Manner','Obedience','Focus and Confidence','spiritual','sosial'), nama"
+        );
+        $st->execute(['y' => $yearId, 'j' => $jenjang]);
+    } else {
+        $st = db()->prepare(
+            "SELECT * FROM character_aspects
+             WHERE academic_year_id = :y
+             ORDER BY jenjang, FIELD(kategori,'Spiritual and morality','Discipline','Manner','Obedience','Focus and Confidence','spiritual','sosial'), nama"
+        );
+        $st->execute(['y' => $yearId]);
+    }
+    return $st->fetchAll();
 }
 
 /** Character-eval rows for (rombel, semester, period) keyed by [student_id][aspect_id]. */

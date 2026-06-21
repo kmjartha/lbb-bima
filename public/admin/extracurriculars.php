@@ -2,9 +2,12 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
-require_admin_any();
+require_once __DIR__ . '/../../includes/scope.php';
+require_administrator();
 
 $pdo = db();
+$sc = active_scope();
+$yearId = (int)$sc['year_id'];
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
@@ -17,11 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nama   = req_str($_POST, 'nama', 120);
             $koord  = int_or_null($_POST['koordinator_id'] ?? null);
             if ($id) {
-                $pdo->prepare("UPDATE extracurriculars SET nama=:n, koordinator_id=:k WHERE id=:id")
-                    ->execute(['n'=>$nama,'k'=>$koord,'id'=>$id]);
+                $pdo->prepare("UPDATE extracurriculars SET nama=:n, koordinator_id=:k WHERE id=:id AND academic_year_id = :y")
+                    ->execute(['n'=>$nama,'k'=>$koord,'id'=>$id,'y'=>$yearId]);
             } else {
-                $pdo->prepare("INSERT INTO extracurriculars (nama, koordinator_id) VALUES (:n,:k)")
-                    ->execute(['n'=>$nama,'k'=>$koord]);
+                $pdo->prepare("INSERT INTO extracurriculars (academic_year_id, nama, koordinator_id) VALUES (:y,:n,:k)")
+                    ->execute(['y'=>$yearId,'n'=>$nama,'k'=>$koord]);
                 $id = (int)$pdo->lastInsertId();
             }
             audit('save', 'ekskul:' . $id);
@@ -30,7 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
-            $pdo->prepare("UPDATE extracurriculars SET deleted_at = NOW() WHERE id = :id")->execute(['id'=>$id]);
+            $pdo->prepare("UPDATE extracurriculars SET deleted_at = NOW() WHERE id = :id AND academic_year_id = :y")
+                ->execute(['id'=>$id,'y'=>$yearId]);
             audit('delete', 'ekskul:' . $id);
             flash('success', 'Ekskul dihapus.');
             redirect('admin/extracurriculars.php');
@@ -39,18 +43,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $teachers = $pdo->query("SELECT t.id, u.nama FROM teachers t JOIN users u ON u.id = t.user_id ORDER BY u.nama")->fetchAll();
-$rows = $pdo->query(
+$rows = $pdo->prepare(
     "SELECT e.*, u.nama AS koord_nama
      FROM extracurriculars e
      LEFT JOIN teachers t ON t.id = e.koordinator_id
      LEFT JOIN users u ON u.id = t.user_id
-     WHERE e.deleted_at IS NULL ORDER BY e.nama"
-)->fetchAll();
+     WHERE e.academic_year_id = :y AND e.deleted_at IS NULL ORDER BY e.nama"
+);
+$rows->execute(['y' => $yearId]);
+$rows = $rows->fetchAll();
 
 $edit = null;
 if ($editId) {
-    $stmt = $pdo->prepare("SELECT * FROM extracurriculars WHERE id = :id AND deleted_at IS NULL");
-    $stmt->execute(['id'=>$editId]);
+    $stmt = $pdo->prepare("SELECT * FROM extracurriculars WHERE id = :id AND academic_year_id = :y AND deleted_at IS NULL");
+    $stmt->execute(['id'=>$editId,'y'=>$yearId]);
     $edit = $stmt->fetch();
 }
 

@@ -25,7 +25,7 @@ $rombel = null; $members = []; $aspects = []; $existing = [];
 if ($rid) {
     $rombel   = assert_wali_rombel($user, $rid);
     $members  = rombel_members($rid);
-    $aspects  = character_aspects_all();
+    $aspects  = character_aspects_all($rombel['jenjang'] ?? null);
     $existing = character_evals_for($rid, $sc['semester'], $sc['period']);
 }
 

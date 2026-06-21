@@ -5,7 +5,7 @@
  *   (rombel_id, subject_id, student_id, semester, period_kind=PTS|PAS,
  *    nilai_sikap, nilai_pengetahuan, nilai_keterampilan,
  *    catatan_guru, status=draft|submitted|revised|approved|published,
- *    reviewed_by, reviewed_at)
+ *    submitted_by, reviewed_by, reviewed_at)
  */
 declare(strict_types=1);
 
@@ -58,26 +58,28 @@ function final_grade_upsert(array $data): int
     if ($id) {
         $sql = "UPDATE final_grades SET
                   nilai_sikap=:si, nilai_pengetahuan=:pe, nilai_keterampilan=:ke,
-                  catatan_guru=:c, status=:status
+                  catatan_guru=:c, status=:status,
+                  submitted_by = COALESCE(:submitted_by_val, submitted_by)
                 WHERE id=:id";
         $p = $pdo->prepare($sql);
         $p->execute([
             'si'=>$data['nilai_sikap'], 'pe'=>$data['nilai_pengetahuan'], 'ke'=>$data['nilai_keterampilan'],
-            'c'=>$data['catatan_guru'], 'status'=>$data['status'], 'id'=>$id,
+            'c'=>$data['catatan_guru'], 'status'=>$data['status'], 'submitted_by_val'=>$data['submitted_by'] ?? null,
+            'id'=>$id,
         ]);
         return $id;
     }
     $sql = "INSERT INTO final_grades
               (rombel_id, subject_id, student_id, semester, period_kind,
                nilai_sikap, nilai_pengetahuan, nilai_keterampilan,
-               catatan_guru, status)
-            VALUES (:r,:s,:st,:sem,:p,:si,:pe,:ke,:c,:status)";
+               catatan_guru, status, submitted_by)
+            VALUES (:r,:s,:st,:sem,:p,:si,:pe,:ke,:c,:status,:submitted_by)";
     $stm = $pdo->prepare($sql);
     $stm->execute([
         'r'=>$data['rombel_id'],'s'=>$data['subject_id'],'st'=>$data['student_id'],
         'sem'=>$data['semester'],'p'=>$data['period_kind'],
         'si'=>$data['nilai_sikap'], 'pe'=>$data['nilai_pengetahuan'], 'ke'=>$data['nilai_keterampilan'],
-        'c'=>$data['catatan_guru'], 'status'=>$data['status'],
+        'c'=>$data['catatan_guru'], 'status'=>$data['status'], 'submitted_by'=>$data['submitted_by'] ?? null,
     ]);
     return (int)$pdo->lastInsertId();
 }
@@ -114,25 +116,31 @@ function final_grade_status_counts(int $rombelId, int $subjectId, string $semest
  * Pending review queue for a Kepsek (filtered by jenjang) or Admin (all).
  * Returns rows with rombel/subject/student labels.
  */
-function review_queue(array $user, string $semester, string $period): array
+function review_queue(array $user, string $semester, string $period, ?int $yearId = null): array
 {
+    if ($yearId === null) {
+        $yearId = active_scope()['year_id'];
+    }
     $sql =
        "SELECT fg.*,
                r.jenjang, r.tingkat, r.nama AS rombel_nama,
                sb.kode AS subj_kode, sb.nama AS subj_nama,
-               st.nisn, st.nama AS student_nama
+               st.nisn, st.nama AS student_nama,
+               u.nama AS submitted_by_name, u.niy AS submitted_by_niy
         FROM final_grades fg
         JOIN rombel   r  ON r.id  = fg.rombel_id
         JOIN subjects sb ON sb.id = fg.subject_id
         JOIN students st ON st.id = fg.student_id
+        LEFT JOIN users u ON u.id = fg.submitted_by
         WHERE fg.semester=:sem AND fg.period_kind=:p
-          AND fg.status IN ('submitted','revised')";
-    $params = ['sem'=>$semester,'p'=>$period];
+          AND fg.status IN ('submitted','revised')
+          AND r.academic_year_id = :y";
+    $params = ['sem'=>$semester,'p'=>$period,'y'=>$yearId];
     if (($user['role'] ?? '') === 'kepsek' && !empty($user['jenjang'])) {
         $sql .= " AND r.jenjang = :j";
         $params['j'] = $user['jenjang'];
     }
-    $sql .= " ORDER BY r.jenjang, r.tingkat, r.nama, sb.nama, st.nama";
+    $sql .= " ORDER BY COALESCE(u.nama, 'zzz'), r.jenjang, r.tingkat, r.nama, sb.nama, st.nama";
     $st = db()->prepare($sql);
     $st->execute($params);
     return $st->fetchAll();

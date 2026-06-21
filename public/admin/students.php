@@ -2,7 +2,11 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
+require_once __DIR__ . '/../../includes/scope.php';
 require_admin_any();
+
+$sc = active_scope();
+$yearId = (int)$sc['year_id'];
 
 $pdo = db();
 $err = null;
@@ -69,11 +73,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         nama_ayah=:nama_ayah, nama_ibu=:nama_ibu, pekerjaan_ayah=:pekerjaan_ayah,
                         pekerjaan_ibu=:pekerjaan_ibu, telp_ortu=:telp_ortu";
                 if ($foto_path) $sql .= ", foto_path=:foto_path";
-                $sql .= " WHERE id = :id";
+                $sql .= " WHERE id = :id AND academic_year_id = :y";
                 $params['id'] = $id;
+                $params['y'] = $yearId;
                 if ($foto_path) $params['foto_path'] = $foto_path;
                 $pdo->prepare($sql)->execute($params);
             } else {
+                $params['academic_year_id'] = $yearId;
                 if ($foto_path) $params['foto_path'] = $foto_path;
                 $cols = implode(',', array_keys($params));
                 $ph   = ':' . implode(',:', array_keys($params));
@@ -94,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
-            $pdo->prepare("UPDATE students SET deleted_at = NOW() WHERE id = :id")->execute(['id'=>$id]);
+            $pdo->prepare("UPDATE students SET deleted_at = NOW() WHERE id = :id AND academic_year_id = :y")->execute(['id'=>$id, 'y'=>$yearId]);
             audit('delete', 'student:' . $id);
             flash('success', 'Siswa dinonaktifkan.');
             redirect('admin/students.php');
@@ -111,8 +117,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($newTingkat !== null) { $sets[] = "tingkat = :t"; $params['t'] = $newTingkat; }
             if (!$sets) throw new RuntimeException('Pilih jenjang atau tingkat baru.');
             $in = implode(',', array_fill(0, count($ids), '?'));
-            $sql = "UPDATE students SET " . implode(',', $sets) . " WHERE id IN ($in)";
+            $sql = "UPDATE students SET " . implode(',', $sets) . " WHERE academic_year_id = :y AND id IN ($in)";
             $stmt = $pdo->prepare($sql);
+            $stmt->bindValue(':y', $yearId, PDO::PARAM_INT);
             if (isset($params['j'])) $stmt->bindValue(':j', $params['j']);
             if (isset($params['t'])) $stmt->bindValue(':t', $params['t'], PDO::PARAM_INT);
             $i = 1;
@@ -129,26 +136,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ----- DATA -----
-$where = ['deleted_at IS NULL'];
-$params = [];
-if ($jf) { $where[] = 'jenjang = :j'; $params['j'] = $jf; }
-if ($q !== '') { $where[] = '(nama LIKE :q OR nisn LIKE :q OR nis LIKE :q)'; $params['q'] = '%' . $q . '%'; }
+$where = ['s.deleted_at IS NULL', 's.academic_year_id = :y'];
+$params = ['y' => $yearId];
+if ($jf) { $where[] = 's.jenjang = :j'; $params['j'] = $jf; }
+if ($q !== '') { $where[] = '(s.nama LIKE :q OR s.nisn LIKE :q OR s.nis LIKE :q)'; $params['q'] = '%' . $q . '%'; }
 $wsql = 'WHERE ' . implode(' AND ', $where);
 
 $page = max(1, (int)($_GET['page'] ?? 1));
 $per  = 20;
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM students $wsql");
+$stmt = $pdo->prepare("SELECT COUNT(DISTINCT s.id) FROM students s $wsql");
 $stmt->execute($params);
 $total = (int)$stmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT * FROM students $wsql ORDER BY jenjang, tingkat, nama LIMIT $per OFFSET " . (($page-1)*$per));
+$stmt = $pdo->prepare("SELECT DISTINCT s.* FROM students s $wsql ORDER BY s.jenjang, s.tingkat, s.nama LIMIT $per OFFSET " . (($page-1)*$per));
 $stmt->execute($params);
 $rows = $stmt->fetchAll();
 
 $edit = null;
 if ($editId) {
-    $s = $pdo->prepare("SELECT * FROM students WHERE id = :id AND deleted_at IS NULL");
-    $s->execute(['id'=>$editId]);
+    $s = $pdo->prepare("SELECT * FROM students WHERE id = :id AND deleted_at IS NULL AND academic_year_id = :y");
+    $s->execute(['id'=>$editId,'y'=>$yearId]);
     $edit = $s->fetch();
 }
 
@@ -156,6 +163,7 @@ $page_title = 'Siswa';
 require __DIR__ . '/../../includes/header.php';
 ?>
 <?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>
+<div class="alert alert-info">Menampilkan siswa yang terdaftar pada Tahun Ajaran aktif: <strong><?= esc($sc['year']) ?></strong>.</div>
 
 <div class="row">
   <!-- Form -->

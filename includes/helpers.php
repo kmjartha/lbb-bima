@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/scope.php';
 
 define('UPLOADS_PATH', realpath(__DIR__ . '/../public/uploads') ?: (__DIR__ . '/../public/uploads'));
 
@@ -144,11 +145,12 @@ function audit(string $action, ?string $target = null, array $meta = []): void
 function kkm_predikat(string $jenjang, ?float $nilai): array
 {
     if ($nilai === null) return ['grade' => '—', 'predikat' => '—'];
+    $yearId = active_scope()['year_id'];
     $stmt = db()->prepare(
         "SELECT grade, predikat FROM kkm_settings
-         WHERE jenjang = :j AND :n BETWEEN min_val AND max_val
+         WHERE academic_year_id = :y AND jenjang = :j AND :n BETWEEN min_val AND max_val
          ORDER BY min_val DESC LIMIT 1"
     );
-    $stmt->execute(['j' => $jenjang, 'n' => $nilai]);
+    $stmt->execute(['y' => $yearId, 'j' => $jenjang, 'n' => $nilai]);
     return $stmt->fetch() ?: ['grade' => '—', 'predikat' => '—'];
 }

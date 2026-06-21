@@ -13,10 +13,16 @@ function electives_for_year(int $yearId): array
     return $st->fetchAll();
 }
 
-function elective_by_id(int $id): ?array
+function elective_by_id(int $id, ?int $yearId = null): ?array
 {
-    $st = db()->prepare("SELECT * FROM electives WHERE id = :id AND deleted_at IS NULL");
-    $st->execute(['id' => $id]);
+    $sql = "SELECT * FROM electives WHERE id = :id AND deleted_at IS NULL";
+    $params = ['id' => $id];
+    if ($yearId !== null) {
+        $sql .= " AND academic_year_id = :y";
+        $params['y'] = $yearId;
+    }
+    $st = db()->prepare($sql);
+    $st->execute($params);
     $row = $st->fetch();
     return $row ?: null;
 }

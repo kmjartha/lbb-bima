@@ -27,8 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($op === 'lock_period') {
             if ($user['role'] !== 'administrator') throw new RuntimeException('Hanya Administrator yang dapat lock/unlock semester dari sini.');
             $val = (int)($_POST['val'] ?? 0) ? 1 : 0;
-            $pdo->prepare("INSERT IGNORE INTO semesters_state (academic_year_id, semester) VALUES (:y, :s)")
-                ->execute(['y'=>$sc['year_id'],'s'=>$sc['semester']]);
+            [$startDate, $endDate] = semester_date_window($sc['year_id'], $sc['semester']);
+            $pdo->prepare(
+                "INSERT IGNORE INTO semesters_state (academic_year_id, semester, start_date, end_date)
+                 VALUES (:y, :s, :sd, :ed)"
+            )->execute(['y'=>$sc['year_id'],'s'=>$sc['semester'],'sd'=>$startDate,'ed'=>$endDate]);
             $pdo->prepare("UPDATE semesters_state SET semester_locked=:v WHERE academic_year_id=:y AND semester=:s")
                 ->execute(['v'=>$val,'y'=>$sc['year_id'],'s'=>$sc['semester']]);
             audit('toggle_semester_lock', "year:{$sc['year_id']}/{$sc['semester']}", ['val'=>$val]);
@@ -41,12 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // For kepsek: jenjang gating per-row
         $check = $pdo->prepare(
             "SELECT fg.id, fg.status, r.jenjang FROM final_grades fg
-             JOIN rombel r ON r.id=fg.rombel_id WHERE fg.id=:i"
+             JOIN rombel r ON r.id=fg.rombel_id
+             WHERE fg.id=:i AND r.academic_year_id = :y"
         );
 
         $changed = 0;
         foreach ($ids as $id) {
-            $check->execute(['i'=>$id]);
+            $check->execute(['i'=>$id, 'y'=>$sc['year_id']]);
             $row = $check->fetch();
             if (!$row) continue;
             if ($user['role']==='kepsek' && !empty($user['jenjang']) && $row['jenjang'] !== $user['jenjang']) continue;
@@ -76,7 +80,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
-$queue = review_queue($user, $sc['semester'], $sc['period']);
+$queue = review_queue($user, $sc['semester'], $sc['period'], $sc['year_id']);
+$queueBySubmitter = [];
+foreach ($queue as $r) {
+    $uid = $r['submitted_by'] ? 'user_'.$r['submitted_by'] : 'unknown';
+    if (!isset($queueBySubmitter[$uid])) {
+        $label = $r['submitted_by_name']
+            ? $r['submitted_by_name'] . ($r['submitted_by_niy'] ? ' · '.$r['submitted_by_niy'] : '')
+            : 'Pengaju tidak diketahui';
+        $queueBySubmitter[$uid] = ['label'=>$label, 'rows'=>[]];
+    }
+    $queueBySubmitter[$uid]['rows'][] = $r;
+}
 
 // Lock state — now per-semester (PTS/PAS no longer lockable separately)
 $isLocked = semester_is_locked((int)$sc['year_id'], $sc['semester']);
@@ -132,62 +147,77 @@ $fgStatuses = fg_statuses();
         <span class="text-sm text-muted" style="align-self:center">Publish hanya untuk baris ber-status <em>approved</em>.</span>
       </div>
 
-      <div class="table-wrap">
-        <table class="t">
-          <thead>
-            <tr>
-              <th style="width:36px"><input type="checkbox" id="selAll"></th>
-              <th>Rombel</th>
-              <th>Mapel</th>
-              <th>Siswa</th>
-              <th style="width:70px"><span class="badge badge-info">Sikap</span></th>
-              <th style="width:90px"><span class="badge badge-primary">Pengetahuan</span></th>
-              <th style="width:90px"><span class="badge badge-success">Keterampilan</span></th>
-              <th style="width:80px">Σ</th>
-              <th style="width:100px">Status</th>
-              <th>Catatan Guru</th>
-            </tr>
-          </thead>
-          <tbody>
-          <?php foreach ($queue as $r):
-            $vals = array_filter([$r['nilai_sikap'],$r['nilai_pengetahuan'],$r['nilai_keterampilan']], fn($x)=>$x!==null);
-            $avg  = $vals ? array_sum(array_map('floatval',$vals))/count($vals) : null;
-            $pk   = kkm_predikat($r['jenjang'], $avg);
-            $stInfo = $fgStatuses[$r['status']] ?? $fgStatuses['draft'];
-          ?>
-            <tr>
-              <td class="text-center"><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" class="rowSel"></td>
-              <td><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['rombel_nama']) ?></td>
-              <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').$r['subj_nama']) ?></td>
-              <td>
-                <strong><?= esc($r['student_nama']) ?></strong>
-                <div class="text-xs text-muted"><?= esc($r['nisn']) ?></div>
-              </td>
-              <td class="text-center"><?= $r['nilai_sikap']!==null?esc((string)(float)$r['nilai_sikap']):'—' ?></td>
-              <td class="text-center"><?= $r['nilai_pengetahuan']!==null?esc((string)(float)$r['nilai_pengetahuan']):'—' ?></td>
-              <td class="text-center"><?= $r['nilai_keterampilan']!==null?esc((string)(float)$r['nilai_keterampilan']):'—' ?></td>
-              <td class="text-center">
-                <?php if ($avg !== null): ?>
-                  <strong><?= esc((string)round($avg,2)) ?></strong>
-                  <div class="text-xs text-muted"><?= esc($pk['grade']) ?></div>
-                <?php else: ?>—<?php endif; ?>
-              </td>
-              <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
-              <td class="text-sm"><?= esc((string)$r['catatan_guru']) ?></td>
-            </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
+      <?php foreach ($queueBySubmitter as $group): ?>
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem">
+              <div>
+                <strong>Diajukan oleh</strong>: <?= esc($group['label']) ?>
+                <span class="text-xs text-muted">(<?= count($group['rows']) ?> baris)</span>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="t">
+                <thead>
+                  <tr>
+                    <th style="width:36px"><input type="checkbox" class="selAll"></th>
+                    <th>Rombel</th>
+                    <th>Mapel</th>
+                    <th>Siswa</th>
+                    <th style="width:70px"><span class="badge badge-info">Sikap</span></th>
+                    <th style="width:90px"><span class="badge badge-primary">Pengetahuan</span></th>
+                    <th style="width:90px"><span class="badge badge-success">Keterampilan</span></th>
+                    <th style="width:80px">Σ</th>
+                    <th style="width:100px">Status</th>
+                    <th>Catatan Guru</th>
+                  </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($group['rows'] as $r):
+                  $vals = array_filter([$r['nilai_sikap'],$r['nilai_pengetahuan'],$r['nilai_keterampilan']], fn($x)=>$x!==null);
+                  $avg  = $vals ? array_sum(array_map('floatval',$vals))/count($vals) : null;
+                  $pk   = kkm_predikat($r['jenjang'], $avg);
+                  $stInfo = $fgStatuses[$r['status']] ?? $fgStatuses['draft'];
+                ?>
+                  <tr>
+                    <td class="text-center"><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" class="rowSel"></td>
+                    <td><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['rombel_nama']) ?></td>
+                    <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').$r['subj_nama']) ?></td>
+                    <td>
+                      <strong><?= esc($r['student_nama']) ?></strong>
+                      <div class="text-xs text-muted"><?= esc($r['nisn']) ?></div>
+                    </td>
+                    <td class="text-center"><?= $r['nilai_sikap']!==null?esc((string)(float)$r['nilai_sikap']):'—' ?></td>
+                    <td class="text-center"><?= $r['nilai_pengetahuan']!==null?esc((string)(float)$r['nilai_pengetahuan']):'—' ?></td>
+                    <td class="text-center"><?= $r['nilai_keterampilan']!==null?esc((string)(float)$r['nilai_keterampilan']):'—' ?></td>
+                    <td class="text-center">
+                      <?php if ($avg !== null): ?>
+                        <strong><?= esc((string)round($avg,2)) ?></strong>
+                        <div class="text-xs text-muted"><?= esc($pk['grade']) ?></div>
+                      <?php else: ?>—<?php endif; ?>
+                    </td>
+                    <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
+                    <td class="text-sm"><?= esc((string)$r['catatan_guru']) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
     </div>
   </div>
 </form>
 
 <script>
 (function(){
-  const all = document.getElementById('selAll');
-  all && all.addEventListener('change', () => {
-    document.querySelectorAll('.rowSel').forEach(cb => cb.checked = all.checked);
+  document.querySelectorAll('.selAll').forEach(all => {
+    const table = all.closest('table');
+    all.addEventListener('change', () => {
+      if (!table) return;
+      table.querySelectorAll('.rowSel').forEach(cb => cb.checked = all.checked);
+    });
   });
 })();
 </script>

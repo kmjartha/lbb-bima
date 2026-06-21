@@ -42,6 +42,7 @@ function _permission_matrix(): array
         'extracurriculars'  => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'report_templates'  => ['view' => ['administrator'],                          'edit' => ['administrator']],
         'audit_log'         => ['view' => ['administrator'],                          'edit' => ['administrator']],
+        'profile'           => ['view' => ['administrator','admin','kepsek','guru'],    'edit' => ['administrator','admin','kepsek','guru']],
 
         // ---------- KBM ----------
         // Rombel & Anggota: admin full; kepsek view (jenjang); guru/wali view (assigned)

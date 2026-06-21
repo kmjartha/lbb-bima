@@ -97,9 +97,10 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
                    AND rst.rombel_id  = :r
                    AND (rst.semester IS NULL OR rst.semester = :sem)
              WHERE s.deleted_at IS NULL
+               AND s.academic_year_id = :y
              ORDER BY s.nama"
         );
-        $st->execute(['r' => $rombelId, 'sem' => $sc['semester']]);
+        $st->execute(['r' => $rombelId, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
         return $st->fetchAll();
     }
 
@@ -117,9 +118,11 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
         if ($isWali) {
             $st = $pdo->prepare(
                 "SELECT s.id, s.kode, s.nama FROM subjects s
-                 WHERE s.deleted_at IS NULL ORDER BY s.nama"
+                 WHERE s.deleted_at IS NULL
+                   AND s.academic_year_id = :y
+                 ORDER BY s.nama"
             );
-            $st->execute();
+            $st->execute(['y' => $sc['year_id']]);
             return $st->fetchAll();
         }
 
@@ -131,9 +134,10 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
                AND rst.teacher_id = :t
                AND (rst.semester IS NULL OR rst.semester = :sem)
                AND s.deleted_at IS NULL
+               AND s.academic_year_id = :y
              ORDER BY s.nama"
         );
-        $st->execute(['r' => $rombelId, 't' => $tid, 'sem' => $sc['semester']]);
+        $st->execute(['r' => $rombelId, 't' => $tid, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
         return $st->fetchAll();
     }
 

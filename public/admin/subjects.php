@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
+require_once __DIR__ . '/../../includes/scope.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
 require_admin_any();
 
 $pdo = db();
+$sc = active_scope();
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
@@ -17,13 +19,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = int_or_null($_POST['id'] ?? null);
             $nama = req_str($_POST, 'nama', 80);
             if ($id) {
-                $pdo->prepare("UPDATE subject_categories SET nama=:n WHERE id=:id")
-                    ->execute(['n'=>$nama,'id'=>$id]);
+                $pdo->prepare("UPDATE subject_categories SET nama=:n WHERE id=:id AND academic_year_id = :y")
+                    ->execute(['n'=>$nama,'id'=>$id,'y'=>$sc['year_id']]);
                 audit('save', 'subject_category:' . $id);
                 flash('success', 'Kategori disimpan.');
             } else {
-                $pdo->prepare("INSERT INTO subject_categories (nama) VALUES (:n)")
-                    ->execute(['n'=>$nama]);
+                try {
+                    $pdo->prepare("INSERT INTO subject_categories (academic_year_id, nama) VALUES (:y, :n)")
+                        ->execute(['y'=>$sc['year_id'],'n'=>$nama]);
+                } catch (PDOException $e) {
+                    if ($e->getCode() === '23000') {
+                        throw new RuntimeException('Kategori dengan nama tersebut sudah ada di tahun ajaran ini.');
+                    }
+                    throw $e;
+                }
                 audit('save', 'subject_category:' . $pdo->lastInsertId());
                 flash('success', 'Kategori disimpan.');
             }
@@ -32,12 +41,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'delete_category') {
             $id = int_or_null($_POST['id'] ?? null);
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM subjects WHERE category_id = :id AND deleted_at IS NULL");
-            $stmt->execute(['id'=>$id]);
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM subjects WHERE category_id = :id AND academic_year_id = :y AND deleted_at IS NULL");
+            $stmt->execute(['id'=>$id, 'y'=>$sc['year_id']]);
             if ((int)$stmt->fetchColumn() > 0) {
-                throw new RuntimeException('Kategori masih digunakan oleh mata pelajaran.');
+                throw new RuntimeException('Kategori masih digunakan oleh mata pelajaran di tahun ajaran aktif.');
             }
-            $pdo->prepare("DELETE FROM subject_categories WHERE id = :id")->execute(['id'=>$id]);
+            $pdo->prepare("DELETE FROM subject_categories WHERE id = :id AND academic_year_id = :y")
+                ->execute(['id'=>$id, 'y'=>$sc['year_id']]);
             audit('delete', 'subject_category:' . $id);
             flash('success', 'Kategori dihapus.');
             redirect('admin/subjects.php');
@@ -56,21 +66,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             // Inline category create
             if ($newCat !== '') {
-                $stmt = $pdo->prepare("SELECT id FROM subject_categories WHERE nama = :n");
-                $stmt->execute(['n' => $newCat]);
+                $stmt = $pdo->prepare("SELECT id FROM subject_categories WHERE nama = :n AND academic_year_id = :y");
+                $stmt->execute(['n' => $newCat, 'y' => $sc['year_id']]);
                 $catId = (int)($stmt->fetchColumn() ?: 0);
                 if (!$catId) {
-                    $pdo->prepare("INSERT INTO subject_categories (nama) VALUES (:n)")->execute(['n' => $newCat]);
+                    $pdo->prepare("INSERT INTO subject_categories (academic_year_id, nama) VALUES (:y, :n)")
+                        ->execute(['y' => $sc['year_id'], 'n' => $newCat]);
                     $catId = (int)$pdo->lastInsertId();
                 }
             }
 
             if ($id) {
-                $pdo->prepare("UPDATE subjects SET kode=:k, nama=:n, category_id=:c WHERE id=:id")
-                    ->execute(['k'=>$kode,'n'=>$nama,'c'=>$catId,'id'=>$id]);
+                $pdo->prepare("UPDATE subjects SET kode=:k, nama=:n, category_id=:c WHERE id=:id AND academic_year_id=:y")
+                    ->execute(['k'=>$kode,'n'=>$nama,'c'=>$catId,'id'=>$id,'y'=>$sc['year_id']]);
             } else {
-                $pdo->prepare("INSERT INTO subjects (kode, nama, category_id) VALUES (:k,:n,:c)")
-                    ->execute(['k'=>$kode,'n'=>$nama,'c'=>$catId]);
+                $pdo->prepare("INSERT INTO subjects (academic_year_id, kode, nama, category_id) VALUES (:y,:k,:n,:c)")
+                    ->execute(['y'=>$sc['year_id'],'k'=>$kode,'n'=>$nama,'c'=>$catId]);
                 $id = (int)$pdo->lastInsertId();
             }
             // Reset jenjang map
@@ -86,7 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
-            $pdo->prepare("UPDATE subjects SET deleted_at = NOW() WHERE id = :id")->execute(['id'=>$id]);
+            $pdo->prepare("UPDATE subjects SET deleted_at = NOW() WHERE id = :id AND academic_year_id = :y")
+                ->execute(['id'=>$id, 'y'=>$sc['year_id']]);
             audit('delete', 'subject:' . $id);
             flash('success', 'Mata pelajaran dihapus.');
             redirect('admin/subjects.php');
@@ -97,22 +109,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$cats = $pdo->query("SELECT id, nama FROM subject_categories ORDER BY nama")->fetchAll();
+$cats = $pdo->prepare(
+    "SELECT id, nama FROM subject_categories WHERE academic_year_id = :y ORDER BY nama"
+);
+$cats->execute(['y' => $sc['year_id']]);
+$cats = $cats->fetchAll();
 
-$rows = $pdo->query(
+$rows = $pdo->prepare(
     "SELECT s.*, c.nama AS cat_nama,
             GROUP_CONCAT(jm.jenjang ORDER BY FIELD(jm.jenjang,'TK','SD','SMP','SMA') SEPARATOR ',') AS jenjangs
      FROM subjects s
      LEFT JOIN subject_categories c ON c.id = s.category_id
      LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
      WHERE s.deleted_at IS NULL
+       AND s.academic_year_id = :y
      GROUP BY s.id ORDER BY s.kode"
-)->fetchAll();
+);
+$rows->execute(['y' => $sc['year_id']]);
+$rows = $rows->fetchAll();
 
 $edit = null; $editJ = [];
 if ($editId) {
-    $stmt = $pdo->prepare("SELECT * FROM subjects WHERE id = :id AND deleted_at IS NULL");
-    $stmt->execute(['id'=>$editId]);
+    $stmt = $pdo->prepare("SELECT * FROM subjects WHERE id = :id AND deleted_at IS NULL AND academic_year_id = :y");
+    $stmt->execute(['id'=>$editId,'y'=>$sc['year_id']]);
     $edit = $stmt->fetch();
     if ($edit) {
         $j = $pdo->prepare("SELECT jenjang FROM subject_jenjang_map WHERE subject_id = :id");

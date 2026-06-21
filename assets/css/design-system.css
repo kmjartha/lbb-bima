@@ -320,26 +320,54 @@ small, .text-sm { font-size: var(--fs-12); }
  * Stage 8 — Print / PDF (Leger + Rapor) — A4 paper with multi-page support
  * Use class="print-area" on the printable wrapper, "no-print" elsewhere.
  * ====================================================================== */
-.print-area { background: #eef0f3; color: #111; padding: 16px 0; }
+/* Scrollable viewport for the page preview — the paper itself is never
+ * squashed to fit the window; instead the surrounding area scrolls.
+ * On narrow screens the paper is scaled down visually (see below) rather
+ * than having its CSS height clamped, which used to distort spacing and
+ * line-heights inside the rapor. */
+.print-area {
+  background: #eef0f3; color: #111;
+  padding: 24px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
-/* The paper itself — exact A4 width, zero padding so the banner can hug the edges.
- * All non-banner content lives inside .rapor-body which provides the inner padding. */
+/* The paper itself — exact A4 size, zero padding so the banner can hug the edges.
+ * All non-banner content lives inside .rapor-body which provides the inner padding.
+ * Width/height are fixed in real A4 millimetres at all times on screen — never
+ * clamped to the viewport — so spacing inside the document always matches print. */
 .rapor-page, .leger-page {
   background: #fff; color: #111;
   width: 210mm;
   min-height: 297mm;
+  flex: 0 0 210mm;
   padding: 0;
-  margin: 16px auto;
+  margin: 0 auto;
   box-sizing: border-box;
   box-shadow: 0 6px 28px rgba(15, 23, 42, .12);
   border-radius: 4px;
   font: 13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: #1f2937;
-  overflow: hidden;
+  overflow: visible;
 }
 .leger-page { padding: 15mm; } /* leger keeps the old padding model */
 
 .rapor-body { padding: 15mm; }
+
+/* On screens narrower than the paper, scale the whole page down visually
+ * (CSS transform) instead of reflowing its internal layout — this is what
+ * keeps the rapor tidy at any window size instead of cramped/squashed. */
+@media (max-width: 880px) {
+  .print-area { padding: 16px 0; }
+  .rapor-page, .leger-page {
+    transform: scale(calc((100vw - 24px) / 210mm));
+    transform-origin: top center;
+    margin-bottom: calc(297mm * ((100vw - 24px) / 210mm) - 297mm);
+  }
+}
 
 /* Full-width banner header — exactly 21cm (full A4 width), height scales with aspect ratio. */
 .rapor-banner {
@@ -369,6 +397,8 @@ small, .text-sm { font-size: var(--fs-12); }
   color: #0f172a;
 }
 .rapor-head .school .meta, .leger-head .school .meta { font-size: 11.5px; color: #64748b; line-height: 1.5; }
+.rapor-head-right { text-align: right; font-size: 12px; color: #475569; }
+.rapor-head-right strong { color: #0f172a; }
 
 .rapor-subhead {
   display: flex;
@@ -379,7 +409,7 @@ small, .text-sm { font-size: var(--fs-12); }
 }
 .rapor-subhead strong { color: #0f172a; font-weight: 600; }
 
-.rapor-section { margin: 20px 0; break-inside: avoid; page-break-inside: avoid; }
+.rapor-section { margin: 20px 0; break-inside: auto; page-break-inside: auto; }
 .rapor-section:first-child { margin-top: 0; }
 .rapor-section h3 {
   margin: 0 0 10px;
@@ -412,7 +442,63 @@ small, .text-sm { font-size: var(--fs-12); }
 }
 .t-print tbody tr:nth-child(even) td { background: #fafbfc; }
 .t-print tfoot td { background: #f1f5f9; font-weight: 600; color: #0f172a; }
-.t-print tr { break-inside: avoid; page-break-inside: avoid; }
+.t-print tr { break-inside: auto; page-break-inside: auto; }
+
+.character-eval-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+.character-eval-table th,
+.character-eval-table td {
+  padding: 6px 5px;
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  border: 1px solid #e5e7eb;
+}
+.character-eval-table thead th {
+  text-align: left;
+  font-size: 11px;
+  padding: 8px 5px;
+  background: #f8fafc;
+  color: #334155;
+}
+.character-eval-table th.category-heading { width: 18%; min-width: 100px; }
+.character-eval-table th.aspect-heading { width: 50%; min-width: 220px; }
+.character-eval-table th.scale-heading { width: 8%; min-width: 60px; text-align: center; vertical-align: middle; padding: 8px 4px; min-height: auto; }
+.character-eval-table th.scale-heading .scale-label {
+  display: inline-block;
+  transform: none;
+  transform-origin: none;
+  text-align: center;
+  line-height: 1.3;
+  font-size: 11px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  padding: 0;
+  margin: 0;
+}
+.character-eval-table td.category-cell {
+  background: #eef6ff;
+  font-weight: 700;
+  vertical-align: middle;
+  text-align: left;
+  padding: 10px 8px;
+}
+.character-eval-table td.scale-cell {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 14px;
+}
+.character-eval-table tbody tr:not(:first-child) td {
+  padding: 8px 6px;
+}
+.character-eval-table td {
+  vertical-align: top;
+}
 
 .sig-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px; break-inside: avoid; page-break-inside: avoid; }
 .sig-cell {
@@ -439,11 +525,32 @@ small, .text-sm { font-size: var(--fs-12); }
   color: #334155;
 }
 
+.rapor-empty-note { font-size: 12px; color: #6b7280; }
+.rapor-cat-row { background: #eef2ff; font-weight: 600; }
+.rapor-total-row { background: #fffbeb; font-weight: 700; }
+.rapor-foot-note { margin-top: 6px; font-size: 11px; color: #475569; }
+.rapor-kkm-legend { margin-top: 8px; font-size: 11px; }
+.rapor-table-narrow { max-width: 600px; }
+.rapor-note-box {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 10px 12px;
+  min-height: 56px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: #1f2937;
+  background: #f9fafb;
+}
+.rapor-signatures { break-inside: avoid; page-break-inside: avoid; }
+.rapor-issued { text-align: right; font-size: 12px; margin-bottom: 8px; color: #334155; }
+.rapor-footer-img { text-align: center; margin-top: 12px; }
+.rapor-footer-img img { max-height: 60px; }
+
 /* Optional manual page break inside rapor. */
 .rapor-pagebreak { break-before: page; page-break-before: always; }
 
 @media print {
-  @page { size: A4; margin: 0; }
+  @page { size: A4 portrait; margin: 0; }
   body { background: #fff !important; }
   .sidebar, .topbar, .alert, .no-print, .nav, .sidebar-foot, .sidebar-backdrop { display: none !important; }
   .main { padding: 0 !important; }
@@ -456,6 +563,9 @@ small, .text-sm { font-size: var(--fs-12); }
     width: 210mm;
     min-height: 297mm;
     max-width: 210mm;
+    overflow: visible;
+    page-break-after: always;
+    transform: none !important; /* undo the small-screen preview zoom for print */
   }
   .leger-page { padding: 15mm; }
   .rapor-page { padding: 0; }

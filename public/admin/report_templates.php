@@ -3,7 +3,8 @@
  * Stage 8 — Report Display Settings.
  * Per jenjang (SD / SMP / SMA):
  *   - header & footer image (upload / hapus)
- *   - 4 slot tanda tangan: wali, kepsek, direktur, parent — nama/jabatan/TTD upload
+ *   - 3 slot tanda tangan tetap: kepsek, direktur, parent — nama/jabatan/TTD upload
+ *   - slot wali otomatis diambil dari data wali kelas per rombel
  *   - urutan section rapor (drag-by-arrow)
  */
 declare(strict_types=1);
@@ -197,9 +198,12 @@ require __DIR__ . '/../../includes/header.php';
 
   <!-- Signatures -->
   <div class="card" style="flex: 1; min-width: 360px">
-    <div class="card-header"><h3 class="card-title">Tanda Tangan (4 slot)</h3></div>
+    <div class="card-header"><h3 class="card-title">Tanda Tangan</h3></div>
     <div class="card-body">
-      <?php foreach (['wali','kepsek','direktur','parent'] as $slot): $sg = $sigs[$slot]; ?>
+      <div class="alert alert-info">
+        Slot <strong>Wali</strong> tidak diatur di sini. Nama dan TTD wali akan otomatis diambil dari data wali kelas untuk setiap rombel.
+      </div>
+      <?php foreach (['kepsek','direktur','parent'] as $slot): $sg = $sigs[$slot]; ?>
         <form method="post" enctype="multipart/form-data" style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px">
           <?= csrf_field() ?>
           <input type="hidden" name="op" value="save_signature">

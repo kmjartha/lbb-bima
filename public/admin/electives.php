@@ -149,7 +149,7 @@ $edit = null;
 $editRombels = [];
 $editClasses = [];
 if ($editId) {
-    $edit = elective_by_id($editId);
+    $edit = elective_by_id($editId, $yearId);
     if ($edit) {
         $editRombels = elective_rombel_ids($editId);
         $editClasses = elective_classes($editId);

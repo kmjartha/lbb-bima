@@ -122,21 +122,23 @@ function audit_today_by_action(int $limit = 8): array
  * ===================================================================== */
 
 /** Number of submitted final-grade rows pending review for a kepsek. */
-function notif_pending_review_count(?string $jenjang = null): int
+function notif_pending_review_count(?string $jenjang = null, ?int $yearId = null): int
 {
     $sql = "SELECT COUNT(*) FROM final_grades fg
             JOIN rombel r ON r.id = fg.rombel_id
             WHERE fg.status = 'submitted'";
     $b = [];
     if ($jenjang) { $sql .= " AND r.jenjang = :j"; $b['j'] = $jenjang; }
-    $st = db()->prepare($sql); $st->execute($b);
+    if ($yearId !== null) { $sql .= " AND r.academic_year_id = :y"; $b['y'] = $yearId; }
+    $st = db()->prepare($sql);
+    $st->execute($b);
     return (int)$st->fetchColumn();
 }
 
 /**
  * List recent pending submissions grouped by (rombel, subject, semester, period).
  */
-function notif_pending_review_list(?string $jenjang = null, int $limit = 10): array
+function notif_pending_review_list(?string $jenjang = null, int $limit = 10, ?int $yearId = null): array
 {
     $sql = "
         SELECT fg.rombel_id, fg.subject_id, fg.semester, fg.period_kind,
@@ -150,39 +152,69 @@ function notif_pending_review_list(?string $jenjang = null, int $limit = 10): ar
          WHERE fg.status = 'submitted'";
     $b = [];
     if ($jenjang) { $sql .= " AND r.jenjang = :j"; $b['j'] = $jenjang; }
+    if ($yearId !== null) { $sql .= " AND r.academic_year_id = :y"; $b['y'] = $yearId; }
     $sql .= " GROUP BY fg.rombel_id, fg.subject_id, fg.semester, fg.period_kind
               ORDER BY last_at DESC LIMIT $limit";
-    $st = db()->prepare($sql); $st->execute($b);
+    $st = db()->prepare($sql);
+    $st->execute($b);
     return $st->fetchAll();
 }
 
 /**
  * Per-role dashboard counters used by the upgraded dashboard widget.
  */
-function dashboard_counters_for(array $user): array
+function dashboard_counters_for(array $user, ?int $yearId = null): array
 {
     $pdo = db();
     $role = $user['role'] ?? '';
     $jenjang = $user['jenjang'] ?? null;
+    if ($yearId === null) {
+        $yearId = active_scope()['year_id'];
+    }
+
+    $st = $pdo->prepare(
+        "SELECT COUNT(DISTINCT s.id) FROM students s
+         JOIN rombel_members rm ON rm.student_id = s.id
+         JOIN rombel r ON r.id = rm.rombel_id
+         WHERE s.deleted_at IS NULL AND r.deleted_at IS NULL AND r.academic_year_id = :y"
+    );
+    $st->execute(['y' => $yearId]);
+    $studentsCount = (int)$st->fetchColumn();
+
+    $st = $pdo->prepare("SELECT COUNT(*) FROM rombel WHERE academic_year_id = :y AND deleted_at IS NULL");
+    $st->execute(['y' => $yearId]);
+    $rombelsCount = (int)$st->fetchColumn();
+
+    $st = $pdo->prepare("SELECT COUNT(*) FROM subjects WHERE deleted_at IS NULL AND academic_year_id = :y");
+    $st->execute(['y' => $yearId]);
+    $subjectCount = (int)$st->fetchColumn();
 
     $base = [
-        'siswa'  => (int)$pdo->query("SELECT COUNT(*) FROM students WHERE deleted_at IS NULL")->fetchColumn(),
+        'siswa'  => $studentsCount,
         'guru'   => (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role='guru' AND deleted_at IS NULL")->fetchColumn(),
-        'rombel' => (int)$pdo->query("SELECT COUNT(*) FROM rombel WHERE deleted_at IS NULL")->fetchColumn(),
-        'mapel'  => (int)$pdo->query("SELECT COUNT(*) FROM subjects WHERE deleted_at IS NULL")->fetchColumn(),
+        'rombel' => $rombelsCount,
+        'mapel'  => $subjectCount,
     ];
 
     if ($role === 'kepsek' && $jenjang) {
-        $st = $pdo->prepare("SELECT COUNT(*) FROM students WHERE deleted_at IS NULL AND jenjang = :j");
-        $st->execute(['j' => $jenjang]);
+        $st = $pdo->prepare(
+            "SELECT COUNT(DISTINCT s.id) FROM students s
+             JOIN rombel_members rm ON rm.student_id = s.id
+             JOIN rombel r ON r.id = rm.rombel_id
+             WHERE s.deleted_at IS NULL AND r.deleted_at IS NULL
+               AND r.jenjang = :j AND r.academic_year_id = :y"
+        );
+        $st->execute(['j' => $jenjang, 'y' => $yearId]);
         $base['siswa_jenjang'] = (int)$st->fetchColumn();
 
-        $st = $pdo->prepare("SELECT COUNT(*) FROM rombel WHERE deleted_at IS NULL AND jenjang = :j");
-        $st->execute(['j' => $jenjang]);
+        $st = $pdo->prepare("SELECT COUNT(*) FROM rombel WHERE deleted_at IS NULL AND jenjang = :j AND academic_year_id = :y");
+        $st->execute(['j' => $jenjang, 'y' => $yearId]);
         $base['rombel_jenjang'] = (int)$st->fetchColumn();
 
-        $base['pending_review'] = notif_pending_review_count($jenjang);
-        $base['published'] = (int)$pdo->query("SELECT COUNT(*) FROM final_grades WHERE status='published'")->fetchColumn();
+        $base['pending_review'] = notif_pending_review_count($jenjang, $yearId);
+        $st = $pdo->prepare("SELECT COUNT(*) FROM final_grades fg JOIN rombel r ON r.id = fg.rombel_id WHERE fg.status='published' AND r.academic_year_id = :y");
+        $st->execute(['y' => $yearId]);
+        $base['published'] = (int)$st->fetchColumn();
     }
 
     if ($role === 'guru') {
@@ -191,9 +223,10 @@ function dashboard_counters_for(array $user): array
             "SELECT COUNT(DISTINCT r.id) FROM rombel r
               LEFT JOIN teachers t ON t.user_id = :uid1
               LEFT JOIN rombel_subject_teachers rst ON rst.rombel_id = r.id AND rst.teacher_id = t.id
-             WHERE r.deleted_at IS NULL AND (r.wali_id = :uid2 OR rst.id IS NOT NULL)"
+             WHERE r.deleted_at IS NULL AND r.academic_year_id = :y
+               AND (r.wali_id = :uid2 OR rst.id IS NOT NULL)"
         );
-        $st->execute(['uid1' => $user['id'], 'uid2' => $user['id']]);
+        $st->execute(['uid1' => $user['id'], 'uid2' => $user['id'], 'y' => $yearId]);
         $base['my_rombel'] = (int)$st->fetchColumn();
     }
 

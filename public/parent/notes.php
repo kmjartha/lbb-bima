@@ -16,7 +16,7 @@ $pk   = in_array($_GET['pk']  ?? '', ['PTS','PAS'], true)      ? $_GET['pk']  : 
 
 $rombel = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
 $publishMatrix = parent_publish_matrix((int)$student['id'], (int)$sc['year_id']);
-$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk) : false;
+$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, (int)$sc['year_id']) : false;
 
 $wali = $rombel ? rombel_wali_user((int)$rombel['id']) : null;
 
@@ -51,7 +51,7 @@ include __DIR__ . '/_layout.php';
   </div>
 <?php else:
   $note = parent_wali_note((int)$student['id'], (int)$rombel['id'], $sem, $pk);
-  $charEvals = character_evals_for_student((int)$rombel['id'], (int)$student['id'], $sem, $pk);
+  $charEvals = character_evals_for_student((int)$rombel['id'], (int)$student['id'], $sem, $pk, $rombel['jenjang'] ?? null);
   $generalRow = general_evals_for((int)$rombel['id'], $sem, $pk);
   $narasi = $generalRow[(int)$student['id']] ?? null;
   $scales = character_scales();

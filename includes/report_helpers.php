@@ -56,16 +56,27 @@ function save_image_upload(array $file, string $sub, string $prefix = ''): strin
 /** Attendance recap (jumlah H/I/S/A) per student in (rombel, semester, year). */
 function attendance_summary_for_rombel(int $rombelId, string $semester, int $yearId): array
 {
-    // Determine date window from the semester (hardcoded reasonable defaults)
-    // Ganjil = Jul 1 .. Dec 31; Genap = Jan 1 .. Jun 30 (of the second year of the TA label).
-    $row = db()->prepare("SELECT label FROM academic_years WHERE id=:y");
-    $row->execute(['y' => $yearId]);
-    $label = (string)$row->fetchColumn(); // e.g. 2025/2026
-    $parts = explode('/', $label);
-    $y1 = (int)($parts[0] ?? date('Y'));
-    $y2 = (int)($parts[1] ?? ($y1 + 1));
-    if ($semester === 'ganjil') { $from = "$y1-07-01"; $to = "$y1-12-31"; }
-    else                        { $from = "$y2-01-01"; $to = "$y2-06-30"; }
+    $st = db()->prepare(
+        "SELECT start_date, end_date
+         FROM semesters_state
+         WHERE academic_year_id = :y AND semester = :s"
+    );
+    $st->execute(['y' => $yearId, 's' => $semester]);
+    $period = $st->fetch();
+    if ($period && $period['start_date'] && $period['end_date']) {
+        $from = $period['start_date'];
+        $to = $period['end_date'];
+    } else {
+        // Legacy fallback: derive reasonable semester windows from the year label.
+        $row = db()->prepare("SELECT label FROM academic_years WHERE id=:y");
+        $row->execute(['y' => $yearId]);
+        $label = (string)$row->fetchColumn(); // e.g. 2025/2026
+        $parts = explode('/', $label);
+        $y1 = (int)($parts[0] ?? date('Y'));
+        $y2 = (int)($parts[1] ?? ($y1 + 1));
+        if ($semester === 'ganjil') { $from = "$y1-07-01"; $to = "$y1-12-31"; }
+        else                        { $from = "$y2-01-01"; $to = "$y2-06-30"; }
+    }
 
     $st = db()->prepare(
         "SELECT student_id,
@@ -119,7 +130,8 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
 
     $stFg = $pdo->prepare(
         "SELECT student_id, subject_id,
-                nilai_sikap AS si, nilai_pengetahuan AS pe, nilai_keterampilan AS ke, status
+                nilai_sikap AS si, nilai_pengetahuan AS pe, nilai_keterampilan AS ke,
+                catatan_guru AS note, status
          FROM final_grades
          WHERE rombel_id = :r AND semester = :sem AND period_kind = :p"
     );
@@ -135,6 +147,7 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
             'pe' => $pe,
             'ke' => $ke,
             'overall' => spk_overall($si, $pe, $ke),
+            'note' => $row['note'] === null ? null : (string)$row['note'],
             'status' => (string)$row['status'],
         ];
     }
@@ -229,23 +242,28 @@ function rank_paralel(string $jenjang, int $tingkat, int $yearId, string $semest
 
 function report_template_for(string $jenjang): array
 {
-    $st = db()->prepare("SELECT * FROM report_templates WHERE jenjang = :j");
-    $st->execute(['j' => $jenjang]);
+    $yearId = active_scope()['year_id'];
+    $st = db()->prepare("SELECT * FROM report_templates WHERE academic_year_id = :y AND jenjang = :j");
+    $st->execute(['y' => $yearId, 'j' => $jenjang]);
     $row = $st->fetch();
     if ($row) return $row;
-    db()->prepare("INSERT INTO report_templates (jenjang) VALUES (:j)")->execute(['j' => $jenjang]);
-    $st->execute(['j' => $jenjang]);
+    db()->prepare("INSERT INTO report_templates (academic_year_id, jenjang) VALUES (:y,:j)")
+        ->execute(['y' => $yearId, 'j' => $jenjang]);
+    $st->execute(['y' => $yearId, 'j' => $jenjang]);
     return $st->fetch() ?: ['jenjang' => $jenjang, 'layout_json' => null, 'header_img' => null, 'footer_img' => null];
 }
 
 function report_template_save(string $jenjang, ?string $headerImg, ?string $footerImg, ?array $layout, ?array $hidden = null): void
 {
+    $yearId = active_scope()['year_id'];
     db()->prepare(
-        "UPDATE report_templates SET header_img=:h, footer_img=:f, layout_json=:l, layout_hidden_json=:hd WHERE jenjang=:j"
+        "UPDATE report_templates SET header_img=:h, footer_img=:f, layout_json=:l, layout_hidden_json=:hd
+         WHERE academic_year_id = :y AND jenjang=:j"
     )->execute([
         'h'  => $headerImg, 'f' => $footerImg,
         'l'  => $layout ? json_encode($layout, JSON_UNESCAPED_UNICODE) : null,
         'hd' => $hidden !== null ? json_encode(array_values($hidden), JSON_UNESCAPED_UNICODE) : null,
+        'y'  => $yearId,
         'j'  => $jenjang,
     ]);
 }
@@ -271,10 +289,11 @@ function rapor_layout_resolve(?array $tpl): array
     return ['order' => $order, 'hidden' => $hidden];
 }
 
-function report_signatures_for(string $jenjang): array
+function report_signatures_for(string $jenjang, ?int $rombelId = null): array
 {
-    $st = db()->prepare("SELECT * FROM report_signatures WHERE jenjang = :j");
-    $st->execute(['j' => $jenjang]);
+    $yearId = active_scope()['year_id'];
+    $st = db()->prepare("SELECT * FROM report_signatures WHERE academic_year_id = :y AND jenjang = :j");
+    $st->execute(['y' => $yearId, 'j' => $jenjang]);
     $rows = $st->fetchAll();
     $out = [];
     foreach (['wali','kepsek','direktur','parent'] as $slot) {
@@ -282,23 +301,43 @@ function report_signatures_for(string $jenjang): array
         foreach ($rows as $r) if ($r['slot'] === $slot) { $found = $r; break; }
         $out[$slot] = $found ?: ['slot' => $slot, 'jenjang' => $jenjang, 'nama' => null, 'jabatan' => null, 'ttd_path' => null];
     }
+
+    if ($rombelId !== null) {
+        $st = db()->prepare(
+            "SELECT u.id, u.nama, u.ttd_path
+               FROM rombel r
+               LEFT JOIN users u ON u.id = r.wali_id
+              WHERE r.id = :r"
+        );
+        $st->execute(['r' => $rombelId]);
+        $wali = $st->fetch();
+        if ($wali && $wali['id']) {
+            $out['wali'] = array_merge($out['wali'], [
+                'nama'     => $wali['nama'] ?: $out['wali']['nama'],
+                'jabatan'  => $out['wali']['jabatan'] ?: 'Wali Kelas',
+                'ttd_path' => $wali['ttd_path'] ?? $out['wali']['ttd_path'],
+            ]);
+        }
+    }
+
     return $out;
 }
 
 function report_signature_save(string $jenjang, string $slot, ?string $nama, ?string $jabatan, ?string $ttdPath): void
 {
+    $yearId = active_scope()['year_id'];
     $pdo = db();
-    $st = $pdo->prepare("SELECT id FROM report_signatures WHERE jenjang = :j AND slot = :s");
-    $st->execute(['j' => $jenjang, 's' => $slot]);
+    $st = $pdo->prepare("SELECT id FROM report_signatures WHERE academic_year_id = :y AND jenjang = :j AND slot = :s");
+    $st->execute(['y' => $yearId, 'j' => $jenjang, 's' => $slot]);
     $id = (int)($st->fetchColumn() ?: 0);
     if ($id) {
         $pdo->prepare("UPDATE report_signatures SET nama=:n, jabatan=:jb, ttd_path=:t WHERE id=:i")
             ->execute(['n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath,'i'=>$id]);
     } else {
         $pdo->prepare(
-            "INSERT INTO report_signatures (jenjang, slot, nama, jabatan, ttd_path)
-             VALUES (:j,:s,:n,:jb,:t)"
-        )->execute(['j'=>$jenjang,'s'=>$slot,'n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath]);
+            "INSERT INTO report_signatures (academic_year_id, jenjang, slot, nama, jabatan, ttd_path)
+             VALUES (:y,:j,:s,:n,:jb,:t)"
+        )->execute(['y'=>$yearId,'j'=>$jenjang,'s'=>$slot,'n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath]);
     }
 }
 
@@ -320,43 +359,58 @@ function rapor_default_layout(): array
 /** Get a single student row. */
 function student_by_id(int $sid): ?array
 {
-    $st = db()->prepare("SELECT * FROM students WHERE id=:i AND deleted_at IS NULL");
-    $st->execute(['i' => $sid]);
+    $yearId = active_scope()['year_id'];
+    $st = db()->prepare("SELECT * FROM students WHERE id=:i AND academic_year_id = :y AND deleted_at IS NULL");
+    $st->execute(['i' => $sid, 'y' => $yearId]);
     $r = $st->fetch();
     return $r ?: null;
 }
 
 /** Whether the given (rombel, semester, period) has at least one published row. */
-function rapor_is_published(int $rombelId, int $studentId, string $semester, string $period): bool
+function rapor_is_published(int $rombelId, int $studentId, string $semester, string $period, int $yearId): bool
 {
     $st = db()->prepare(
-        "SELECT 1 FROM final_grades
-         WHERE rombel_id=:r AND student_id=:st AND semester=:sem AND period_kind=:p
-           AND status = 'published' LIMIT 1"
+        "SELECT 1 FROM final_grades fg
+         JOIN rombel r ON r.id = fg.rombel_id
+         WHERE fg.rombel_id = :r AND fg.student_id = :st
+           AND fg.semester = :sem AND fg.period_kind = :p
+           AND fg.status = 'published'
+           AND r.academic_year_id = :y LIMIT 1"
     );
-    $st->execute(['r'=>$rombelId,'st'=>$studentId,'sem'=>$semester,'p'=>$period]);
+    $st->execute(['r'=>$rombelId,'st'=>$studentId,'sem'=>$semester,'p'=>$period,'y'=>$yearId]);
     return (bool)$st->fetchColumn();
 }
 
 /** KKM scale rows for a jenjang ordered desc by min_val. */
 function kkm_scale(string $jenjang): array
 {
-    $st = db()->prepare("SELECT grade, min_val, max_val, predikat FROM kkm_settings WHERE jenjang=:j ORDER BY min_val DESC");
-    $st->execute(['j' => $jenjang]);
+    $yearId = active_scope()['year_id'];
+    $st = db()->prepare("SELECT grade, min_val, max_val, predikat FROM kkm_settings WHERE academic_year_id = :y AND jenjang=:j ORDER BY min_val DESC");
+    $st->execute(['y' => $yearId, 'j' => $jenjang]);
     return $st->fetchAll();
 }
 
 /** All character evals for a student (joined with aspect). */
-function character_evals_for_student(int $rombelId, int $studentId, string $sem, string $period): array
+function character_evals_for_student(int $rombelId, int $studentId, string $sem, string $period, ?string $jenjang = null): array
 {
-    $st = db()->prepare(
+    $yearId = active_scope()['year_id'];
+    $query = 
         "SELECT ce.*, ca.nama AS aspek_nama, ca.kategori
          FROM character_evaluations ce
-         JOIN character_aspects ca ON ca.id = ce.aspect_id
-         WHERE ce.rombel_id=:r AND ce.student_id=:st AND ce.semester=:sem AND ce.period_kind=:p
-         ORDER BY FIELD(ca.kategori,'spiritual','sosial'), ca.nama"
-    );
-    $st->execute(['r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period]);
+         JOIN character_aspects ca ON ca.id = ce.aspect_id AND ca.academic_year_id = :y";
+    if ($jenjang) {
+        $query .= " AND ca.jenjang = :j";
+    }
+    $query .= 
+        " WHERE ce.rombel_id=:r AND ce.student_id=:st AND ce.semester=:sem AND ce.period_kind=:p
+         ORDER BY FIELD(ca.kategori,'Spiritual and morality','Discipline','Manner','Obedience','Focus and Confidence','spiritual','sosial'), ca.nama";
+
+    $params = ['y'=>$yearId,'r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period];
+    if ($jenjang) {
+        $params['j'] = $jenjang;
+    }
+    $st = db()->prepare($query);
+    $st->execute($params);
     return $st->fetchAll();
 }
 
@@ -377,17 +431,18 @@ function ekskul_grades_for_student(int $studentId, string $sem, int $yearId): ar
 /** Subjects ordered by category for a rombel + semester (used in rapor body). */
 function subjects_grouped_for_rombel(int $rombelId, string $semester): array
 {
+    $yearId = active_scope()['year_id'];
     $st = db()->prepare(
         "SELECT DISTINCT s.id, s.kode, s.nama, s.category_id, sc.nama AS kategori_nama
          FROM rombel_subject_teachers rst
-         JOIN subjects s          ON s.id = rst.subject_id
+         JOIN subjects s          ON s.id = rst.subject_id AND s.academic_year_id = :y
          LEFT JOIN subject_categories sc ON sc.id = s.category_id
          WHERE rst.rombel_id = :r
            AND (rst.semester IS NULL OR rst.semester = :sem)
            AND s.deleted_at IS NULL
          ORDER BY sc.nama, s.nama"
     );
-    $st->execute(['r' => $rombelId, 'sem' => $semester]);
+    $st->execute(['y'=>$yearId, 'r' => $rombelId, 'sem' => $semester]);
     $rows = $st->fetchAll();
     $out = [];
     foreach ($rows as $r) {

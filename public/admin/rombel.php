@@ -29,8 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($tingkat < 1 || $tingkat > 12) throw new RuntimeException('Tingkat 1-12.');
 
             if ($id) {
-                $pdo->prepare("UPDATE rombel SET jenjang=:j, tingkat=:t, nama=:n, wali_id=:w, kapasitas=:k WHERE id=:id")
-                    ->execute(['j'=>$jenjang,'t'=>$tingkat,'n'=>$nama,'w'=>$waliId,'k'=>$kapasitas,'id'=>$id]);
+                $pdo->prepare("UPDATE rombel SET jenjang=:j, tingkat=:t, nama=:n, wali_id=:w, kapasitas=:k WHERE id=:id AND academic_year_id=:y")
+                    ->execute(['j'=>$jenjang,'t'=>$tingkat,'n'=>$nama,'w'=>$waliId,'k'=>$kapasitas,'id'=>$id,'y'=>$sc['year_id']]);
             } else {
                 $pdo->prepare("INSERT INTO rombel (academic_year_id, jenjang, tingkat, nama, wali_id, kapasitas) VALUES (:y,:j,:t,:n,:w,:k)")
                     ->execute(['y'=>$sc['year_id'],'j'=>$jenjang,'t'=>$tingkat,'n'=>$nama,'w'=>$waliId,'k'=>$kapasitas]);
@@ -43,7 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
-            $pdo->prepare("UPDATE rombel SET deleted_at=NOW() WHERE id=:id")->execute(['id'=>$id]);
+            $pdo->prepare("UPDATE rombel SET deleted_at=NOW() WHERE id=:id AND academic_year_id=:y")
+                ->execute(['id'=>$id,'y'=>$sc['year_id']]);
             audit('delete', 'rombel:' . $id);
             flash('success', 'Rombel dihapus.');
             redirect('admin/rombel.php');
@@ -53,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rid = (int)($_POST['rombel_id'] ?? 0);
             $ids = array_map('intval', $_POST['student_ids'] ?? []);
             if (!$rid || !$ids) throw new RuntimeException('Pilih minimal 1 siswa.');
+            $stmt = $pdo->prepare("SELECT 1 FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+            $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
+            if (!$stmt->fetchColumn()) throw new RuntimeException('Rombel tidak ditemukan di tahun ajaran aktif.');
             $ins = $pdo->prepare("INSERT IGNORE INTO rombel_members (rombel_id, student_id) VALUES (:r,:s)");
             foreach ($ids as $sid) $ins->execute(['r'=>$rid,'s'=>$sid]);
             audit('add_members', 'rombel:' . $rid, ['n' => count($ids)]);
@@ -63,6 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($op === 'remove_member') {
             $rid = (int)($_POST['rombel_id'] ?? 0);
             $sid = (int)($_POST['student_id'] ?? 0);
+            $stmt = $pdo->prepare("SELECT 1 FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+            $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
+            if (!$stmt->fetchColumn()) throw new RuntimeException('Rombel tidak ditemukan di tahun ajaran aktif.');
             $pdo->prepare("DELETE FROM rombel_members WHERE rombel_id=:r AND student_id=:s")->execute(['r'=>$rid,'s'=>$sid]);
             audit('remove_member', 'rombel:' . $rid, ['s' => $sid]);
             flash('success', 'Anggota dikeluarkan.');
@@ -71,8 +78,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
-// Wali kelas options (guru with is_wali=1)
-$walis = $pdo->query("SELECT id, niy, nama FROM users WHERE role='guru' AND is_wali=1 AND deleted_at IS NULL ORDER BY nama")->fetchAll();
+// Wali kelas options (guru who are assigned to the active academic year)
+$walis = $pdo->prepare(
+    "SELECT u.id, u.niy, u.nama
+     FROM users u
+     JOIN teachers t ON t.user_id = u.id
+     JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y
+     WHERE u.role = 'guru' AND u.is_wali = 1 AND u.deleted_at IS NULL
+     ORDER BY u.nama"
+);
+$walis->execute(['y' => $sc['year_id']]);
+$walis = $walis->fetchAll();
 
 // List rombel for active TA
 $rows = $pdo->prepare(
@@ -87,29 +103,34 @@ $rows = $rows->fetchAll();
 
 $edit = null;
 if ($editId) {
-    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND deleted_at IS NULL");
-    $stmt->execute(['id'=>$editId]); $edit = $stmt->fetch();
+    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+    $stmt->execute(['id'=>$editId,'y'=>$sc['year_id']]); $edit = $stmt->fetch();
 }
 
 // Manage members of one rombel
 $manage = null; $members = []; $eligible = [];
 if ($manageId) {
-    $stmt = $pdo->prepare("SELECT r.*, u.nama AS wali_nama FROM rombel r LEFT JOIN users u ON u.id=r.wali_id WHERE r.id=:id AND r.deleted_at IS NULL");
-    $stmt->execute(['id'=>$manageId]); $manage = $stmt->fetch();
+    $stmt = $pdo->prepare("SELECT r.*, u.nama AS wali_nama FROM rombel r LEFT JOIN users u ON u.id=r.wali_id WHERE r.id=:id AND r.academic_year_id=:y AND r.deleted_at IS NULL");
+    $stmt->execute(['id'=>$manageId,'y'=>$sc['year_id']]); $manage = $stmt->fetch();
     if ($manage) {
-        $m = $pdo->prepare("SELECT s.* FROM rombel_members rm JOIN students s ON s.id=rm.student_id WHERE rm.rombel_id=:r AND s.deleted_at IS NULL ORDER BY s.nama");
-        $m->execute(['r'=>$manageId]); $members = $m->fetchAll();
+        $m = $pdo->prepare("SELECT s.* FROM rombel_members rm JOIN students s ON s.id=rm.student_id WHERE rm.rombel_id=:r AND s.deleted_at IS NULL AND s.academic_year_id = :y ORDER BY s.nama");
+        $m->execute(['r'=>$manageId,'y'=>$sc['year_id']]); $members = $m->fetchAll();
         // Eligible = same jenjang+tingkat & not yet member of any rombel in this TA
         $e = $pdo->prepare(
             "SELECT s.* FROM students s
-             WHERE s.deleted_at IS NULL AND s.is_active=1 AND s.jenjang=:j AND s.tingkat=:t
+             WHERE s.deleted_at IS NULL AND s.is_active=1 AND s.academic_year_id = :y_outer AND s.jenjang=:j AND s.tingkat=:t
                AND s.id NOT IN (
                  SELECT rm.student_id FROM rombel_members rm JOIN rombel r ON r.id=rm.rombel_id
-                 WHERE r.academic_year_id=:y AND r.deleted_at IS NULL
+                 WHERE r.academic_year_id=:y_inner AND r.deleted_at IS NULL
                )
              ORDER BY s.nama"
         );
-        $e->execute(['j'=>$manage['jenjang'],'t'=>$manage['tingkat'],'y'=>$sc['year_id']]);
+        $e->execute([
+            'j' => $manage['jenjang'],
+            't' => $manage['tingkat'],
+            'y_outer' => $sc['year_id'],
+            'y_inner' => $sc['year_id'],
+        ]);
         $eligible = $e->fetchAll();
     }
 }

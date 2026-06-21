@@ -26,8 +26,10 @@ $pdo  = db();
 $sc   = active_scope();
 $err  = null;
 
-// ekskul list — selalu tampilkan semua ekskul aktif
-$ekskuls = $pdo->query("SELECT id, nama FROM extracurriculars ORDER BY nama")->fetchAll();
+// ekskul list — selalu tampilkan semua ekskul aktif di TA aktif
+$ekskuls = $pdo->prepare("SELECT id, nama FROM extracurriculars WHERE academic_year_id = :y AND deleted_at IS NULL ORDER BY nama");
+$ekskuls->execute(['y' => $sc['year_id']]);
+$ekskuls = $ekskuls->fetchAll();
 $eid     = int_or_null($_GET['ekskul_id'] ?? null);
 if (!$eid && $ekskuls) $eid = (int)$ekskuls[0]['id'];
 

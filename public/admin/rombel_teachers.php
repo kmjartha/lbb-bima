@@ -26,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($sem, ['ganjil','genap',''], true)) throw new RuntimeException('Semester invalid.');
             $semVal = $sem === '' ? null : $sem;
             if (!$rid || !$sid || !$tid) throw new RuntimeException('Rombel, mapel, dan guru wajib dipilih.');
+            $stmt = $pdo->prepare("SELECT 1 FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+            $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
+            if (!$stmt->fetchColumn()) throw new RuntimeException('Rombel tidak ditemukan di tahun ajaran aktif.');
 
             // upsert
             $del = $pdo->prepare("DELETE FROM rombel_subject_teachers WHERE rombel_id=:r AND subject_id=:s AND (semester <=> :sem)");
@@ -40,6 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($op === 'unassign') {
             $id = (int)($_POST['id'] ?? 0);
             $rid = (int)($_POST['rombel_id'] ?? 0);
+            $stmt = $pdo->prepare("SELECT 1 FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+            $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
+            if (!$stmt->fetchColumn()) throw new RuntimeException('Rombel tidak ditemukan di tahun ajaran aktif.');
             $pdo->prepare("DELETE FROM rombel_subject_teachers WHERE id=:id")->execute(['id'=>$id]);
             audit('unassign_teacher', 'rst:' . $id);
             flash('success', 'Mapping dihapus.');
@@ -58,29 +64,34 @@ $rombels = $rombels->fetchAll();
 
 $current = null; $assignments = []; $subjects = []; $teachers = [];
 if ($rombelId) {
-    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND deleted_at IS NULL");
-    $stmt->execute(['id'=>$rombelId]); $current = $stmt->fetch();
+    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+    $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
     if ($current) {
         // Subjects available for this jenjang
         $s = $pdo->prepare(
             "SELECT s.id, s.kode, s.nama FROM subjects s
              JOIN subject_jenjang_map jm ON jm.subject_id=s.id
-             WHERE jm.jenjang=:j AND s.deleted_at IS NULL ORDER BY s.kode"
+             WHERE jm.jenjang=:j AND s.deleted_at IS NULL AND s.academic_year_id = :y ORDER BY s.kode"
         );
-        $s->execute(['j'=>$current['jenjang']]); $subjects = $s->fetchAll();
-        $teachers = $pdo->query(
-            "SELECT t.id, u.niy, u.nama FROM teachers t JOIN users u ON u.id=t.user_id
-             WHERE u.deleted_at IS NULL AND u.is_active=1 AND u.role='guru' ORDER BY u.nama"
-        )->fetchAll();
+        $s->execute(['j'=>$current['jenjang'], 'y'=>$sc['year_id']]); $subjects = $s->fetchAll();
+        $teachers = $pdo->prepare(
+            "SELECT t.id, u.niy, u.nama
+             FROM teachers t
+             JOIN users u ON u.id=t.user_id
+             JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y
+             WHERE u.deleted_at IS NULL AND u.is_active=1 AND u.role='guru'
+             ORDER BY u.nama"
+        );
+        $teachers = $teachers->execute(['y' => $sc['year_id']]) ? $teachers->fetchAll() : [];
         $a = $pdo->prepare(
             "SELECT rst.*, s.kode AS s_kode, s.nama AS s_nama, u.nama AS t_nama, u.niy AS t_niy
              FROM rombel_subject_teachers rst
-             JOIN subjects s ON s.id=rst.subject_id
+             JOIN subjects s ON s.id=rst.subject_id AND s.academic_year_id = :y
              JOIN teachers t ON t.id=rst.teacher_id
              JOIN users u ON u.id=t.user_id
              WHERE rst.rombel_id = :r ORDER BY s.kode, rst.semester"
         );
-        $a->execute(['r'=>$rombelId]); $assignments = $a->fetchAll();
+        $a->execute(['r'=>$rombelId,'y'=>$sc['year_id']]); $assignments = $a->fetchAll();
     }
 }
 

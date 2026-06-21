@@ -65,7 +65,7 @@ function parent_publish_matrix(int $studentId, int $yearId): array
     foreach (['ganjil','genap'] as $sem) {
         foreach (['PTS','PAS'] as $pk) {
             $matrix[$sem][$pk] = $rombel
-                ? rapor_is_published((int)$rombel['id'], $studentId, $sem, $pk)
+                ? rapor_is_published((int)$rombel['id'], $studentId, $sem, $pk, $yearId)
                 : false;
         }
     }
@@ -78,7 +78,7 @@ function parent_scope_published(array $student): bool
     $sc = active_scope();
     $rombel = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
     if (!$rombel) return false;
-    return rapor_is_published((int)$rombel['id'], (int)$student['id'], $sc['semester'], $sc['period']);
+    return rapor_is_published((int)$rombel['id'], (int)$student['id'], $sc['semester'], $sc['period'], (int)$sc['year_id']);
 }
 
 /**

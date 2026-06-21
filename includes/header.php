@@ -27,8 +27,8 @@ $__role = $__user['role'] ?? '';
 $__notif_count = 0; $__notif_list = [];
 if (in_array($__role, ['kepsek','administrator','admin'], true)) {
     $__nf_jenjang = ($__role === 'kepsek') ? ($__user['jenjang'] ?? null) : null;
-    $__notif_count = notif_pending_review_count($__nf_jenjang);
-    $__notif_list  = $__notif_count > 0 ? notif_pending_review_list($__nf_jenjang, 8) : [];
+    $__notif_count = notif_pending_review_count($__nf_jenjang, (int)$__scope['year_id']);
+    $__notif_list  = $__notif_count > 0 ? notif_pending_review_list($__nf_jenjang, 8, (int)$__scope['year_id']) : [];
 }
 ?><!doctype html>
 <html lang="id">
@@ -119,7 +119,8 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
           ['kkm',               'admin/kkm.php',               'KKM',               'target'],
           ['subject_categories','admin/subject_categories.php','Kategori Mapel',    'list'],
           ['subjects',          'admin/subjects.php',          'Mata Pelajaran',    'book'],
-          ['electives',          'admin/electives.php',          'Mapel Pilihan',    'star'],
+          ['electives',         'admin/electives.php',         'Mapel Pilihan',    'star'],
+          ['character_aspects', 'admin/character_aspects.php','Aspek Karakter',   'shield'],
           ['teachers',          'admin/teachers.php',          'Guru',              'users'],
           ['students',          'admin/students.php',          'Siswa',             'student'],
           ['users',             'admin/users.php',             'Login Pegawai',     'key'],
@@ -151,6 +152,7 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
         ],
         'Lainnya' => [
           ['report_templates', 'admin/report_templates.php', 'Template Rapor', 'template'],
+          ['profile',          'profile.php',              'Profil Saya',    'profile'],
           ['audit_log',        'admin/audit_log.php',        'Audit Log',      'audit'],
         ],
       ];

@@ -16,7 +16,7 @@ $pk   = in_array($_GET['pk']  ?? '', ['PTS','PAS'], true)      ? $_GET['pk']  : 
 
 $rombel = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
 $publishMatrix = parent_publish_matrix((int)$student['id'], (int)$sc['year_id']);
-$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk) : false;
+$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, (int)$sc['year_id']) : false;
 
 $rows = ($rombel && $published)
   ? parent_published_grades((int)$student['id'], (int)$rombel['id'], $sem, $pk)

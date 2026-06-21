@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
+require_once __DIR__ . '/../../includes/scope.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
 require_admin_any();
 
 $pdo = db();
+$sc = active_scope();
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
@@ -23,6 +25,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $is_wali = !empty($_POST['is_wali']) ? 1 : 0;
             $subjectIds = array_map('intval', $_POST['subjects'] ?? []);
 
+            // Only allow subjects that are active in the current TA.
+            if ($subjectIds) {
+                $placeholders = implode(',', array_fill(0, count($subjectIds), '?'));
+                $validStmt = $pdo->prepare(
+                    "SELECT DISTINCT s.id
+                     FROM subjects s
+                     JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
+                     JOIN rombel r ON r.id = rst.rombel_id AND r.academic_year_id = ? AND r.deleted_at IS NULL
+                     WHERE s.deleted_at IS NULL AND s.id IN ($placeholders)"
+                );
+                $validStmt->execute(array_merge([$sc['year_id']], $subjectIds));
+                $validSubjectIds = array_map('intval', $validStmt->fetchAll(PDO::FETCH_COLUMN));
+                if (count($validSubjectIds) !== count(array_unique($subjectIds))) {
+                    throw new RuntimeException('Beberapa mata pelajaran tidak valid untuk Tahun Ajaran aktif.');
+                }
+                $subjectIds = $validSubjectIds;
+            }
+
             $pdo->beginTransaction();
 
             if ($id) {
@@ -36,6 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ->execute(['n'=>$niy,'nm'=>$nama,'e'=>$email,'w'=>$is_wali,'id'=>$userId]);
                 $pdo->prepare("UPDATE teachers SET nip=:p, phone=:ph WHERE id=:id")
                     ->execute(['p'=>$nip,'ph'=>$phone,'id'=>$id]);
+                $pdo->prepare("INSERT IGNORE INTO teacher_years (teacher_id, academic_year_id) VALUES (:t,:y)")
+                    ->execute(['t'=>$id,'y'=>$sc['year_id']]);
             } else {
                 if (!niy_unique($niy)) throw new RuntimeException('NIY sudah digunakan.');
                 $defaultPw = substr($niy, -4);
@@ -47,6 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("INSERT INTO teachers (user_id, nip, phone) VALUES (:u,:p,:ph)")
                     ->execute(['u'=>$userId,'p'=>$nip,'ph'=>$phone]);
                 $id = (int)$pdo->lastInsertId();
+                $pdo->prepare("INSERT INTO teacher_years (teacher_id, academic_year_id) VALUES (:t,:y)")
+                    ->execute(['t'=>$id,'y'=>$sc['year_id']]);
             }
 
             // Subjects mapping
@@ -74,18 +98,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$subjects = $pdo->query("SELECT id, kode, nama FROM subjects WHERE deleted_at IS NULL ORDER BY kode")->fetchAll();
+$subjects = $pdo->prepare(
+    "SELECT DISTINCT s.id, s.kode, s.nama
+     FROM subjects s
+     JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
+     JOIN rombel r ON r.id = rst.rombel_id AND r.academic_year_id = :y_r AND r.deleted_at IS NULL
+     WHERE s.deleted_at IS NULL
+       AND s.academic_year_id = :y_s
+     ORDER BY s.kode"
+);
+$subjects->execute(['y_r' => $sc['year_id'], 'y_s' => $sc['year_id']]);
+$subjects = $subjects->fetchAll();
 
-$rows = $pdo->query(
+$rows = $pdo->prepare(
     "SELECT t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone,
-            (SELECT GROUP_CONCAT(s.kode ORDER BY s.kode SEPARATOR ', ')
-             FROM teacher_subjects ts JOIN subjects s ON s.id = ts.subject_id
-             WHERE ts.teacher_id = t.id) AS mapel
+            GROUP_CONCAT(DISTINCT s.kode ORDER BY s.kode SEPARATOR ', ') AS mapel
      FROM teachers t
      JOIN users u ON u.id = t.user_id
-     WHERE u.deleted_at IS NULL
+     LEFT JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y_year
+     LEFT JOIN teacher_subjects ts ON ts.teacher_id = t.id
+     LEFT JOIN subjects s ON s.id = ts.subject_id AND s.deleted_at IS NULL AND s.academic_year_id = :y_outer
+     WHERE u.deleted_at IS NULL AND u.is_active = 1 AND u.role = 'guru'
+       AND (
+           ty.teacher_id IS NOT NULL
+           OR EXISTS (
+               SELECT 1 FROM teacher_subjects ts2
+               JOIN subjects s2 ON s2.id = ts2.subject_id AND s2.deleted_at IS NULL AND s2.academic_year_id = :y_subjects
+               WHERE ts2.teacher_id = t.id
+           )
+           OR EXISTS (
+               SELECT 1 FROM rombel r2 WHERE r2.wali_id = t.id AND r2.academic_year_id = :y_wali AND r2.deleted_at IS NULL
+           )
+           OR EXISTS (
+               SELECT 1 FROM rombel_subject_teachers rst2
+               JOIN rombel r3 ON r3.id = rst2.rombel_id AND r3.academic_year_id = :y_assignments AND r3.deleted_at IS NULL
+               WHERE rst2.teacher_id = t.id
+           )
+       )
+     GROUP BY t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone
      ORDER BY u.nama"
-)->fetchAll();
+);
+$rows->execute([
+    'y_year' => $sc['year_id'],
+    'y_outer' => $sc['year_id'],
+    'y_subjects' => $sc['year_id'],
+    'y_wali' => $sc['year_id'],
+    'y_assignments' => $sc['year_id'],
+]);
+$rows = $rows->fetchAll();
 
 $edit = null; $editSubjects = [];
 if ($editId) {
@@ -97,8 +157,14 @@ if ($editId) {
     $stmt->execute(['id'=>$editId]);
     $edit = $stmt->fetch();
     if ($edit) {
-        $s = $pdo->prepare("SELECT subject_id FROM teacher_subjects WHERE teacher_id = :id");
-        $s->execute(['id'=>$editId]);
+        $s = $pdo->prepare(
+            "SELECT DISTINCT ts.subject_id
+             FROM teacher_subjects ts
+             JOIN rombel_subject_teachers rst ON rst.subject_id = ts.subject_id AND rst.teacher_id = ts.teacher_id
+             JOIN rombel r ON r.id = rst.rombel_id AND r.academic_year_id = :y AND r.deleted_at IS NULL
+             WHERE ts.teacher_id = :id"
+        );
+        $s->execute(['id'=>$editId, 'y' => $sc['year_id']]);
         $editSubjects = array_map('intval', $s->fetchAll(PDO::FETCH_COLUMN));
     }
 }

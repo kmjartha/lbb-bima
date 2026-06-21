@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
+require_once __DIR__ . '/../../includes/scope.php';
 $u = require_view('academic_years'); // Administrator only per spec
 
 $pdo = db();
@@ -15,54 +16,266 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $op = (string)($_POST['op'] ?? '');
 
         if ($op === 'create') {
-            // Administrator-only: control academic year mode/lock states
-            require_administrator();
-            $label = req_str($_POST, 'label', 9);
-            if (!preg_match('#^\d{4}/\d{4}$#', $label)) throw new RuntimeException('Format tahun ajaran: YYYY/YYYY (contoh 2025/2026).');
-            $copy_from = int_or_null($_POST['copy_from'] ?? null);
-            $set_active = !empty($_POST['set_active']);
+    require_administrator();
+    $label = req_str($_POST, 'label', 9);
+    if (!preg_match('#^\d{4}/\d{4}$#', $label)) {
+        throw new RuntimeException('Format tahun ajaran: YYYY/YYYY (contoh 2025/2026).');
+    }
+    $ganjil_start = req_str($_POST, 'ganjil_start', 10);
+    $ganjil_end   = req_str($_POST, 'ganjil_end', 10);
+    $genap_start  = req_str($_POST, 'genap_start', 10);
+    $genap_end    = req_str($_POST, 'genap_end', 10);
+    $copy_from     = int_or_null($_POST['copy_from'] ?? null);
+    $set_active    = !empty($_POST['set_active']);
 
-            $pdo->beginTransaction();
-            $pdo->prepare("INSERT INTO academic_years (label, is_active) VALUES (:l, 0)")->execute(['l' => $label]);
-            $newId = (int)$pdo->lastInsertId();
-            // Default state rows
-            $pdo->prepare("INSERT INTO semesters_state (academic_year_id, semester) VALUES (:y1,'ganjil'),(:y2,'genap')")
-                ->execute(['y1' => $newId, 'y2' => $newId]);
-
-            if ($copy_from) {
-                // Copy rombel + members + teacher mappings + KKM + templates already are global; ekskul too.
-                $rombels = $pdo->prepare("SELECT * FROM rombel WHERE academic_year_id = :y AND deleted_at IS NULL");
-                $rombels->execute(['y' => $copy_from]);
-                foreach ($rombels->fetchAll() as $r) {
-                    $pdo->prepare("INSERT INTO rombel (academic_year_id, jenjang, tingkat, nama, wali_id) VALUES (:y,:j,:t,:n,:w)")
-                        ->execute(['y'=>$newId,'j'=>$r['jenjang'],'t'=>$r['tingkat'],'n'=>$r['nama'],'w'=>$r['wali_id']]);
-                    $newRombelId = (int)$pdo->lastInsertId();
-                    // members
-                    $m = $pdo->prepare("SELECT student_id FROM rombel_members WHERE rombel_id = :r");
-                    $m->execute(['r' => $r['id']]);
-                    $ins = $pdo->prepare("INSERT IGNORE INTO rombel_members (rombel_id, student_id) VALUES (:r,:s)");
-                    foreach ($m->fetchAll(PDO::FETCH_COLUMN) as $sid) {
-                        $ins->execute(['r' => $newRombelId, 's' => $sid]);
-                    }
-                    // teacher mappings
-                    $t = $pdo->prepare("SELECT subject_id, teacher_id FROM rombel_subject_teachers WHERE rombel_id = :r");
-                    $t->execute(['r' => $r['id']]);
-                    $insT = $pdo->prepare("INSERT IGNORE INTO rombel_subject_teachers (rombel_id, subject_id, teacher_id) VALUES (:r,:s,:t)");
-                    foreach ($t->fetchAll() as $row) {
-                        $insT->execute(['r' => $newRombelId, 's' => $row['subject_id'], 't' => $row['teacher_id']]);
-                    }
-                }
-            }
-
-            if ($set_active) {
-                $pdo->exec("UPDATE academic_years SET is_active = 0");
-                $pdo->prepare("UPDATE academic_years SET is_active = 1 WHERE id = :id")->execute(['id' => $newId]);
-            }
-            $pdo->commit();
-            audit('create', 'academic_year:' . $label, ['copy_from' => $copy_from]);
-            flash('success', "Tahun ajaran $label dibuat.");
-            redirect('admin/academic_years.php');
+    $validateDate = function (string $value, string $label): string {
+        $d = DateTime::createFromFormat('Y-m-d', $value);
+        if (!$d || $d->format('Y-m-d') !== $value) {
+            throw new RuntimeException("$label harus format YYYY-MM-DD.");
         }
+        return $value;
+    };
+
+    $ganjil_start = $validateDate($ganjil_start, 'Semester Ganjil mulai');
+    $ganjil_end   = $validateDate($ganjil_end,   'Semester Ganjil selesai');
+    $genap_start  = $validateDate($genap_start,  'Semester Genap mulai');
+    $genap_end    = $validateDate($genap_end,    'Semester Genap selesai');
+    if ($ganjil_start > $ganjil_end) {
+        throw new RuntimeException('Semester Ganjil: tanggal mulai harus sebelum atau sama dengan tanggal selesai.');
+    }
+    if ($genap_start > $genap_end) {
+        throw new RuntimeException('Semester Genap: tanggal mulai harus sebelum atau sama dengan tanggal selesai.');
+    }
+
+    $pdo->beginTransaction();
+
+    // 1) create the new year + semester state rows
+    $pdo->prepare("INSERT INTO academic_years (label, is_active) VALUES (:l, 0)")
+        ->execute(['l' => $label]);
+    $newId = (int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO semesters_state (academic_year_id, semester, start_date, end_date)
+                   VALUES (:y1,'ganjil',:g1s,:g1e),(:y2,'genap',:g2s,:g2e)")
+        ->execute([
+            'y1' => $newId,
+            'y2' => $newId,
+            'g1s' => $ganjil_start,
+            'g1e' => $ganjil_end,
+            'g2s' => $genap_start,
+            'g2e' => $genap_end,
+        ]);
+
+    // 2) deep copy if requested
+    if ($copy_from) {
+
+        // helper: remap an old id through a map (returns null if missing)
+        $map = function (array $m, $k) { return isset($m[$k]) ? $m[$k] : null; };
+
+        // ---- subject_categories ----
+        $catMap = [];
+        $s = $pdo->prepare("SELECT id, nama FROM subject_categories WHERE academic_year_id = :y");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO subject_categories (academic_year_id, nama) VALUES (:y,:n)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute(['y' => $newId, 'n' => $r['nama']]);
+            $catMap[(int)$r['id']] = (int)$pdo->lastInsertId();
+        }
+
+        // ---- subjects ----
+        $subjMap = [];
+        $s = $pdo->prepare("SELECT id, kode, nama, category_id
+                            FROM subjects
+                            WHERE academic_year_id = :y AND deleted_at IS NULL");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO subjects (academic_year_id, kode, nama, category_id)
+                              VALUES (:y, :k, :n, :c)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute([
+                'y' => $newId,
+                'k' => $r['kode'],
+                'n' => $r['nama'],
+                'c' => $r['category_id'] ? $map($catMap, (int)$r['category_id']) : null,
+            ]);
+            $subjMap[(int)$r['id']] = (int)$pdo->lastInsertId();
+        }
+
+        // ---- subject_jenjang_map (per new subject) ----
+        if ($subjMap) {
+            $s = $pdo->prepare("SELECT subject_id, jenjang FROM subject_jenjang_map
+                                WHERE subject_id IN (" . implode(',', array_keys($subjMap)) . ")");
+            $s->execute();
+            $ins = $pdo->prepare("INSERT IGNORE INTO subject_jenjang_map (subject_id, jenjang) VALUES (:s,:j)");
+            foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $ins->execute(['s' => $subjMap[(int)$r['subject_id']], 'j' => $r['jenjang']]);
+            }
+        }
+
+        // ---- students (year-scoped after migration) ----
+        $stuMap = [];
+        $s = $pdo->prepare("SELECT * FROM students
+                            WHERE academic_year_id = :y AND deleted_at IS NULL");
+        $s->execute(['y' => $copy_from]);
+        $cols = ['nisn','nis','nama','jenjang','tingkat','jk','tempat_lahir','tgl_lahir',
+                 'alamat','nama_ayah','nama_ibu','pekerjaan_ayah','pekerjaan_ibu',
+                 'telp_ortu','foto_path','is_active'];
+        $colList   = 'academic_year_id,' . implode(',', $cols);
+        $placeList = ':academic_year_id,' . implode(',', array_map(fn($c)=>':'.$c, $cols));
+        $ins = $pdo->prepare("INSERT INTO students ($colList) VALUES ($placeList)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $params = ['academic_year_id' => $newId];
+            foreach ($cols as $c) { $params[$c] = $r[$c]; }
+            $ins->execute($params);
+            $stuMap[(int)$r['id']] = (int)$pdo->lastInsertId();
+        }
+
+        // ---- rombel ----
+        $rombelMap = [];
+        $s = $pdo->prepare("SELECT * FROM rombel
+                            WHERE academic_year_id = :y AND deleted_at IS NULL");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO rombel
+            (academic_year_id, jenjang, tingkat, nama, wali_id, kapasitas)
+            VALUES (:y,:j,:t,:n,:w,:k)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute([
+                'y' => $newId,
+                'j' => $r['jenjang'],
+                't' => $r['tingkat'],
+                'n' => $r['nama'],
+                'w' => $r['wali_id'],          // users.id — global, do not remap
+                'k' => $r['kapasitas'],
+            ]);
+            $rombelMap[(int)$r['id']] = (int)$pdo->lastInsertId();
+        }
+
+        // ---- rombel_members (with remapped student + rombel ids) ----
+        if ($rombelMap) {
+            $s = $pdo->prepare("SELECT rombel_id, student_id FROM rombel_members
+                                WHERE rombel_id IN (" . implode(',', array_keys($rombelMap)) . ")");
+            $s->execute();
+            $ins = $pdo->prepare("INSERT IGNORE INTO rombel_members (rombel_id, student_id) VALUES (:r,:s)");
+            foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $newSid = $stuMap[(int)$r['student_id']] ?? null;
+                if (!$newSid) continue; // student wasn't copied (inactive/deleted)
+                $ins->execute([
+                    'r' => $rombelMap[(int)$r['rombel_id']],
+                    's' => $newSid,
+                ]);
+            }
+        }
+
+        // ---- rombel_subject_teachers (remap rombel + subject; teacher stays) ----
+        if ($rombelMap) {
+            $s = $pdo->prepare("SELECT rombel_id, subject_id, teacher_id, semester
+                                FROM rombel_subject_teachers
+                                WHERE rombel_id IN (" . implode(',', array_keys($rombelMap)) . ")");
+            $s->execute();
+            $ins = $pdo->prepare("INSERT IGNORE INTO rombel_subject_teachers
+                (rombel_id, subject_id, teacher_id, semester) VALUES (:r,:s,:t,:sem)");
+            foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $newSubj = $subjMap[(int)$r['subject_id']] ?? null;
+                if (!$newSubj) continue;
+                $ins->execute([
+                    'r'   => $rombelMap[(int)$r['rombel_id']],
+                    's'   => $newSubj,
+                    't'   => $r['teacher_id'],
+                    'sem' => $r['semester'],
+                ]);
+            }
+        }
+
+        // ---- teacher_years (carry guru list into the new TA) ----
+        $s = $pdo->prepare("SELECT teacher_id FROM teacher_years WHERE academic_year_id = :y");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT IGNORE INTO teacher_years (teacher_id, academic_year_id) VALUES (:t,:y)");
+        foreach ($s->fetchAll(PDO::FETCH_COLUMN) as $tid) {
+            $ins->execute(['t' => $tid, 'y' => $newId]);
+        }
+
+        // ---- kkm_settings ----
+        $s = $pdo->prepare("SELECT jenjang, grade, min_val, max_val, predikat
+                            FROM kkm_settings WHERE academic_year_id = :y");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO kkm_settings
+            (academic_year_id, jenjang, grade, min_val, max_val, predikat)
+            VALUES (:y,:j,:g,:mn,:mx,:p)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute([
+                'y'=>$newId,'j'=>$r['jenjang'],'g'=>$r['grade'],
+                'mn'=>$r['min_val'],'mx'=>$r['max_val'],'p'=>$r['predikat']
+            ]);
+        }
+
+        // ---- character_aspects ----
+        $s = $pdo->prepare("SELECT nama, kategori FROM character_aspects WHERE academic_year_id = :y");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO character_aspects (academic_year_id, nama, kategori) VALUES (:y,:n,:k)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute(['y'=>$newId,'n'=>$r['nama'],'k'=>$r['kategori']]);
+        }
+
+        // ---- extracurriculars ----
+        $s = $pdo->prepare("SELECT nama, pembina, jadwal, deskripsi, is_active
+                            FROM extracurriculars WHERE academic_year_id = :y");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO extracurriculars
+            (academic_year_id, nama, pembina, jadwal, deskripsi, is_active)
+            VALUES (:y,:n,:p,:j,:d,:a)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute([
+                'y'=>$newId,'n'=>$r['nama'],'p'=>$r['pembina'],
+                'j'=>$r['jadwal'],'d'=>$r['deskripsi'],'a'=>$r['is_active'],
+            ]);
+        }
+
+        // ---- report_templates + report_signatures ----
+        $s = $pdo->prepare("SELECT jenjang, layout_json, header_img, footer_img
+                            FROM report_templates WHERE academic_year_id = :y");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO report_templates
+            (academic_year_id, jenjang, layout_json, header_img, footer_img)
+            VALUES (:y,:j,:l,:h,:f)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute([
+                'y'=>$newId,'j'=>$r['jenjang'],'l'=>$r['layout_json'],
+                'h'=>$r['header_img'],'f'=>$r['footer_img'],
+            ]);
+        }
+        $s = $pdo->prepare("SELECT jenjang, slot, nama, jabatan, ttd_path
+                            FROM report_signatures WHERE academic_year_id = :y");
+        $s->execute(['y' => $copy_from]);
+        $ins = $pdo->prepare("INSERT INTO report_signatures
+            (academic_year_id, jenjang, slot, nama, jabatan, ttd_path)
+            VALUES (:y,:j,:s,:n,:jb,:t)");
+        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $ins->execute([
+                'y'=>$newId,'j'=>$r['jenjang'],'s'=>$r['slot'],
+                'n'=>$r['nama'],'jb'=>$r['jabatan'],'t'=>$r['ttd_path'],
+            ]);
+        }
+
+        // NOTE: assessment data (attendance, grades_daily, grade_descriptions,
+        // final_grades, character_evaluations, general_evaluations,
+        // extracurricular_grades, achievements, wali_notes) is intentionally
+        // NOT copied — those are produced fresh in the new tahun ajaran.
+    }
+
+    if ($set_active) {
+        $pdo->exec("UPDATE academic_years SET is_active = 0");
+        $pdo->prepare("UPDATE academic_years SET is_active = 1 WHERE id = :id")
+            ->execute(['id' => $newId]);
+        $_SESSION['scope']['year_id'] = $newId;
+    }
+
+    $pdo->commit();
+    audit('create', 'academic_year:' . $label,
+          ['copy_from' => $copy_from, 'deep_copy' => (bool)$copy_from]);
+    flash('success',
+          $copy_from
+            ? "Tahun ajaran $label dibuat (salinan independen dari TA sumber)."
+            : "Tahun ajaran $label dibuat (kosong).");
+    redirect('admin/academic_years.php');
+}
+
 
         if ($op === 'set_active') {
             require_administrator();
@@ -71,6 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->exec("UPDATE academic_years SET is_active = 0");
             $pdo->prepare("UPDATE academic_years SET is_active = 1 WHERE id = :id")->execute(['id' => $id]);
             $pdo->commit();
+            $_SESSION['scope']['year_id'] = $id;
             audit('set_active', 'academic_year:' . $id);
             flash('success', 'Tahun ajaran aktif diperbarui.');
             redirect('admin/academic_years.php');
@@ -82,8 +296,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $semester = (string)($_POST['semester'] ?? '');
             if (!in_array($semester, ['ganjil','genap'], true)) throw new RuntimeException('Semester invalid.');
             // Ensure a row exists, then flip the per-semester lock.
-            $pdo->prepare("INSERT IGNORE INTO semesters_state (academic_year_id, semester) VALUES (:y, :s)")
-                ->execute(['y' => $yearId, 's' => $semester]);
+            [$startDate, $endDate] = semester_date_window($yearId, $semester);
+            $pdo->prepare(
+                "INSERT IGNORE INTO semesters_state (academic_year_id, semester, start_date, end_date)
+                 VALUES (:y, :s, :sd, :ed)"
+            )->execute(['y' => $yearId, 's' => $semester, 'sd' => $startDate, 'ed' => $endDate]);
             $pdo->prepare("UPDATE semesters_state SET semester_locked = 1 - semester_locked WHERE academic_year_id = :y AND semester = :s")
                 ->execute(['y' => $yearId, 's' => $semester]);
             audit('toggle_semester_lock', "year:$yearId/$semester");
@@ -114,7 +331,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $years = $pdo->query(
     "SELECT y.*,
         COALESCE((SELECT semester_locked FROM semesters_state WHERE academic_year_id=y.id AND semester='ganjil'),0) AS gj_lock,
-        COALESCE((SELECT semester_locked FROM semesters_state WHERE academic_year_id=y.id AND semester='genap'),0)  AS gn_lock
+        COALESCE((SELECT semester_locked FROM semesters_state WHERE academic_year_id=y.id AND semester='genap'),0)  AS gn_lock,
+        COALESCE((SELECT CONCAT_WS(' - ', start_date, end_date) FROM semesters_state WHERE academic_year_id=y.id AND semester='ganjil'), '—') AS gj_range,
+        COALESCE((SELECT CONCAT_WS(' - ', start_date, end_date) FROM semesters_state WHERE academic_year_id=y.id AND semester='genap'),  '—') AS gn_range
      FROM academic_years y ORDER BY label DESC"
 )->fetchAll();
 
@@ -139,6 +358,10 @@ require __DIR__ . '/../../includes/header.php';
           <?php endforeach; ?>
         </select>
       </div>
+      <div class="field" style="flex: 1"><label class="label">Ganjil mulai *</label><input class="input" type="date" name="ganjil_start" required></div>
+      <div class="field" style="flex: 1"><label class="label">Ganjil selesai *</label><input class="input" type="date" name="ganjil_end" required></div>
+      <div class="field" style="flex: 1"><label class="label">Genap mulai *</label><input class="input" type="date" name="genap_start" required></div>
+      <div class="field" style="flex: 1"><label class="label">Genap selesai *</label><input class="input" type="date" name="genap_end" required></div>
       <div class="field" style="flex: 0 0 auto">
         <label class="checkbox-row"><input type="checkbox" name="set_active" value="1"> Jadikan aktif</label>
       </div>
@@ -180,6 +403,9 @@ require __DIR__ . '/../../includes/header.php';
               <?php else: ?>
                 <span class="badge <?= $val ? 'badge-danger' : 'badge-success' ?>"><?= $val ? '🔒 Terkunci' : '🔓 Terbuka' ?></span>
               <?php endif; ?>
+              <div class="text-muted" style="font-size:.85rem; margin-top:.4rem">
+                <?= esc($sem === 'ganjil' ? $y['gj_range'] : $y['gn_range']) ?>
+              </div>
             </td>
           <?php endforeach; ?>
           <td style="text-align:right">

@@ -18,7 +18,7 @@ $attSummary = $rombel
     : ['h'=>0,'i'=>0,'s'=>0,'a'=>0,'total'=>0];
 
 $publishedNow = $rombel
-    ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sc['semester'], $sc['period'])
+    ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sc['semester'], $sc['period'], (int)$sc['year_id'])
     : false;
 
 $gradesPreview = ($publishedNow && $rombel)

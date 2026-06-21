@@ -89,17 +89,17 @@ $rombels = $rombels->fetchAll();
 
 $subjects = []; $current = null; $topics = [];
 if ($rombelId) {
-    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND deleted_at IS NULL");
-    $stmt->execute(['id'=>$rombelId]); $current = $stmt->fetch();
+    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+    $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
     if ($current) {
         // Mapel yang punya guru pengampu di rombel ini (atau semua mapel jenjang ini sebagai fallback)
         $s = $pdo->prepare(
             "SELECT DISTINCT s.id, s.kode, s.nama FROM subjects s
              JOIN subject_jenjang_map jm ON jm.subject_id=s.id
-             WHERE jm.jenjang=:j AND s.deleted_at IS NULL
+             WHERE jm.jenjang=:j AND s.deleted_at IS NULL AND s.academic_year_id = :y
              ORDER BY s.kode"
         );
-        $s->execute(['j'=>$current['jenjang']]); $subjects = $s->fetchAll();
+        $s->execute(['j'=>$current['jenjang'], 'y'=>$sc['year_id']]); $subjects = $s->fetchAll();
 
         if ($subjectId) {
             $t = $pdo->prepare(

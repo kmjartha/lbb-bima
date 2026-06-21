@@ -10,13 +10,15 @@
  */
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/guard.php';
+require_once __DIR__ . '/../includes/scope.php';
 require_once __DIR__ . '/../includes/audit_helpers.php';
 
 $me  = require_staff();
 $pdo = db();
+$sc  = active_scope();
 $role = $me['role'] ?? '';
 
-$counts = dashboard_counters_for($me);
+$counts = dashboard_counters_for($me, (int)$sc['year_id']);
 
 // Recent activity — administrator sees all, others see filtered to themselves.
 if ($role === 'administrator') {
@@ -27,7 +29,7 @@ if ($role === 'administrator') {
     $recent = $st->fetchAll();
 }
 
-$kepsekPending = ($role === 'kepsek') ? notif_pending_review_list($me['jenjang'] ?? null, 6) : [];
+$kepsekPending = ($role === 'kepsek') ? notif_pending_review_list($me['jenjang'] ?? null, 6, (int)$sc['year_id']) : [];
 $todayByAction = ($role === 'administrator') ? audit_today_by_action(8) : [];
 
 $page_title = 'Dashboard';

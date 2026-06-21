@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/scope.php';
 require_once __DIR__ . '/csrf.php';
 
 /* =====================================================================
@@ -48,12 +49,13 @@ function current_user(): ?array
 
 function parent_login(string $nisn, string $password, bool $remember = false): array
 {
+    $yearId = active_scope()['year_id'];
     $stmt = db()->prepare(
         "SELECT pa.*, s.nama, s.jenjang, s.tingkat
          FROM parents_auth pa JOIN students s ON s.id = pa.student_id
-         WHERE s.nisn = :n AND pa.is_active = 1 AND s.deleted_at IS NULL LIMIT 1"
+         WHERE s.nisn = :n AND s.academic_year_id = :y AND pa.is_active = 1 AND s.deleted_at IS NULL LIMIT 1"
     );
-    $stmt->execute(['n' => $nisn]);
+    $stmt->execute(['n' => $nisn, 'y' => $yearId]);
     $row = $stmt->fetch();
     if (!$row) throw new RuntimeException('Akun ortu tidak ditemukan.');
     if (!password_verify($password, $row['password_hash'])) throw new RuntimeException('NISN atau password salah.');
@@ -145,8 +147,9 @@ function try_remember_login(string $kind): ?array
     }
 
     if ($kind === 'parent') {
-        $u = db()->prepare("SELECT pa.*, s.nama, s.jenjang, s.tingkat FROM parents_auth pa JOIN students s ON s.id = pa.student_id WHERE pa.id = :id");
-        $u->execute(['id' => $row[$col]]);
+        $yearId = active_scope()['year_id'];
+        $u = db()->prepare("SELECT pa.*, s.nama, s.jenjang, s.tingkat FROM parents_auth pa JOIN students s ON s.id = pa.student_id WHERE pa.id = :id AND s.academic_year_id = :y");
+        $u->execute(['id' => $row[$col], 'y' => $yearId]);
         $r = $u->fetch();
         if (!$r) return null;
         $_SESSION['parent'] = [
