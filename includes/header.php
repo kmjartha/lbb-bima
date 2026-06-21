@@ -43,15 +43,11 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
 <aside class="sidebar" id="sidebar">
   <div class="brand">
     <div class="brand-logo" aria-hidden="true">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 10l9-4 9 4-9 4-9-4z"/>
-        <path d="M7 12v4c0 1.5 2.5 3 5 3s5-1.5 5-3v-4"/>
-        <path d="M21 10v6"/>
-      </svg>
+      <img src="../assets/img/logo.png" width="30px">
     </div>
     <div>
       <div class="brand-title"><?= esc(cfg()['app_name']) ?></div>
-      <div class="brand-sub">SD · SMP · SMA</div>
+      <div class="brand-sub">TK · SD · SMP · SMA</div>
     </div>
   </div>
   <!-- Role + scope pill in sidebar -->
