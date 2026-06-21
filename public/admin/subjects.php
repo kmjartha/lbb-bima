@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newCat = trim((string)($_POST['new_category'] ?? ''));
             $jenjangs = $_POST['jenjang'] ?? [];
             if (!is_array($jenjangs) || !$jenjangs) throw new RuntimeException('Pilih minimal 1 jenjang.');
-            foreach ($jenjangs as $j) if (!in_array($j, ['SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
+            foreach ($jenjangs as $j) if (!in_array($j, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
 
             $pdo->beginTransaction();
             // Inline category create
@@ -101,7 +101,7 @@ $cats = $pdo->query("SELECT id, nama FROM subject_categories ORDER BY nama")->fe
 
 $rows = $pdo->query(
     "SELECT s.*, c.nama AS cat_nama,
-            GROUP_CONCAT(jm.jenjang ORDER BY FIELD(jm.jenjang,'SD','SMP','SMA') SEPARATOR ',') AS jenjangs
+            GROUP_CONCAT(jm.jenjang ORDER BY FIELD(jm.jenjang,'TK','SD','SMP','SMA') SEPARATOR ',') AS jenjangs
      FROM subjects s
      LEFT JOIN subject_categories c ON c.id = s.category_id
      LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
@@ -154,7 +154,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="field">
           <label class="label">Jenjang *</label>
           <div style="display:flex; gap: var(--sp-4)">
-            <?php foreach (['SD','SMP','SMA'] as $j): ?>
+            <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
               <label class="checkbox-row"><input type="checkbox" name="jenjang[]" value="<?= $j ?>" <?= in_array($j, $editJ, true) ? 'checked' : '' ?>> <?= $j ?></label>
             <?php endforeach; ?>
           </div>
