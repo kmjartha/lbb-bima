@@ -77,7 +77,7 @@ foreach ($myRombels as $r) {
         $uniqueJenjang[] = $r['jenjang'];
     }
 }
-usort($uniqueJenjang, fn($a, $b) => ['SD' => 0, 'SMP' => 1, 'SMA' => 2][$a] <=> ['SD' => 0, 'SMP' => 1, 'SMA' => 2][$b]);
+usort($uniqueJenjang, fn($a, $b) => ['SD' => 0, 'SMP' => 1, 'SMA' => 2, 'TK' => 3][$a] <=> ['SD' => 0, 'SMP' => 1, 'SMA' => 2, 'TK' => 3][$b]);
 
 // Get selected jenjang from currentRombel or GET parameter
 $selectedJenjang = null;
