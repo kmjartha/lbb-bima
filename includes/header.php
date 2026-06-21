@@ -47,7 +47,11 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
       <img src="<?= esc(url('../assets/img/logo.png')) ?>" width="30px">
     </div>
     <div>
+<<<<<<< HEAD
       <div class="brand-title"><?= esc(cfg()['app_name']) ?></div>
+=======
+      <div class="brand-title">LBB Bima</div>
+>>>>>>> b750168 (WIP: local changes before sync)
       <div class="brand-sub">TK · SD · SMP · SMA</div>
     </div>
   </div>
@@ -149,7 +153,6 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
         ],
         'Lainnya' => [
           ['report_templates', 'admin/report_templates.php', 'Template Rapor', 'template'],
-          ['profile',          'profile.php',              'Profil Saya',    'profile'],
           ['audit_log',        'admin/audit_log.php',        'Audit Log',      'audit'],
         ],
       ];

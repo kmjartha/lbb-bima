@@ -40,7 +40,7 @@ $_env = function(string $key, string $default): string {
 };
 
 return [
-    'app_name'    => $_env('APP_NAME', 'LBB-BIMA'),
+    'app_name'    => $_env('APP_NAME', 'LBB Bima'),
     'base_url'    => $_env('APP_BASE_URL', '/public/'),
     'env'         => $_env('APP_ENV', 'development'),
 
