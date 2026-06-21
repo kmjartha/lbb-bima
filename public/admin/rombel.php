@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nama      = req_str($_POST, 'nama', 40);
             $waliId    = int_or_null($_POST['wali_id'] ?? null);
             $kapasitas = max(1, (int)($_POST['kapasitas'] ?? 28));
-            if (!in_array($jenjang, ['SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
+            if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
             if ($tingkat < 1 || $tingkat > 12) throw new RuntimeException('Tingkat 1-12.');
 
             if ($id) {
@@ -80,7 +80,7 @@ $rows = $pdo->prepare(
             (SELECT COUNT(*) FROM rombel_members rm WHERE rm.rombel_id = r.id) AS jml_anggota
      FROM rombel r LEFT JOIN users u ON u.id = r.wali_id
      WHERE r.academic_year_id = :y AND r.deleted_at IS NULL
-     ORDER BY FIELD(r.jenjang,'SD','SMP','SMA'), r.tingkat, r.nama"
+     ORDER BY FIELD(r.jenjang,'TK','SD','SMP','SMA'), r.tingkat, r.nama"
 );
 $rows->execute(['y'=>$sc['year_id']]);
 $rows = $rows->fetchAll();
@@ -132,7 +132,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="row">
           <div class="field"><label class="label">Jenjang *</label>
             <select class="select" name="jenjang" required>
-              <?php foreach (['SD','SMP','SMA'] as $j): ?>
+              <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
                 <option value="<?= $j ?>" <?= ($edit['jenjang']??'')===$j?'selected':'' ?>><?= $j ?></option>
               <?php endforeach; ?>
             </select>
