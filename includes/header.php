@@ -37,13 +37,14 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= esc($__title) ?> · <?= esc(cfg()['app_name']) ?></title>
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
+<link rel="icon" type="image/x-icon" href="<?= esc(url('../assets/img/logo.png')) ?>">
 <script defer src="<?= esc(url('../assets/js/app.js')) ?>"></script>
 </head>
 <body class="app">
 <aside class="sidebar" id="sidebar">
   <div class="brand">
     <div class="brand-logo" aria-hidden="true">
-      <img src="../assets/img/logo.png" width="30px">
+      <img src="<?= esc(url('../assets/img/logo.png')) ?>" width="30px">
     </div>
     <div>
       <div class="brand-title"><?= esc(cfg()['app_name']) ?></div>
