@@ -21,6 +21,14 @@ $allRombels = $pdo->prepare(
 $allRombels->execute(['y' => $yearId]);
 $allRombels = $allRombels->fetchAll();
 
+$subjectCategories = $pdo->prepare("SELECT id, nama FROM subject_categories WHERE academic_year_id = :y ORDER BY nama");
+$subjectCategories->execute(['y' => $yearId]);
+$subjectCategories = $subjectCategories->fetchAll();
+$categoryMap = [];
+foreach ($subjectCategories as $cat) {
+    $categoryMap[(int)$cat['id']] = $cat['nama'];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
@@ -32,8 +40,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $kode = req_str($_POST, 'kode', 20);
             $nama = req_str($_POST, 'nama', 120);
             $jenjang = req_str($_POST, 'jenjang', 4);
+            $categoryId = int_or_null($_POST['category_id'] ?? null);
             if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) {
                 throw new RuntimeException('Jenjang invalid.');
+            }
+            if (!$categoryId) {
+                throw new RuntimeException('Pilih kategori mapel.');
+            }
+            $stmt = $pdo->prepare("SELECT 1 FROM subject_categories WHERE id = :id AND academic_year_id = :y");
+            $stmt->execute(['id' => $categoryId, 'y' => $yearId]);
+            if (!$stmt->fetchColumn()) {
+                throw new RuntimeException('Kategori mapel invalid.');
             }
 
             $rombelIds = array_filter(array_map('intval', (array)($_POST['rombel_ids'] ?? [])));
@@ -73,13 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->beginTransaction();
             if ($id) {
-                $stmt = $pdo->prepare("UPDATE electives SET kode = :k, nama = :n, jenjang = :j WHERE id = :id");
-                $stmt->execute(['k' => $kode, 'n' => $nama, 'j' => $jenjang, 'id' => $id]);
+                $stmt = $pdo->prepare("UPDATE electives SET kode = :k, nama = :n, jenjang = :j, category_id = :c WHERE id = :id");
+                $stmt->execute(['k' => $kode, 'n' => $nama, 'j' => $jenjang, 'c' => $categoryId, 'id' => $id]);
             } else {
                 $stmt = $pdo->prepare(
-                    "INSERT INTO electives (kode, nama, jenjang, academic_year_id) VALUES (:k, :n, :j, :y)"
+                    "INSERT INTO electives (kode, nama, jenjang, category_id, academic_year_id) VALUES (:k, :n, :j, :c, :y)"
                 );
-                $stmt->execute(['k' => $kode, 'n' => $nama, 'j' => $jenjang, 'y' => $yearId]);
+                $stmt->execute(['k' => $kode, 'n' => $nama, 'j' => $jenjang, 'c' => $categoryId, 'y' => $yearId]);
                 $id = (int)$pdo->lastInsertId();
             }
 
@@ -188,6 +205,15 @@ require __DIR__ . '/../../includes/header.php';
           </select>
         </div>
         <div class="field">
+          <label class="label">Kategori Mapel *</label>
+          <select class="select" name="category_id" required>
+            <option value="">— Pilih kategori —</option>
+            <?php foreach ($subjectCategories as $cat): ?>
+              <option value="<?= (int)$cat['id'] ?>" <?= ((int)($edit['category_id'] ?? 0)) === (int)$cat['id'] ? 'selected' : '' ?>><?= esc($cat['nama']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="field">
           <label class="label">Rombel yang digabung *</label>
           <div id="rombel-options" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:.75rem; max-height:320px; overflow:auto; padding:1rem; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface);">
             <?php foreach ($allRombels as $r): ?>
@@ -237,7 +263,7 @@ require __DIR__ . '/../../includes/header.php';
     </div>
     <div class="table-wrap">
       <table class="t">
-        <thead><tr><th>Kode</th><th>Nama</th><th>Jenjang</th><th>Rombel</th><th>Opsi</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Jenjang</th><th>Rombel</th><th>Opsi</th><th></th></tr></thead>
         <tbody>
         <?php if (!$rows): ?><tr><td colspan="6"><div class="empty">Belum ada data.</div></td></tr><?php endif; ?>
         <?php foreach ($rows as $r): ?>
@@ -245,6 +271,7 @@ require __DIR__ . '/../../includes/header.php';
           <tr>
             <td><strong><?= esc($r['kode']) ?></strong></td>
             <td><?= esc($r['nama']) ?></td>
+            <td><?= esc($categoryMap[(int)$r['category_id']] ?? '-') ?></td>
             <td><span class="badge badge-primary"><?= esc($r['jenjang']) ?></span></td>
             <td>
               <?php foreach ($rombelList as $rb): ?>
