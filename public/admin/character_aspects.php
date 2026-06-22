@@ -10,7 +10,7 @@ $sc = active_scope();
 $yearId = (int)$sc['year_id'];
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
-$tabJenjang = in_array($_GET['jenjang'] ?? '', ['SD','SMP','SMA'], true) ? $_GET['jenjang'] : 'SD';
+$tabJenjang = in_array($_GET['jenjang'] ?? '', ['TK','SD','SMP','SMA'], true) ? $_GET['jenjang'] : 'SD';
 $tabJenjangFromGet = isset($_GET['jenjang']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nama   = req_str($_POST, 'nama', 120);
             $jenjang = req_str($_POST, 'jenjang', 3);
             $kat    = req_str($_POST, 'kategori', 64);
-            $validJenjang = ['SD','SMP','SMA'];
+            $validJenjang = ['TK','SD','SMP','SMA'];
             $validCategories = [
                 'Spiritual and morality',
                 'Discipline',
@@ -88,7 +88,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="field"><label class="label">Nama *</label><input class="input" name="nama" required value="<?= esc($edit['nama'] ?? '') ?>"></div>
         <div class="field"><label class="label">Jenjang *</label>
           <select class="select" name="jenjang" required>
-            <?php foreach (['SD','SMP','SMA'] as $j): ?>
+            <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
               <option value="<?= esc($j) ?>" <?= (($edit['jenjang'] ?? $tabJenjang) === $j) ? 'selected' : '' ?>><?= esc($j) ?></option>
             <?php endforeach; ?>
           </select>
@@ -119,7 +119,7 @@ require __DIR__ . '/../../includes/header.php';
     <div class="card-header"><h3 class="card-title">Daftar Aspek (<?= count($rows) ?>)</h3></div>
     <div class="card-body" style="padding-bottom:0">
       <div class="p-period-tabs" style="margin-bottom:1rem">
-        <?php foreach (['SD','SMP','SMA'] as $j): $active = $tabJenjang === $j; ?>
+        <?php foreach (['TK','SD','SMP','SMA'] as $j): $active = $tabJenjang === $j; ?>
           <a class="tab <?= $active ? 'is-active' : '' ?>" href="?jenjang=<?= esc($j) ?>"><?= esc($j) ?></a>
         <?php endforeach; ?>
       </div>
