@@ -52,6 +52,24 @@ function elective_rombels_for(int $electiveId): array
     return $st->fetchAll();
 }
 
+function elective_students(int $electiveId): array
+{
+    $st = db()->prepare(
+        "SELECT DISTINCT s.id, s.nisn, s.nama,
+                r.jenjang, r.tingkat, r.nama AS rombel_nama
+         FROM elective_rombels er
+         JOIN rombel_members rm ON rm.rombel_id = er.rombel_id
+         JOIN students s ON s.id = rm.student_id
+         JOIN rombel r ON r.id = rm.rombel_id
+         WHERE er.elective_id = :e
+           AND s.deleted_at IS NULL
+           AND r.deleted_at IS NULL
+         ORDER BY r.jenjang, r.tingkat, r.nama, s.nama"
+    );
+    $st->execute(['e' => $electiveId]);
+    return $st->fetchAll();
+}
+
 function elective_rombel_ids(int $electiveId): array
 {
     $st = db()->prepare("SELECT rombel_id FROM elective_rombels WHERE elective_id = :e");
