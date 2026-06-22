@@ -2,11 +2,11 @@
 /**
  * Stage 8 — Leger + Rapor PDF + Display Settings helpers.
  * Centralises:
- *   - Aggregate final grades per (rombel, semester, period) in a leger-friendly shape
- *   - Attendance recap per student per semester
- *   - Ranking computation (kelas + paralel)
- *   - Report template + signatures fetch
- *   - File upload helper for header/footer/TTD images
+ * - Aggregate final grades per (rombel, semester, period) in a leger-friendly shape
+ * - Attendance recap per student per semester
+ * - Ranking computation (kelas + paralel)
+ * - Report template + signatures fetch
+ * - File upload helper for header/footer/TTD images
  */
 declare(strict_types=1);
 
@@ -104,11 +104,11 @@ function attendance_summary_for_rombel(int $rombelId, string $semester, int $yea
 /**
  * Final-grade matrix for leger:
  * Returns:
- *   [
- *     'subjects' => [ [id, kode, nama], ... ],   // ordered by nama
- *     'data'     => [ student_id => [ subject_id => ['si','pe','ke','status'] ] ],
- *     'avg'      => [ student_id => [ 'si','pe','ke','overall' ] ],
- *   ]
+ * [
+ * 'subjects' => [ [id, kode, nama], ... ],   // ordered by nama
+ * 'data'     => [ student_id => [ subject_id => ['si','pe','ke','status'] ] ],
+ * 'avg'      => [ student_id => [ 'si','pe','ke','overall' ] ],
+ * ]
  *
  * Uses period_kind from $period (PTS or PAS).
  */
@@ -166,8 +166,6 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
             $a[$k] = $cnt > 0 ? round($num / $cnt, 2) : null;
         }
         // Overall = mean of Sikap + Pengetahuan + Keterampilan (gabungan SPK).
-        // Inilah nilai akhir tunggal yang ditampilkan di rapor siswa per mapel,
-        // dan dipakai untuk ranking & predikat akhir.
         $vals = array_filter([$a['si'], $a['pe'], $a['ke']], fn($v) => $v !== null);
         $a['overall'] = $vals ? round(array_sum($vals) / count($vals), 2) : null;
         $avg[$sid] = $a;
@@ -247,8 +245,11 @@ function report_template_for(string $jenjang): array
     $st->execute(['y' => $yearId, 'j' => $jenjang]);
     $row = $st->fetch();
     if ($row) return $row;
-    db()->prepare("INSERT INTO report_templates (academic_year_id, jenjang) VALUES (:y,:j)")
+    
+    // [PERBAIKAN] Menggunakan INSERT IGNORE untuk mengabaikan error duplicate key
+    db()->prepare("INSERT IGNORE INTO report_templates (academic_year_id, jenjang) VALUES (:y,:j)")
         ->execute(['y' => $yearId, 'j' => $jenjang]);
+        
     $st->execute(['y' => $yearId, 'j' => $jenjang]);
     return $st->fetch() ?: ['jenjang' => $jenjang, 'layout_json' => null, 'header_img' => null, 'footer_img' => null];
 }
@@ -336,8 +337,9 @@ function report_signature_save(string $jenjang, string $slot, ?string $nama, ?st
         $pdo->prepare("UPDATE report_signatures SET nama=:n, jabatan=:jb, ttd_path=:t WHERE id=:i")
             ->execute(['n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath,'i'=>$id]);
     } else {
+        // [PERBAIKAN] Menggunakan INSERT IGNORE untuk menjaga keamanan jika slot bersamaan dibuat
         $pdo->prepare(
-            "INSERT INTO report_signatures (academic_year_id, jenjang, slot, nama, jabatan, ttd_path)
+            "INSERT IGNORE INTO report_signatures (academic_year_id, jenjang, slot, nama, jabatan, ttd_path)
              VALUES (:y,:j,:s,:n,:jb,:t)"
         )->execute(['y'=>$yearId,'j'=>$jenjang,'s'=>$slot,'n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath]);
     }

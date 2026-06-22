@@ -25,15 +25,15 @@ require_once __DIR__ . '/helpers.php';
  * sections) as an HTML string.
  *
  * @param array $args {
- *   @var array      student     Row from students table
- *   @var array      rombel      Row from rombel table
- *   @var array      school      Row from school_profile
- *   @var array|null tpl         report_templates row (header/footer img, layout)
- *   @var array      sigs        report_signatures_for() result
- *   @var array      scope       active_scope() shape: ['year','semester','period','year_id']
- *   @var string     uploadsBase Absolute filesystem path to /public (for file_exists checks)
- *   @var bool       forPdf      When true, image src become absolute file:// or filesystem
- *                                paths Dompdf can read directly instead of URLs.
+ * @var array      student     Row from students table
+ * @var array      rombel      Row from rombel table
+ * @var array      school      Row from school_profile
+ * @var array|null tpl         report_templates row (header/footer img, layout)
+ * @var array      sigs        report_signatures_for() result
+ * @var array      scope       active_scope() shape: ['year','semester','period','year_id']
+ * @var string     uploadsBase Absolute filesystem path to /public (for file_exists checks)
+ * @var bool       forPdf      When true, image src become absolute file:// or filesystem
+ * paths Dompdf can read directly instead of URLs.
  * }
  */
 function rapor_render_body(array $args): string
@@ -65,9 +65,9 @@ function rapor_render_body(array $args): string
     $hiddenSet = $resolved['hidden'];
 
     /** Resolve an uploaded image to whatever <img src> the current
-     *  rendering context needs: a normal URL on screen, or an absolute
-     *  filesystem path for Dompdf (which fetches local files directly —
-     *  no HTTP round-trip, no auth cookies needed). */
+     * rendering context needs: a normal URL on screen, or an absolute
+     * filesystem path for Dompdf (which fetches local files directly —
+     * no HTTP round-trip, no auth cookies needed). */
     $imgSrc = function (?string $relPath) use ($publicDir, $forPdf): ?string {
         if (!$relPath) return null;
         $abs = $publicDir . '/uploads/' . ltrim($relPath, '/');
@@ -204,7 +204,9 @@ function rapor_render_body(array $args): string
               </div>
             <?php break;
 
-            case 'academic': ?>
+            case 'academic': 
+              $isTK = ($jenjang === 'TK');
+            ?>
               <div class="rapor-section">
                 <h3>Penilaian Akademik (Nilai Akhir Gabungan SPK per Mata Pelajaran)</h3>
                 <table class="t-print">
@@ -212,16 +214,20 @@ function rapor_render_body(array $args): string
                     <tr>
                       <th style="width:32px">No</th>
                       <th>Mata Pelajaran</th>
+                      <?php if ($isTK): ?>
+                        <th style="width:100px; text-align:center;">Nilai Bintang</th>
+                      <?php endif; ?>
                       <th>Catatan</th>
-                      <th style="width:90px">Grade</th>
+                      <th style="width:90px; text-align:center;">Grade</th>
                     </tr>
                   </thead>
                   <tbody>
                   <?php
                     $no = 0;
                     $finalSum = 0.0; $finalCnt = 0;
+                    $colspanCat = $isTK ? 5 : 4;
                     foreach ($subjGroups as $catNama => $subs): ?>
-                    <tr><td colspan="4" class="rapor-cat-row"><?= esc($catNama) ?></td></tr>
+                    <tr><td colspan="<?= $colspanCat ?>" class="rapor-cat-row"><?= esc($catNama) ?></td></tr>
                     <?php foreach ($subs as $s): $no++;
                           $cell    = $cellsBySubj[(int)$s['id']] ?? null;
                           $overall = $cell ? ($cell['overall'] ?? null) : null;
@@ -232,6 +238,22 @@ function rapor_render_body(array $args): string
                       <tr>
                         <td><?= $no ?></td>
                         <td><?= esc($s['nama']) ?></td>
+                        
+                        <?php if ($isTK): ?>
+                          <td style="text-align:center; vertical-align:middle;">
+                            <?php if ($overall !== null): 
+                                // Skala TK dibatasi maksimal 4 Bintang
+                                $starCount = max(1, min(4, (int)round((float)$overall)));
+                            ?>
+                                <div style="color:#f59e0b; font-size:1.15rem; letter-spacing:1px; white-space:nowrap;">
+                                    <?= str_repeat('★', $starCount) . str_repeat('☆', 4 - $starCount) ?>
+                                </div>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                          </td>
+                        <?php endif; ?>
+
                         <td><?= esc($note ?? '—') ?></td>
                         <td style="text-align:center"><strong><?= $overall !== null ? esc($pred['grade']) : '—' ?></strong></td>
                       </tr>
@@ -239,9 +261,10 @@ function rapor_render_body(array $args): string
                   <?php endforeach;
                     $finalAvg = $finalCnt > 0 ? round($finalSum / $finalCnt, 2) : null;
                     $finalPred = kkm_predikat($jenjang, $finalAvg);
+                    $colspanTotal = $isTK ? 4 : 3;
                   ?>
                     <tr class="rapor-total-row">
-                      <td colspan="3" style="text-align:right">Nilai Akhir Gabungan (Rata-rata seluruh mapel)</td>
+                      <td colspan="<?= $colspanTotal ?>" style="text-align:right">Nilai Akhir Gabungan (Rata-rata seluruh mapel)</td>
                       <td style="text-align:center"><strong><?= $finalAvg !== null ? esc($finalPred['grade']) : '—' ?></strong></td>
                     </tr>
                   </tbody>
