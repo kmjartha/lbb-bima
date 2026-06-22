@@ -138,7 +138,6 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
           ['final_grades_review','final_grades_review.php','Verifikasi Nilai',    'verify'],
         ],
         'Catatan & Karakter' => [
-          ['wali_notes',             'wali_notes.php',             'Catatan Wali',         'note'],
           ['character_eval',         'character_eval.php',         'Character Evaluation', 'shield'],
           ['general_eval',           'general_eval.php',           'General Evaluation',   'pulse'],
           ['extracurricular_grades', 'extracurricular_grades.php', 'Nilai Ekskul',         'football'],

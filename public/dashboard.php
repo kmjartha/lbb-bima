@@ -41,7 +41,6 @@ if ($role === 'guru') {
         ['label' => 'Input Absensi', 'href' => url('attendance.php')],
         ['label' => 'Nilai Harian', 'href' => url('grades_daily.php')],
         ['label' => 'Nilai Akhir', 'href' => url('final_grades.php')],
-        ['label' => 'Catatan Wali', 'href' => url('wali_notes.php')],
         ['label' => 'Penilaian Karakter', 'href' => url('character_eval.php')],
     ];
 } elseif ($role === 'kepsek') {
@@ -49,7 +48,6 @@ if ($role === 'guru') {
         ['label' => 'Verifikasi Rapor', 'href' => url('final_grades_review.php')],
         ['label' => 'Rapor Siswa', 'href' => url('rapor.php')],
         ['label' => 'Rekap Absensi', 'href' => url('attendance_recap.php')],
-        ['label' => 'Catatan Wali', 'href' => url('wali_notes.php')],
         ['label' => 'Penilaian Karakter', 'href' => url('character_eval.php')],
     ];
 } elseif ($role !== 'administrator') {
