@@ -83,16 +83,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $accessibleElectives = [];
 if ($myRombelIds) {
-    $st = $pdo->prepare(
-        "SELECT DISTINCT e.*, sc.nama AS category_name
-         FROM electives e
-         LEFT JOIN subject_categories sc ON sc.id = e.category_id
-         JOIN elective_rombels er ON er.elective_id = e.id
-         WHERE er.rombel_id IN (" . implode(',', $myRombelIds) . ")
-           AND e.academic_year_id = :y
-           AND e.deleted_at IS NULL
-         ORDER BY e.nama"
-    );
+    $useCategory = false;
+    try {
+        $pdo->query('SELECT category_id FROM electives LIMIT 1');
+        $useCategory = true;
+    } catch (Throwable $e) {
+        $useCategory = false;
+    }
+
+    if ($useCategory) {
+        $sql = "SELECT DISTINCT e.*, sc.nama AS category_name
+                 FROM electives e
+                 LEFT JOIN subject_categories sc ON sc.id = e.category_id
+                 JOIN elective_rombels er ON er.elective_id = e.id
+                 WHERE er.rombel_id IN (" . implode(',', $myRombelIds) . ")
+                   AND e.academic_year_id = :y
+                   AND e.deleted_at IS NULL
+                 ORDER BY e.nama";
+    } else {
+        $sql = "SELECT DISTINCT e.*
+                 FROM electives e
+                 JOIN elective_rombels er ON er.elective_id = e.id
+                 WHERE er.rombel_id IN (" . implode(',', $myRombelIds) . ")
+                   AND e.academic_year_id = :y
+                   AND e.deleted_at IS NULL
+                 ORDER BY e.nama";
+    }
+
+    $st = $pdo->prepare($sql);
     $st->execute(['y' => $sc['year_id']]);
     $accessibleElectives = $st->fetchAll();
 }

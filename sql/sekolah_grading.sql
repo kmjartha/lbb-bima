@@ -550,6 +550,7 @@ CREATE TABLE `electives` (
   `kode` varchar(20) NOT NULL,
   `nama` varchar(120) NOT NULL,
   `deskripsi` varchar(255) DEFAULT NULL,
+  `category_id` int(10) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `deleted_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -558,9 +559,9 @@ CREATE TABLE `electives` (
 -- Dumping data for table `electives`
 --
 
-INSERT INTO `electives` (`id`, `academic_year_id`, `jenjang`, `kode`, `nama`, `deskripsi`, `created_at`, `deleted_at`) VALUES
-(1, 1, 'SD', 'CGV', 'CGV', NULL, '2026-06-02 05:42:53', NULL),
-(2, 1, 'SD', 'SWR', 'SWR', NULL, '2026-06-02 05:43:36', NULL);
+INSERT INTO `electives` (`id`, `academic_year_id`, `jenjang`, `kode`, `nama`, `deskripsi`, `category_id`, `created_at`, `deleted_at`) VALUES
+(1, 1, 'SD', 'CGV', 'CGV', NULL, NULL, '2026-06-02 05:42:53', NULL),
+(2, 1, 'SD', 'SWR', 'SWR', NULL, NULL, '2026-06-02 05:43:36', NULL);
 
 -- --------------------------------------------------------
 
@@ -1531,7 +1532,8 @@ ALTER TABLE `character_evaluations`
 ALTER TABLE `electives`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_elective` (`academic_year_id`,`jenjang`,`kode`),
-  ADD KEY `ix_elective_year` (`academic_year_id`);
+  ADD KEY `ix_elective_year` (`academic_year_id`),
+  ADD KEY `ix_elective_category` (`category_id`);
 
 --
 -- Indexes for table `elective_assignments`
