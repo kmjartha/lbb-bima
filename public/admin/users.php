@@ -9,6 +9,11 @@ $pdo = db();
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
+// Setup Search & Pagination
+$q      = trim((string)($_GET['q'] ?? ''));
+$limit  = 15;
+$page   = max(1, (int)($_GET['p'] ?? 1));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
@@ -100,11 +105,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
+// Build Search and Pagination Query
+$conds = ["deleted_at IS NULL"];
+$params = [];
+
+if (!$isAdministrator) {
+    $conds[] = "role <> 'administrator'";
+}
+
+if ($q !== '') {
+    // [PERBAIKAN] Menggunakan parameter unik :q1, :q2, dan :q3
+    $conds[] = "(niy LIKE :q1 OR nama LIKE :q2 OR email LIKE :q3)";
+    $params['q1'] = '%' . $q . '%';
+    $params['q2'] = '%' . $q . '%';
+    $params['q3'] = '%' . $q . '%';
+}
+
+$whereSql = "WHERE " . implode(" AND ", $conds);
+
+// Count total records for pagination
+$countSql = "SELECT COUNT(*) FROM users $whereSql";
+$stmtCount = $pdo->prepare($countSql);
+$stmtCount->execute($params);
+$totalRows = (int)$stmtCount->fetchColumn();
+
+// Calculate total pages and offset
+$totalPages = max(1, (int)ceil($totalRows / $limit));
+if ($page > $totalPages) $page = $totalPages;
+$offset = ($page - 1) * $limit;
+
+// Fetch rows with LIMIT and OFFSET
 $rowSql = "SELECT id, niy, nama, email, role, jenjang, is_active, last_login_at, must_change_pw
-           FROM users WHERE deleted_at IS NULL"
-        . ($isAdministrator ? '' : " AND role <> 'administrator'")
-        . " ORDER BY role, nama";
-$rows = $pdo->query($rowSql)->fetchAll();
+           FROM users $whereSql
+           ORDER BY role, nama
+           LIMIT $limit OFFSET $offset";
+$stmtRows = $pdo->prepare($rowSql);
+$stmtRows->execute($params);
+$rows = $stmtRows->fetchAll();
 
 $edit = null;
 if ($editId) {
@@ -157,11 +194,24 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 
   <div class="card" style="flex: 2; min-width: 380px">
-    <div class="card-header"><h3 class="card-title">Daftar Akun (<?= count($rows) ?>)</h3></div>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 class="card-title">Daftar Akun (<?= $totalRows ?>)</h3>
+        <form method="get" style="display:flex; gap:5px;">
+            <input type="text" name="q" class="input input-sm" placeholder="Cari Nama/NIY..." value="<?= esc($q) ?>">
+            <button type="submit" class="btn btn-secondary btn-sm">Cari</button>
+            <?php if ($q): ?>
+                <a href="users.php" class="btn btn-ghost btn-sm" title="Reset Pencarian">✕</a>
+            <?php endif; ?>
+        </form>
+    </div>
+    
     <div class="table-wrap">
       <table class="t">
         <thead><tr><th>NIY</th><th>Nama</th><th>Role</th><th>Jenjang</th><th>Status</th><th>Last Login</th><th></th></tr></thead>
         <tbody>
+        <?php if (!$rows): ?>
+            <tr><td colspan="7" class="text-center text-muted" style="padding:1rem;">Tidak ada data ditemukan.</td></tr>
+        <?php endif; ?>
         <?php foreach ($rows as $r): ?>
           <tr>
             <td><?= esc($r['niy']) ?></td>
@@ -174,7 +224,7 @@ require __DIR__ . '/../../includes/header.php';
             <td><?= $r['is_active'] ? '<span class="badge badge-success">Aktif</span>' : '<span class="badge badge-danger">Nonaktif</span>' ?></td>
             <td class="text-sm text-muted"><?= esc($r['last_login_at'] ?? '—') ?></td>
             <td style="text-align:right; white-space:nowrap">
-              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?>">Edit</a>
+              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $q ? '&q='.urlencode($q) : '' ?><?= $page>1 ? '&p='.$page : '' ?>">Edit</a>
               <form method="post" style="display:inline" data-confirm="Reset password ke default?">
                 <?= csrf_field() ?><input type="hidden" name="op" value="reset_pw"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
                 <button class="btn btn-secondary btn-sm" type="submit">Reset PW</button>
@@ -189,6 +239,21 @@ require __DIR__ . '/../../includes/header.php';
         </tbody>
       </table>
     </div>
+    
+    <?php if ($totalPages > 1): ?>
+    <div class="card-body" style="border-top:1px solid var(--c-border); display:flex; justify-content:space-between; align-items:center;">
+        <span class="text-sm text-muted">Halaman <?= $page ?> dari <?= $totalPages ?></span>
+        <div style="display:flex; gap:5px;">
+            <?php if ($page > 1): ?>
+                <a href="?p=<?= $page - 1 ?><?= $q ? '&q='.urlencode($q) : '' ?>" class="btn btn-secondary btn-sm">← Prev</a>
+            <?php endif; ?>
+            <?php if ($page < $totalPages): ?>
+                <a href="?p=<?= $page + 1 ?><?= $q ? '&q='.urlencode($q) : '' ?>" class="btn btn-secondary btn-sm">Next →</a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
   </div>
 </div>
 <?php require __DIR__ . '/../../includes/footer.php'; ?>
