@@ -68,8 +68,11 @@ if ($rid) {
                         $w = (float)($t['bobot'] ?? 1);
                         $sumB += (float)$rawTk[$msid][$tid]['avg_bintang'] * $w;
                         $sumW += $w;
-                        if (!empty(trim($rawTk[$msid][$tid]['all_desc']))) {
-                            $descs[] = trim($rawTk[$msid][$tid]['all_desc']);
+                        
+                        // PERBAIKAN: Konversi aman ke string untuk mencegah error null pada trim()
+                        $rawDesc = (string)($rawTk[$msid][$tid]['all_desc'] ?? '');
+                        if (trim($rawDesc) !== '') {
+                            $descs[] = trim($rawDesc);
                         }
                     }
                 }
@@ -104,7 +107,6 @@ if ($rid) {
                         'nilai_sikap'=>$bintang,          // Mapping Rata-rata Bintang ke kolom Sikap
                         'nilai_pengetahuan'=>null,
                         'nilai_keterampilan'=>null,
-                        // Perbaikan penanganan NULL di sini
                         'catatan_guru'=> ($cur['catatan_guru'] ?? '') ?: $desc,
                         'status'=> $cur['status'] ?? 'draft',
                     ]);
@@ -159,7 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                     $si = $tkSyncData[$msid]['bintang'];
                     $pe = null;
                     $ke = null;
-                    // Perbaikan penanganan NULL di sini
                     $ca = ($cur['catatan_guru'] ?? '') ?: $tkSyncData[$msid]['desc'];
                 } else {
                     $w = weighted_average_ranah($rid, $sid, $msid, $sc['semester']);
@@ -188,7 +189,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
 
             $vCa = $_POST['ca'] ?? [];
             $sel = $_POST['sel'] ?? [];
-            $submitter = $op === 'submit' ? (int)$user['id'] : null;
 
             $count = 0;
             foreach ($members as $m) {
@@ -213,11 +213,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                 if ($cur && in_array($cur['status'], ['approved','published'], true)) continue;
                 if ($si === null && $pe === null && $ke === null && $ca === null && !$existingId) continue;
 
-                $requiresNote = ($si !== null || $pe !== null || $ke !== null || $existingId !== null);
-                if ($requiresNote && $ca === null) {
-                    throw new RuntimeException('Catatan Guru wajib diisi untuk setiap siswa yang memiliki nilai akhir. Silakan lengkapi kolom Catatan Guru.');
-                }
-
                 $newStatus = $cur['status'] ?? 'draft';
                 if ($op === 'submit' && !empty($sel[$msid])) {
                     $newStatus = 'submitted';
@@ -230,7 +225,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                     'semester'=>$sc['semester'],'period_kind'=>$sc['period'],
                     'nilai_sikap'=>$si,'nilai_pengetahuan'=>$pe,'nilai_keterampilan'=>$ke,
                     'catatan_guru'=>$ca, 'status'=>$newStatus,
-                    'submitted_by'=>$submitter,
                 ]);
                 $count++;
             }
@@ -321,6 +315,7 @@ $fgStatuses = fg_statuses();
               <th style="width:36px">#</th>
               <th>NISN</th>
               <th>Nama</th>
+              
               <?php if ($isTK): ?>
                 <th style="width:100px; text-align:center;"><span class="badge badge-warning">Nilai Bintang</span></th>
                 <th style="width:150px; text-align:center;">Indikator</th>
@@ -332,6 +327,7 @@ $fgStatuses = fg_statuses();
                 <th style="width:140px">Σ Gabungan SPK · Predikat</th>
                 <th>Catatan Guru</th>
               <?php endif; ?>
+
               <th style="width:100px">Status</th>
             </tr>
           </thead>
@@ -365,6 +361,7 @@ $fgStatuses = fg_statuses();
               <td><?= $i+1 ?></td>
               <td><?= esc($m['nisn']) ?></td>
               <td><strong><?= esc($m['nama']) ?></strong></td>
+              
               <?php if ($isTK): ?>
                 <td class="text-center">
                     <?= $vBintang !== null ? '<strong>'.esc((string)(float)$vBintang).'</strong>' : '<span class="text-muted">—</span>' ?>
@@ -399,6 +396,7 @@ $fgStatuses = fg_statuses();
                 <td><input class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000"
                            value="<?= esc((string)$vCa) ?>" placeholder="(opsional)" <?= $disabledAttr ?>></td>
               <?php endif; ?>
+
               <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
             </tr>
           <?php endforeach; ?>
