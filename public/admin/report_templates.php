@@ -200,6 +200,7 @@ require __DIR__ . '/../../includes/header.php';
     <div class="card-body">
       <div class="alert alert-info">
         Slot <strong>Wali</strong> tidak diatur di sini. Nama dan TTD wali akan otomatis diambil dari data wali kelas untuk setiap rombel.
+        Unggah atau perbarui tanda tangan wali melalui <a href="<?= esc(url('profile.php')) ?>">halaman Profil Saya</a>.
       </div>
       <?php foreach (['kepsek','direktur','parent'] as $slot): $sg = $sigs[$slot]; ?>
         <form method="post" enctype="multipart/form-data" style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px">

@@ -23,25 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nip     = opt_str($_POST, 'nip', 30);
             $phone   = opt_str($_POST, 'phone', 30);
             $is_wali = !empty($_POST['is_wali']) ? 1 : 0;
-            $subjectIds = array_map('intval', $_POST['subjects'] ?? []);
-
-            // Only allow subjects that are active in the current TA.
-            if ($subjectIds) {
-                $placeholders = implode(',', array_fill(0, count($subjectIds), '?'));
-                $validStmt = $pdo->prepare(
-                    "SELECT DISTINCT s.id
-                     FROM subjects s
-                     JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
-                     JOIN rombel r ON r.id = rst.rombel_id AND r.academic_year_id = ? AND r.deleted_at IS NULL
-                     WHERE s.deleted_at IS NULL AND s.id IN ($placeholders)"
-                );
-                $validStmt->execute(array_merge([$sc['year_id']], $subjectIds));
-                $validSubjectIds = array_map('intval', $validStmt->fetchAll(PDO::FETCH_COLUMN));
-                if (count($validSubjectIds) !== count(array_unique($subjectIds))) {
-                    throw new RuntimeException('Beberapa mata pelajaran tidak valid untuk Tahun Ajaran aktif.');
-                }
-                $subjectIds = $validSubjectIds;
-            }
 
             $pdo->beginTransaction();
 
@@ -73,10 +54,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ->execute(['t'=>$id,'y'=>$sc['year_id']]);
             }
 
-            // Subjects mapping
-            $pdo->prepare("DELETE FROM teacher_subjects WHERE teacher_id = :id")->execute(['id'=>$id]);
-            $insS = $pdo->prepare("INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES (:t,:s)");
-            foreach ($subjectIds as $sid) $insS->execute(['t'=>$id,'s'=>$sid]);
+            // Subjects mapping is handled separately in Guru Pengampu / rombel pengampu.
+            if (isset($_POST['subjects'])) {
+                $pdo->prepare("DELETE FROM teacher_subjects WHERE teacher_id = :id")->execute(['id'=>$id]);
+                $insS = $pdo->prepare("INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES (:t,:s)");
+                foreach (array_map('intval', $_POST['subjects']) as $sid) {
+                    $insS->execute(['t'=>$id,'s'=>$sid]);
+                }
+            }
 
             $pdo->commit();
             audit('save', 'teacher:' . $id);
@@ -98,17 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$subjects = $pdo->prepare(
-    "SELECT DISTINCT s.id, s.kode, s.nama
-     FROM subjects s
-     JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
-     JOIN rombel r ON r.id = rst.rombel_id AND r.academic_year_id = :y_r AND r.deleted_at IS NULL
-     WHERE s.deleted_at IS NULL
-       AND s.academic_year_id = :y_s
-     ORDER BY s.kode"
-);
-$subjects->execute(['y_r' => $sc['year_id'], 'y_s' => $sc['year_id']]);
-$subjects = $subjects->fetchAll();
 
 $rows = $pdo->prepare(
     "SELECT t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone,
@@ -147,7 +121,7 @@ $rows->execute([
 ]);
 $rows = $rows->fetchAll();
 
-$edit = null; $editSubjects = [];
+$edit = null;
 if ($editId) {
     $stmt = $pdo->prepare(
         "SELECT t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone
@@ -156,17 +130,6 @@ if ($editId) {
     );
     $stmt->execute(['id'=>$editId]);
     $edit = $stmt->fetch();
-    if ($edit) {
-        $s = $pdo->prepare(
-            "SELECT DISTINCT ts.subject_id
-             FROM teacher_subjects ts
-             JOIN rombel_subject_teachers rst ON rst.subject_id = ts.subject_id AND rst.teacher_id = ts.teacher_id
-             JOIN rombel r ON r.id = rst.rombel_id AND r.academic_year_id = :y AND r.deleted_at IS NULL
-             WHERE ts.teacher_id = :id"
-        );
-        $s->execute(['id'=>$editId, 'y' => $sc['year_id']]);
-        $editSubjects = array_map('intval', $s->fetchAll(PDO::FETCH_COLUMN));
-    }
 }
 
 $page_title = 'Guru';
@@ -191,22 +154,6 @@ require __DIR__ . '/../../includes/header.php';
           <div class="field"><label class="label">Email</label><input class="input" type="email" name="email" value="<?= esc($edit['email'] ?? '') ?>"></div>
           <div class="field"><label class="label">Telepon</label><input class="input" name="phone" value="<?= esc($edit['phone'] ?? '') ?>"></div>
         </div>
-        <div class="field">
-  <label class="label">Mata Pelajaran</label>
-
-  <div class="checkbox-scroll">
-    <?php foreach ($subjects as $s): ?>
-      <label class="checkbox-item">
-        <input type="checkbox"
-               name="subjects[]"
-               value="<?= (int)$s['id'] ?>"
-               <?= in_array((int)$s['id'], $editSubjects, true) ? 'checked' : '' ?>>
-        <span><?= esc($s['kode'] . ' — ' . $s['nama']) ?></span>
-      </label>
-    <?php endforeach; ?>
-  </div>
-
-</div>
         <label class="checkbox-row mb-4"><input type="checkbox" name="is_wali" value="1" <?= !empty($edit['is_wali'])?'checked':'' ?>> Tandai sebagai Wali Kelas</label>
         <button class="btn btn-primary" type="submit">Simpan</button>
       </form>

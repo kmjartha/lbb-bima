@@ -19,10 +19,7 @@ $__title  = $page_title ?? 'Dashboard';
 
 // Determine current path for sidebar active state
 $__here = $_SERVER['PHP_SELF'] ?? '';
-function nav_active(string $needle): string {
-    global $__here;
-    return basename($__here) === basename($needle) ? 'is-active' : '';
-}
+function nav_active(string $needle): string { global $__here; return str_contains($__here, $needle) ? 'is-active' : ''; }
 
 $__role = $__user['role'] ?? '';
 
@@ -141,14 +138,17 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
           ['final_grades_review','final_grades_review.php','Verifikasi Nilai',    'verify'],
         ],
         'Catatan & Karakter' => [
+          ['wali_notes',             'wali_notes.php',             'Catatan Wali',         'note'],
           ['character_eval',         'character_eval.php',         'Character Evaluation', 'shield'],
           ['general_eval',           'general_eval.php',           'General Evaluation',   'pulse'],
+          ['extracurricular_grades', 'extracurricular_grades.php', 'Nilai Ekskul',         'football'],
         ],
         'Rapor & Leger' => [
           ['leger', 'leger.php', 'Leger Nilai', 'leger'],
           ['rapor', 'rapor.php', 'Rapor Siswa', 'rapor'],
         ],
         'Lainnya' => [
+          ['profile',          'profile.php',               'Profil Saya',      'profile'],
           ['report_templates', 'admin/report_templates.php', 'Template Rapor', 'template'],
           ['audit_log',        'admin/audit_log.php',        'Audit Log',      'audit'],
         ],

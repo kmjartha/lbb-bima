@@ -110,22 +110,6 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
         $stt->execute(['u' => $user['id']]);
         $tid = (int)($stt->fetchColumn() ?: 0);
 
-        // wali_id check
-        $wal = $pdo->prepare("SELECT wali_id FROM rombel WHERE id=:r");
-        $wal->execute(['r' => $rombelId]);
-        $isWali = (int)($wal->fetchColumn() ?: 0) === (int)$user['id'];
-
-        if ($isWali) {
-            $st = $pdo->prepare(
-                "SELECT s.id, s.kode, s.nama FROM subjects s
-                 WHERE s.deleted_at IS NULL
-                   AND s.academic_year_id = :y
-                 ORDER BY s.nama"
-            );
-            $st->execute(['y' => $sc['year_id']]);
-            return $st->fetchAll();
-        }
-
         $st = $pdo->prepare(
             "SELECT DISTINCT s.id, s.kode, s.nama
              FROM rombel_subject_teachers rst

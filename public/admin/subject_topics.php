@@ -54,6 +54,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($kategori, ['tugas','ulangan','proyek','praktek','portofolio','produk','lainnya'], true)) throw new RuntimeException('Kategori invalid.');
             if (!$rid || !$sid) throw new RuntimeException('Rombel & mapel wajib.');
 
+                // Guru hanya boleh menambah/edit subjek penilaian untuk mapel yang diaampu di rombel ini.
+            if ($me['role'] === 'guru') {
+                $stmt = $pdo->prepare(
+                    "SELECT 1 FROM rombel_subject_teachers rst
+                     JOIN teachers t ON t.id = rst.teacher_id
+                     WHERE rst.rombel_id = :r
+                       AND rst.subject_id = :s
+                       AND t.user_id = :u
+                       AND (rst.semester IS NULL OR rst.semester = :sem)"
+                );
+                $stmt->execute(['r'=>$rid,'s'=>$sid,'u'=>$me['id'],'sem'=>$semester]);
+                if (!$stmt->fetchColumn()) {
+                    throw new RuntimeException('Anda tidak memiliki akses untuk membuat/mengedit subjek penilaian untuk mapel ini.');
+                }
+            }
+
             if ($id) {
                 $pdo->prepare("UPDATE subject_topics SET kode=:k, judul=:j, ranah=:rn, ranah_list=:rl, kategori=:kat, bobot=:b, deskripsi=:d, semester=:sem WHERE id=:id")
                     ->execute(['k'=>$kode,'j'=>$judul,'rn'=>$ranah,'rl'=>$ranahListJson,'kat'=>$kategori,'b'=>$bobot,'d'=>$deskripsi,'sem'=>$semester,'id'=>$id]);
@@ -71,6 +87,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id  = (int)($_POST['id'] ?? 0);
             $rid = (int)($_POST['rombel_id'] ?? 0);
             $sid = (int)($_POST['subject_id'] ?? 0);
+            if ($me['role'] === 'guru') {
+                $stmt = $pdo->prepare(
+                    "SELECT 1 FROM rombel_subject_teachers rst
+                     JOIN teachers t ON t.id = rst.teacher_id
+                     WHERE rst.rombel_id = :r
+                       AND rst.subject_id = :s
+                       AND t.user_id = :u
+                       AND (rst.semester IS NULL OR rst.semester = :sem)"
+                );
+                $stmt->execute(['r'=>$rid,'s'=>$sid,'u'=>$me['id'],'sem'=>$sc['semester']]);
+                if (!$stmt->fetchColumn()) {
+                    throw new RuntimeException('Anda tidak memiliki akses untuk menghapus topik di mapel ini.');
+                }
+            }
             $pdo->prepare("UPDATE subject_topics SET deleted_at=NOW() WHERE id=:id")->execute(['id'=>$id]);
             audit('delete', 'topic:' . $id);
             flash('success', 'Topik dihapus.');
@@ -92,15 +122,31 @@ if ($rombelId) {
     $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
     $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
     if ($current) {
-        // Mapel yang punya guru pengampu di rombel ini (atau semua mapel jenjang ini sebagai fallback)
-        $s = $pdo->prepare(
-            "SELECT DISTINCT s.id, s.kode, s.nama FROM subjects s
-             JOIN subject_jenjang_map jm ON jm.subject_id=s.id
-             WHERE jm.jenjang=:j AND s.deleted_at IS NULL AND s.academic_year_id = :y
-             ORDER BY s.kode"
-        );
-        $s->execute(['j'=>$current['jenjang'], 'y'=>$sc['year_id']]); $subjects = $s->fetchAll();
-
+            if ($me['role'] === 'guru') {
+                $s = $pdo->prepare(
+                    "SELECT DISTINCT s.id, s.kode, s.nama
+                     FROM subjects s
+                     JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
+                     JOIN teachers t ON t.id = rst.teacher_id
+                     WHERE rst.rombel_id = :r
+                       AND t.user_id = :u
+                       AND (rst.semester IS NULL OR rst.semester = :sem)
+                       AND s.deleted_at IS NULL
+                       AND s.academic_year_id = :y
+                     ORDER BY s.kode"
+                );
+                $s->execute(['r'=>$rombelId,'u'=>$me['id'],'sem'=>$sc['semester'],'y'=>$sc['year_id']]);
+                $subjects = $s->fetchAll();
+            } else {
+                $s = $pdo->prepare(
+                    "SELECT DISTINCT s.id, s.kode, s.nama FROM subjects s
+                     JOIN subject_jenjang_map jm ON jm.subject_id=s.id
+                     WHERE jm.jenjang=:j AND s.deleted_at IS NULL AND s.academic_year_id = :y
+                     ORDER BY s.kode"
+                );
+                $s->execute(['j'=>$current['jenjang'], 'y'=>$sc['year_id']]);
+                $subjects = $s->fetchAll();
+            }
         if ($subjectId) {
             $t = $pdo->prepare(
                 "SELECT * FROM subject_topics

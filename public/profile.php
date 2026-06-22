@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/guard.php';
+require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/report_helpers.php';
 require_once __DIR__ . '/../includes/scope.php';
 
@@ -30,9 +31,7 @@ if (!empty($me['is_wali'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        if (!check_csrf()) {
-            throw new RuntimeException('CSRF token tidak valid.');
-        }
+        csrf_check();
 
         $action = $_POST['action'] ?? '';
         if ($action === 'update_password') {
