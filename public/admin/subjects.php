@@ -10,6 +10,11 @@ $sc = active_scope();
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
+// Setup Search & Pagination
+$q      = trim((string)($_GET['q'] ?? ''));
+$limit  = 15;
+$page   = max(1, (int)($_GET['p'] ?? 1));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
@@ -115,18 +120,42 @@ $cats = $pdo->prepare(
 $cats->execute(['y' => $sc['year_id']]);
 $cats = $cats->fetchAll();
 
-$rows = $pdo->prepare(
-    "SELECT s.*, c.nama AS cat_nama,
-            GROUP_CONCAT(jm.jenjang ORDER BY FIELD(jm.jenjang,'TK','SD','SMP','SMA') SEPARATOR ',') AS jenjangs
-     FROM subjects s
-     LEFT JOIN subject_categories c ON c.id = s.category_id
-     LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
-     WHERE s.deleted_at IS NULL
-       AND s.academic_year_id = :y
-     GROUP BY s.id ORDER BY s.kode"
-);
-$rows->execute(['y' => $sc['year_id']]);
-$rows = $rows->fetchAll();
+// Build Search and Pagination Query
+$conds = ["s.deleted_at IS NULL", "s.academic_year_id = :y"];
+$params = ['y' => $sc['year_id']];
+
+if ($q !== '') {
+    $conds[] = "(s.kode LIKE :q1 OR s.nama LIKE :q2)";
+    $params['q1'] = '%' . $q . '%';
+    $params['q2'] = '%' . $q . '%';
+}
+
+$whereSql = "WHERE " . implode(" AND ", $conds);
+
+// Count total records
+$countSql = "SELECT COUNT(*) FROM subjects s $whereSql";
+$stmtCount = $pdo->prepare($countSql);
+$stmtCount->execute($params);
+$totalRows = (int)$stmtCount->fetchColumn();
+
+// Pagination offsets
+$totalPages = max(1, (int)ceil($totalRows / $limit));
+if ($page > $totalPages) $page = $totalPages;
+$offset = ($page - 1) * $limit;
+
+// Fetch rows
+$rowSql = "SELECT s.*, c.nama AS cat_nama,
+                  GROUP_CONCAT(jm.jenjang ORDER BY FIELD(jm.jenjang,'TK','SD','SMP','SMA') SEPARATOR ',') AS jenjangs
+           FROM subjects s
+           LEFT JOIN subject_categories c ON c.id = s.category_id
+           LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
+           $whereSql
+           GROUP BY s.id ORDER BY s.kode
+           LIMIT $limit OFFSET $offset";
+
+$stmtRows = $pdo->prepare($rowSql);
+$stmtRows->execute($params);
+$rows = $stmtRows->fetchAll();
 
 $edit = null; $editJ = [];
 if ($editId) {
@@ -184,7 +213,17 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 
   <div class="card" style="flex: 2; min-width: 380px">
-    <div class="card-header"><h3 class="card-title">Daftar Mapel (<?= count($rows) ?>)</h3></div>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 class="card-title">Daftar Mapel (<?= $totalRows ?>)</h3>
+        <form method="get" style="display:flex; gap:5px;">
+            <input type="text" name="q" class="input input-sm" placeholder="Cari Kode/Nama..." value="<?= esc($q) ?>">
+            <button type="submit" class="btn btn-secondary btn-sm">Cari</button>
+            <?php if ($q): ?>
+                <a href="subjects.php" class="btn btn-ghost btn-sm" title="Reset Pencarian">✕</a>
+            <?php endif; ?>
+        </form>
+    </div>
+    
     <div class="table-wrap">
       <table class="t">
         <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Jenjang</th><th></th></tr></thead>
@@ -197,7 +236,7 @@ require __DIR__ . '/../../includes/header.php';
             <td><?= esc($r['cat_nama'] ?? '—') ?></td>
             <td><?php foreach (explode(',', (string)$r['jenjangs']) as $j) if ($j) echo '<span class="badge badge-primary" style="margin-right:4px">' . esc($j) . '</span>'; ?></td>
             <td style="text-align:right; white-space:nowrap">
-              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?>">Edit</a>
+              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $q ? '&q='.urlencode($q) : '' ?><?= $page>1 ? '&p='.$page : '' ?>">Edit</a>
               <form method="post" style="display:inline" data-confirm="Hapus mapel <?= esc($r['nama']) ?>?">
                 <?= csrf_field() ?><input type="hidden" name="op" value="delete"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
                 <button class="btn btn-danger btn-sm" type="submit">Hapus</button>
@@ -208,6 +247,21 @@ require __DIR__ . '/../../includes/header.php';
         </tbody>
       </table>
     </div>
+
+    <?php if ($totalPages > 1): ?>
+    <div class="card-body" style="border-top:1px solid var(--c-border); display:flex; justify-content:space-between; align-items:center;">
+        <span class="text-sm text-muted">Halaman <?= $page ?> dari <?= $totalPages ?></span>
+        <div style="display:flex; gap:5px;">
+            <?php if ($page > 1): ?>
+                <a href="?p=<?= $page - 1 ?><?= $q ? '&q='.urlencode($q) : '' ?>" class="btn btn-secondary btn-sm">← Prev</a>
+            <?php endif; ?>
+            <?php if ($page < $totalPages): ?>
+                <a href="?p=<?= $page + 1 ?><?= $q ? '&q='.urlencode($q) : '' ?>" class="btn btn-secondary btn-sm">Next →</a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
   </div>
 </div>
 <?php require __DIR__ . '/../../includes/footer.php'; ?>
