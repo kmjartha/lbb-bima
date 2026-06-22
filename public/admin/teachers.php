@@ -10,6 +10,11 @@ $sc = active_scope();
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
+// Setup Search & Pagination
+$q      = trim((string)($_GET['q'] ?? ''));
+$limit  = 15;
+$page   = max(1, (int)($_GET['p'] ?? 1));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
@@ -83,43 +88,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-
-$rows = $pdo->prepare(
-    "SELECT t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone,
-            GROUP_CONCAT(DISTINCT s.kode ORDER BY s.kode SEPARATOR ', ') AS mapel
-     FROM teachers t
-     JOIN users u ON u.id = t.user_id
-     LEFT JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y_year
-     LEFT JOIN teacher_subjects ts ON ts.teacher_id = t.id
-     LEFT JOIN subjects s ON s.id = ts.subject_id AND s.deleted_at IS NULL AND s.academic_year_id = :y_outer
-     WHERE u.deleted_at IS NULL AND u.is_active = 1 AND u.role = 'guru'
-       AND (
-           ty.teacher_id IS NOT NULL
-           OR EXISTS (
-               SELECT 1 FROM teacher_subjects ts2
-               JOIN subjects s2 ON s2.id = ts2.subject_id AND s2.deleted_at IS NULL AND s2.academic_year_id = :y_subjects
-               WHERE ts2.teacher_id = t.id
-           )
-           OR EXISTS (
-               SELECT 1 FROM rombel r2 WHERE r2.wali_id = t.id AND r2.academic_year_id = :y_wali AND r2.deleted_at IS NULL
-           )
-           OR EXISTS (
-               SELECT 1 FROM rombel_subject_teachers rst2
-               JOIN rombel r3 ON r3.id = rst2.rombel_id AND r3.academic_year_id = :y_assignments AND r3.deleted_at IS NULL
-               WHERE rst2.teacher_id = t.id
-           )
-       )
-     GROUP BY t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone
-     ORDER BY u.nama"
-);
-$rows->execute([
+// Build Search and Pagination Query
+$searchCond = "";
+$countParams = [
     'y_year' => $sc['year_id'],
-    'y_outer' => $sc['year_id'],
     'y_subjects' => $sc['year_id'],
     'y_wali' => $sc['year_id'],
     'y_assignments' => $sc['year_id'],
-]);
-$rows = $rows->fetchAll();
+];
+
+if ($q !== '') {
+    $searchCond = " AND (u.niy LIKE :q1 OR u.nama LIKE :q2 OR u.email LIKE :q3) ";
+    $countParams['q1'] = '%' . $q . '%';
+    $countParams['q2'] = '%' . $q . '%';
+    $countParams['q3'] = '%' . $q . '%';
+}
+
+$baseWhere = "WHERE u.deleted_at IS NULL AND u.is_active = 1 AND u.role = 'guru'
+              AND (
+                  ty.teacher_id IS NOT NULL
+                  OR EXISTS (
+                      SELECT 1 FROM teacher_subjects ts2
+                      JOIN subjects s2 ON s2.id = ts2.subject_id AND s2.deleted_at IS NULL AND s2.academic_year_id = :y_subjects
+                      WHERE ts2.teacher_id = t.id
+                  )
+                  OR EXISTS (
+                      SELECT 1 FROM rombel r2 WHERE r2.wali_id = t.id AND r2.academic_year_id = :y_wali AND r2.deleted_at IS NULL
+                  )
+                  OR EXISTS (
+                      SELECT 1 FROM rombel_subject_teachers rst2
+                      JOIN rombel r3 ON r3.id = rst2.rombel_id AND r3.academic_year_id = :y_assignments AND r3.deleted_at IS NULL
+                      WHERE rst2.teacher_id = t.id
+                  )
+              ) " . $searchCond;
+
+// Count total records for pagination
+// We use a subquery for counting to handle the complex joins and EXISTS clauses properly
+$countSql = "SELECT COUNT(DISTINCT t.id) FROM teachers t
+             JOIN users u ON u.id = t.user_id
+             LEFT JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y_year
+             $baseWhere";
+             
+$stmtCount = $pdo->prepare($countSql);
+$stmtCount->execute($countParams);
+$totalRows = (int)$stmtCount->fetchColumn();
+
+// Calculate total pages and offset
+$totalPages = max(1, (int)ceil($totalRows / $limit));
+if ($page > $totalPages) $page = $totalPages;
+$offset = ($page - 1) * $limit;
+
+// Fetch rows with LIMIT and OFFSET
+$rowParams = $countParams;
+$rowParams['y_outer'] = $sc['year_id']; // Parameter needed for the final SELECT, not used in COUNT
+
+$rowSql = "SELECT t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone,
+                  GROUP_CONCAT(DISTINCT s.kode ORDER BY s.kode SEPARATOR ', ') AS mapel
+           FROM teachers t
+           JOIN users u ON u.id = t.user_id
+           LEFT JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y_year
+           LEFT JOIN teacher_subjects ts ON ts.teacher_id = t.id
+           LEFT JOIN subjects s ON s.id = ts.subject_id AND s.deleted_at IS NULL AND s.academic_year_id = :y_outer
+           $baseWhere
+           GROUP BY t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone
+           ORDER BY u.nama
+           LIMIT $limit OFFSET $offset";
+
+$stmtRows = $pdo->prepare($rowSql);
+// PDO expects LIMIT and OFFSET to be integers if passed as parameters, 
+// so embedding them directly into the string query is safer here given $limit and $offset are already cast to int.
+$stmtRows->execute($rowParams);
+$rows = $stmtRows->fetchAll();
 
 $edit = null;
 if ($editId) {
@@ -161,7 +200,17 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 
   <div class="card" style="flex: 2; min-width: 380px">
-    <div class="card-header"><h3 class="card-title">Daftar Guru (<?= count($rows) ?>)</h3></div>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 class="card-title">Daftar Guru (<?= $totalRows ?>)</h3>
+        <form method="get" style="display:flex; gap:5px;">
+            <input type="text" name="q" class="input input-sm" placeholder="Cari Nama/NIY..." value="<?= esc($q) ?>">
+            <button type="submit" class="btn btn-secondary btn-sm">Cari</button>
+            <?php if ($q): ?>
+                <a href="teachers.php" class="btn btn-ghost btn-sm" title="Reset Pencarian">✕</a>
+            <?php endif; ?>
+        </form>
+    </div>
+    
     <div class="table-wrap">
       <table class="t">
         <thead><tr><th>NIY</th><th>Nama</th><th>NIP</th><th>Mapel</th><th>Wali?</th><th></th></tr></thead>
@@ -175,7 +224,7 @@ require __DIR__ . '/../../includes/header.php';
             <td class="text-sm"><?= esc($r['mapel'] ?? '—') ?></td>
             <td><?= $r['is_wali'] ? '<span class="badge badge-success">Wali</span>' : '<span class="badge">—</span>' ?></td>
             <td style="text-align:right; white-space:nowrap">
-              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?>">Edit</a>
+              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $q ? '&q='.urlencode($q) : '' ?><?= $page>1 ? '&p='.$page : '' ?>">Edit</a>
               <form method="post" style="display:inline" data-confirm="Nonaktifkan guru <?= esc($r['nama']) ?>?">
                 <?= csrf_field() ?><input type="hidden" name="op" value="delete"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
                 <button class="btn btn-danger btn-sm" type="submit">Nonaktif</button>
@@ -186,6 +235,20 @@ require __DIR__ . '/../../includes/header.php';
         </tbody>
       </table>
     </div>
+    
+    <?php if ($totalPages > 1): ?>
+    <div class="card-body" style="border-top:1px solid var(--c-border); display:flex; justify-content:space-between; align-items:center;">
+        <span class="text-sm text-muted">Halaman <?= $page ?> dari <?= $totalPages ?></span>
+        <div style="display:flex; gap:5px;">
+            <?php if ($page > 1): ?>
+                <a href="?p=<?= $page - 1 ?><?= $q ? '&q='.urlencode($q) : '' ?>" class="btn btn-secondary btn-sm">← Prev</a>
+            <?php endif; ?>
+            <?php if ($page < $totalPages): ?>
+                <a href="?p=<?= $page + 1 ?><?= $q ? '&q='.urlencode($q) : '' ?>" class="btn btn-secondary btn-sm">Next →</a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
   </div>
 </div>
 <?php require __DIR__ . '/../../includes/footer.php'; ?>
