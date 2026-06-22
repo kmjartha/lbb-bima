@@ -83,7 +83,7 @@ if (!$rows) {
     $rows = $rows->fetchAll();
 }
 
-$page_title = 'KKM Settings';
+$page_title = 'Predikat Settings';
 require __DIR__ . '/../../includes/header.php';
 ?>
 <?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>

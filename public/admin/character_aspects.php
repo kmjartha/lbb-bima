@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
 require_once __DIR__ . '/../../includes/scope.php';
-require_administrator();
+require_edit('character_aspects');
 
 $pdo = db();
 $sc = active_scope();

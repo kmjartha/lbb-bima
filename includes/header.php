@@ -113,7 +113,7 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
         'Master Data' => [
           ['school_profile',    'admin/school_profile.php',    'Profil Sekolah',    'profile'],
           ['academic_years',    'admin/academic_years.php',    'Tahun Ajaran',      'calendar'],
-          ['kkm',               'admin/kkm.php',               'KKM',               'target'],
+          ['kkm',               'admin/kkm.php',               'Predikat',          'target'],
           ['subject_categories','admin/subject_categories.php','Kategori Mapel',    'list'],
           ['subjects',          'admin/subjects.php',          'Mata Pelajaran',    'book'],
           ['electives',         'admin/electives.php',         'Mapel Pilihan',    'star'],
@@ -140,7 +140,6 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
         'Catatan & Karakter' => [
           ['character_eval',         'character_eval.php',         'Character Evaluation', 'shield'],
           ['general_eval',           'general_eval.php',           'General Evaluation',   'pulse'],
-          ['extracurricular_grades', 'extracurricular_grades.php', 'Nilai Ekskul',         'football'],
         ],
         'Rapor & Leger' => [
           ['leger', 'leger.php', 'Leger Nilai', 'leger'],

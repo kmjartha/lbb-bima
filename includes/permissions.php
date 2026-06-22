@@ -38,7 +38,7 @@ function _permission_matrix(): array
         'teachers'          => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'students'          => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'users'             => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']], // admin can't see administrator credentials (enforced in users.php)
-        'character_aspects' => ['view' => ['administrator'],                          'edit' => ['administrator']],
+        'character_aspects' => ['view' => ['administrator','kepsek'],             'edit' => ['administrator','kepsek']],
         'extracurriculars'  => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'report_templates'  => ['view' => ['administrator'],                          'edit' => ['administrator']],
         'audit_log'         => ['view' => ['administrator'],                          'edit' => ['administrator']],
@@ -67,8 +67,8 @@ function _permission_matrix(): array
         'general_eval'      => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
         'extracurricular_grades' => ['view' => ['administrator','admin','guru'],     'edit' => ['administrator','guru']],
 
-        // ---------- Rapor & Leger (Wali only + Administrator) ----------
-        'leger'             => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
+        // ---------- Rapor & Leger ----------
+        'leger'             => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
         'rapor'             => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
 
 

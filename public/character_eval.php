@@ -2,7 +2,7 @@
 /**
  * Stage 7 — Character Evaluation per siswa per aspek (NI/SI/WI/PR + remark).
  * Per (rombel, semester, period_kind).
- * Roles: guru wali (rombel-nya), administrator/admin, kepsek (read-only).
+ * Roles: guru wali (rombel-nya), administrator/admin, kepsek.
  */
 declare(strict_types=1);
 
