@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Login · <?= esc(cfg()['app_name']) ?></title>
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
+<link rel="icon" type="image/x-icon" href="<?= esc(url('../assets/img/logo.png')) ?>">
 </head><body><div class="auth-wrap"><div class="auth-card">
   <div class="auth-logo"><img src="..\assets\img\logo.png" width="50px"></div>
   <h2>Masuk</h2>
