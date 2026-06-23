@@ -1099,7 +1099,7 @@ CREATE TABLE `students` (
   `nisn` varchar(10) NOT NULL,
   `nis` varchar(7) NOT NULL,
   `nama` varchar(120) NOT NULL,
-  `jenjang` enum('SD','SMP','SMA') NOT NULL,
+  `jenjang` enum('TK','SD','SMP','SMA') NOT NULL,
   `tingkat` tinyint(3) UNSIGNED NOT NULL,
   `jk` enum('L','P') NOT NULL,
   `tempat_lahir` varchar(80) DEFAULT NULL,

@@ -107,27 +107,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($op === 'batch_promote') {
-            $ids = array_map('intval', $_POST['ids'] ?? []);
-            $newJenjang = $_POST['new_jenjang'] ?? '';
-            $newTingkat = int_or_null($_POST['new_tingkat'] ?? null);
-            if (!$ids) throw new RuntimeException('Pilih minimal 1 siswa.');
-            $sets = [];
-            $params = [];
-            if (in_array($newJenjang, ['TK','SD','SMP','SMA'], true)) { $sets[] = "jenjang = :j"; $params['j'] = $newJenjang; }
-            if ($newTingkat !== null) { $sets[] = "tingkat = :t"; $params['t'] = $newTingkat; }
-            if (!$sets) throw new RuntimeException('Pilih jenjang atau tingkat baru.');
-            $in = implode(',', array_fill(0, count($ids), '?'));
-            $sql = "UPDATE students SET " . implode(',', $sets) . " WHERE academic_year_id = :y AND id IN ($in)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->bindValue(':y', $yearId, PDO::PARAM_INT);
-            if (isset($params['j'])) $stmt->bindValue(':j', $params['j']);
-            if (isset($params['t'])) $stmt->bindValue(':t', $params['t'], PDO::PARAM_INT);
-            $i = 1;
-            foreach ($ids as $idv) $stmt->bindValue($i++, $idv, PDO::PARAM_INT);
-            $stmt->execute();
-            audit('batch_promote', 'students:' . count($ids), ['new_jenjang'=>$newJenjang,'new_tingkat'=>$newTingkat]);
-            flash('success', count($ids) . ' siswa dipromosikan.');
-            redirect('admin/students.php');
+          $ids = array_map('intval', $_POST['ids'] ?? []);
+          $newJenjang = $_POST['new_jenjang'] ?? '';
+          $newTingkat = int_or_null($_POST['new_tingkat'] ?? null);
+          if (!$ids) throw new RuntimeException('Pilih minimal 1 siswa.');
+          $sets = [];
+          $params = [];
+          if (in_array($newJenjang, ['TK','SD','SMP','SMA'], true)) { $sets[] = "jenjang = :j"; $params['j'] = $newJenjang; }
+          if ($newTingkat !== null) { $sets[] = "tingkat = :t"; $params['t'] = $newTingkat; }
+          if (!$sets) throw new RuntimeException('Pilih jenjang atau tingkat baru.');
+          // Build named placeholders for the IN() list to avoid mixing positional and named params
+          $idPlaceholders = [];
+          foreach ($ids as $k => $idv) {
+            $ph = ':id_' . $k;
+            $idPlaceholders[] = $ph;
+            $params['id_' . $k] = $idv;
+          }
+          $in = implode(',', $idPlaceholders);
+          $params['y'] = $yearId;
+          $sql = "UPDATE students SET " . implode(',', $sets) . " WHERE academic_year_id = :y AND id IN ($in)";
+          $stmt = $pdo->prepare($sql);
+          $stmt->execute($params);
+          audit('batch_promote', 'students:' . count($ids), ['new_jenjang'=>$newJenjang,'new_tingkat'=>$newTingkat]);
+          flash('success', count($ids) . ' siswa dipromosikan.');
+          redirect('admin/students.php');
         }
     } catch (Throwable $e) {
         $err = $e->getMessage();
