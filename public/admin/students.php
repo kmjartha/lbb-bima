@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!valid_nisn($nisn)) throw new RuntimeException('NISN harus 10 digit angka.');
             if (!valid_nis($nis))   throw new RuntimeException('NIS harus 7 digit angka.');
             if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
-            $valid = ($jenjang==='TK' && $tingkat>=1 && $tingkat<=3)||($jenjang==='SD' && $tingkat>=1 && $tingkat<=6) || ($jenjang==='SMP' && $tingkat>=7 && $tingkat<=9) || ($jenjang==='SMA' && $tingkat>=10 && $tingkat<=12);
+            $valid = ($jenjang==='TK' && $tingkat>=0 && $tingkat<=2)||($jenjang==='SD' && $tingkat>=1 && $tingkat<=6) || ($jenjang==='SMP' && $tingkat>=7 && $tingkat<=9) || ($jenjang==='SMA' && $tingkat>=10 && $tingkat<=12);
             if (!$valid) throw new RuntimeException('Tingkat tidak sesuai jenjang.');
             if (!in_array($jk, ['L','P'], true)) throw new RuntimeException('JK invalid.');
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl)) throw new RuntimeException('Format tanggal lahir invalid.');

@@ -270,10 +270,7 @@ function rapor_render_body(array $args): string
                   </tbody>
                 </table>
 
-                <div class="rapor-foot-note">
-                  <strong>Nilai Akhir (&Sigma; SPK)</strong> per mata pelajaran adalah rata-rata gabungan
-                  dari nilai Sikap, Pengetahuan, dan Keterampilan pada periode <?= esc($jenjang) ?> ini.
-                </div>
+                
 
                 <div class="rapor-kkm-legend">
                   <strong>Skala KKM <?= esc($jenjang) ?>:</strong>
