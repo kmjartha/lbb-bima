@@ -106,7 +106,7 @@ function attendance_summary_for_rombel(int $rombelId, string $semester, int $yea
  * Returns:
  * [
  * 'subjects' => [ [id, kode, nama], ... ],   // ordered by nama
- * 'data'     => [ student_id => [ subject_id => ['si','pe','ke','status'] ] ],
+ * 'data'     => [ student_id => [ subject_id => ['si','pe','ke','status','image_path'] ] ],
  * 'avg'      => [ student_id => [ 'si','pe','ke','overall' ] ],
  * ]
  *
@@ -128,10 +128,11 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
     $stSub->execute(['r' => $rombelId, 'sem' => $semester]);
     $subjects = $stSub->fetchAll();
 
+    // [PERBAIKAN] Tambahkan kolom image_path
     $stFg = $pdo->prepare(
         "SELECT student_id, subject_id,
                 nilai_sikap AS si, nilai_pengetahuan AS pe, nilai_keterampilan AS ke,
-                catatan_guru AS note, status
+                catatan_guru AS note, status, image_path
          FROM final_grades
          WHERE rombel_id = :r AND semester = :sem AND period_kind = :p"
     );
@@ -149,6 +150,7 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
             'overall' => spk_overall($si, $pe, $ke),
             'note' => $row['note'] === null ? null : (string)$row['note'],
             'status' => (string)$row['status'],
+            'image_path' => $row['image_path'] ?? null, // [PERBAIKAN] Ambil image_path
         ];
     }
 
@@ -246,7 +248,7 @@ function report_template_for(string $jenjang): array
     $row = $st->fetch();
     if ($row) return $row;
     
-    // [PERBAIKAN] Menggunakan INSERT IGNORE untuk mengabaikan error duplicate key
+    // Menggunakan INSERT IGNORE untuk mengabaikan error duplicate key
     db()->prepare("INSERT IGNORE INTO report_templates (academic_year_id, jenjang) VALUES (:y,:j)")
         ->execute(['y' => $yearId, 'j' => $jenjang]);
         
@@ -337,7 +339,7 @@ function report_signature_save(string $jenjang, string $slot, ?string $nama, ?st
         $pdo->prepare("UPDATE report_signatures SET nama=:n, jabatan=:jb, ttd_path=:t WHERE id=:i")
             ->execute(['n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath,'i'=>$id]);
     } else {
-        // [PERBAIKAN] Menggunakan INSERT IGNORE untuk menjaga keamanan jika slot bersamaan dibuat
+        // Menggunakan INSERT IGNORE untuk menjaga keamanan jika slot bersamaan dibuat
         $pdo->prepare(
             "INSERT IGNORE INTO report_signatures (academic_year_id, jenjang, slot, nama, jabatan, ttd_path)
              VALUES (:y,:j,:s,:n,:jb,:t)"

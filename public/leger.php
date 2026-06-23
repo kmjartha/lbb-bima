@@ -5,9 +5,9 @@
  * rekap absensi semester, peringkat kelas + paralel.
  *
  * Roles:
- *   - administrator/admin: semua rombel
- *   - kepsek: jenjang-nya (read-only)
- *   - guru wali / pengampu: rombel yang ia akses (lihat accessible_rombel)
+ * - administrator/admin: semua rombel
+ * - kepsek: jenjang-nya (read-only)
+ * - guru wali / pengampu: rombel yang ia akses (lihat accessible_rombel)
  */
 declare(strict_types=1);
 
@@ -74,7 +74,9 @@ require __DIR__ . '/../includes/header.php';
   </div>
 </div>
 
-<?php if ($rombel): ?>
+<?php if ($rombel): 
+    $isTK = ($rombel['jenjang'] === 'TK');
+?>
 <div class="print-area">
   <div class="leger-page">
     <header class="leger-head">
@@ -100,46 +102,83 @@ require __DIR__ . '/../includes/header.php';
       <div style="overflow-x:auto">
         <table class="t-print">
           <thead>
-            <tr>
-              <th rowspan="2" style="width:32px">No</th>
-              <th rowspan="2" style="min-width:160px">Nama Siswa</th>
-              <th rowspan="2" style="width:90px">NISN</th>
-              <?php foreach ($matrix['subjects'] as $s): ?>
-                <th colspan="3" style="text-align:center"><?= esc($s['kode']) ?></th>
-              <?php endforeach; ?>
-              <th colspan="4" style="text-align:center">Rata-rata</th>
-              <th rowspan="2">Rank Kelas</th>
-              <th rowspan="2">Rank Paralel</th>
-            </tr>
-            <tr>
-              <?php foreach ($matrix['subjects'] as $s): ?>
-                <th title="Pengetahuan" style="background:#dbeafe">Pe</th><th title="Keterampilan" style="background:#dcfce7">Ke</th><th title="Sikap" style="background:#dbeafe">Si</th>
-              <?php endforeach; ?>
-              <th style="background:#dbeafe">Pe</th><th style="background:#dcfce7">Ke</th><th style="background:#dbeafe">Si</th><th style="background:#fffbe6">Σ SPK</th>
-            </tr>
+            <?php if ($isTK): ?>
+                <tr>
+                  <th style="width:32px">No</th>
+                  <th style="min-width:160px">Nama Siswa</th>
+                  <th style="width:90px">NISN</th>
+                  <?php foreach ($matrix['subjects'] as $s): ?>
+                    <th style="text-align:center; font-size:11px; max-width:140px; word-wrap:break-word;"><?= esc($s['nama']) ?></th>
+                  <?php endforeach; ?>
+                  <th style="text-align:center; background:#fffbe6">Rata-rata</th>
+                  <th style="text-align:center">Rank Kelas</th>
+                  <th style="text-align:center">Rank Paralel</th>
+                </tr>
+            <?php else: ?>
+                <tr>
+                  <th rowspan="2" style="width:32px">No</th>
+                  <th rowspan="2" style="min-width:160px">Nama Siswa</th>
+                  <th rowspan="2" style="width:90px">NISN</th>
+                  <?php foreach ($matrix['subjects'] as $s): ?>
+                    <th colspan="3" style="text-align:center" title="<?= esc($s['nama']) ?>"><?= esc($s['kode']) ?></th>
+                  <?php endforeach; ?>
+                  <th colspan="4" style="text-align:center">Rata-rata</th>
+                  <th rowspan="2">Rank Kelas</th>
+                  <th rowspan="2">Rank Paralel</th>
+                </tr>
+                <tr>
+                  <?php foreach ($matrix['subjects'] as $s): ?>
+                    <th title="Pengetahuan" style="background:#dbeafe">Pe</th><th title="Keterampilan" style="background:#dcfce7">Ke</th><th title="Sikap" style="background:#dbeafe">Si</th>
+                  <?php endforeach; ?>
+                  <th style="background:#dbeafe">Pe</th><th style="background:#dcfce7">Ke</th><th style="background:#dbeafe">Si</th><th style="background:#fffbe6">Σ SPK</th>
+                </tr>
+            <?php endif; ?>
           </thead>
           <tbody>
             <?php if (!$members): ?>
-              <tr><td colspan="<?= 5 + 3*count($matrix['subjects']) + 4 ?>"><div class="empty">Belum ada anggota.</div></td></tr>
+              <tr><td colspan="<?= $isTK ? (6 + count($matrix['subjects'])) : (5 + 3*count($matrix['subjects']) + 4) ?>"><div class="empty">Belum ada anggota.</div></td></tr>
             <?php endif; ?>
             <?php foreach ($members as $i => $m): $sid = (int)$m['id']; $av = $matrix['avg'][$sid] ?? ['si'=>null,'pe'=>null,'ke'=>null,'overall'=>null]; ?>
               <tr>
                 <td><?= $i+1 ?></td>
                 <td><strong><?= esc($m['nama']) ?></strong></td>
                 <td><?= esc($m['nisn']) ?></td>
-                <?php foreach ($matrix['subjects'] as $s):
-                    $cell = $matrix['data'][$sid][(int)$s['id']] ?? null;
-                ?>
-                  <td><?= $cell && $cell['pe']!==null ? number_format($cell['pe'],1) : '—' ?></td>
-                  <td><?= $cell && $cell['ke']!==null ? number_format($cell['ke'],1) : '—' ?></td>
-                  <td><?= $cell && $cell['si']!==null ? number_format($cell['si'],1) : '—' ?></td>
-                <?php endforeach; ?>
-                <td><?= $av['pe']!==null ? number_format($av['pe'],1) : '—' ?></td>
-                <td><?= $av['ke']!==null ? number_format($av['ke'],1) : '—' ?></td>
-                <td><?= $av['si']!==null ? number_format($av['si'],1) : '—' ?></td>
-                <td style="background:#fffbe6"><strong><?= ($av['overall'] ?? null)!==null ? number_format($av['overall'],2) : '—' ?></strong></td>
-                <td style="text-align:center"><?= $rankClass[$sid] ?? '—' ?></td>
-                <td style="text-align:center"><?= $rankParalel[$sid] ?? '—' ?></td>
+
+                <?php if ($isTK): ?>
+                    <?php foreach ($matrix['subjects'] as $s):
+                        $cell = $matrix['data'][$sid][(int)$s['id']] ?? null;
+                        $overall = $cell ? $cell['overall'] : null;
+                    ?>
+                        <td style="text-align:center; vertical-align:middle;">
+                            <?php if ($overall !== null): 
+                                $starCount = max(1, min(4, (int)round((float)$overall)));
+                            ?>
+                                <div style="color:#f59e0b; font-size:1.05rem; letter-spacing:1px; white-space:nowrap;">
+                                    <?= str_repeat('★', $starCount) . str_repeat('☆', 4 - $starCount) ?>
+                                </div>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
+                    <?php endforeach; ?>
+                    <td style="background:#fffbe6; text-align:center"><strong><?= ($av['overall'] ?? null)!==null ? number_format($av['overall'],2) : '—' ?></strong></td>
+                    <td style="text-align:center"><?= $rankClass[$sid] ?? '—' ?></td>
+                    <td style="text-align:center"><?= $rankParalel[$sid] ?? '—' ?></td>
+                <?php else: ?>
+                    <?php foreach ($matrix['subjects'] as $s):
+                        $cell = $matrix['data'][$sid][(int)$s['id']] ?? null;
+                    ?>
+                      <td><?= $cell && $cell['pe']!==null ? number_format($cell['pe'],1) : '—' ?></td>
+                      <td><?= $cell && $cell['ke']!==null ? number_format($cell['ke'],1) : '—' ?></td>
+                      <td><?= $cell && $cell['si']!==null ? number_format($cell['si'],1) : '—' ?></td>
+                    <?php endforeach; ?>
+                    <td><?= $av['pe']!==null ? number_format($av['pe'],1) : '—' ?></td>
+                    <td><?= $av['ke']!==null ? number_format($av['ke'],1) : '—' ?></td>
+                    <td><?= $av['si']!==null ? number_format($av['si'],1) : '—' ?></td>
+                    <td style="background:#fffbe6"><strong><?= ($av['overall'] ?? null)!==null ? number_format($av['overall'],2) : '—' ?></strong></td>
+                    <td style="text-align:center"><?= $rankClass[$sid] ?? '—' ?></td>
+                    <td style="text-align:center"><?= $rankParalel[$sid] ?? '—' ?></td>
+                <?php endif; ?>
               </tr>
             <?php endforeach; ?>
           </tbody>
@@ -169,9 +208,15 @@ require __DIR__ . '/../includes/header.php';
     <div class="rapor-section">
       <h3>Catatan</h3>
       <div style="font-size:11px; color:#444">
-        Pe = Pengetahuan, Ke = Keterampilan, Si = Sikap, <strong>Σ SPK</strong> = rata-rata gabungan Sikap + Pengetahuan + Keterampilan
-        (nilai akhir tunggal yang ditampilkan di rapor siswa). Rata-rata berasal dari <em>final_grades</em>
-        periode <?= esc($sc['period']) ?> · <?= esc(ucfirst($sc['semester'])) ?>. Rank kelas/paralel dihitung dari Σ SPK.
+        <?php if ($isTK): ?>
+            Penilaian menggunakan format Bintang (1-4) berdasarkan konversi Nilai Akhir Gabungan. 
+            <strong>Rata-rata</strong> = Rata-rata dari seluruh mata pelajaran. Rank kelas/paralel dihitung dari nilai Rata-rata tersebut pada
+            periode <?= esc($sc['period']) ?> · <?= esc(ucfirst($sc['semester'])) ?>.
+        <?php else: ?>
+            Pe = Pengetahuan, Ke = Keterampilan, Si = Sikap, <strong>Σ SPK</strong> = rata-rata gabungan Sikap + Pengetahuan + Keterampilan
+            (nilai akhir tunggal yang ditampilkan di rapor siswa). Rata-rata berasal dari <em>final_grades</em>
+            periode <?= esc($sc['period']) ?> · <?= esc(ucfirst($sc['semester'])) ?>. Rank kelas/paralel dihitung dari Σ SPK.
+        <?php endif; ?>
       </div>
     </div>
   </div>

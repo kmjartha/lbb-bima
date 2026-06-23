@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/admin_helpers.php';
 require_once __DIR__ . '/../includes/attendance_helpers.php';
 require_once __DIR__ . '/../includes/grading_helpers.php';
 require_once __DIR__ . '/../includes/final_grades_helpers.php';
+require_once __DIR__ . '/../includes/report_helpers.php'; // Digunakan untuk save_image_upload()
 
 $user = require_view('final_grades');
 $pdo  = db();
@@ -69,7 +70,6 @@ if ($rid) {
                         $sumB += (float)$rawTk[$msid][$tid]['avg_bintang'] * $w;
                         $sumW += $w;
                         
-                        // PERBAIKAN: Konversi aman ke string untuk mencegah error null pada trim()
                         $rawDesc = (string)($rawTk[$msid][$tid]['all_desc'] ?? '');
                         if (trim($rawDesc) !== '') {
                             $descs[] = trim($rawDesc);
@@ -98,16 +98,16 @@ if ($rid) {
                     $bintang = $tkSyncData[$msid]['bintang'];
                     $desc    = $tkSyncData[$msid]['desc'];
                     
-                    // Skip jika bintang sudah sama persis
                     if ($cur && (float)($cur['nilai_sikap'] ?? -1) === (float)$bintang) continue;
 
                     final_grade_upsert([
                         'rombel_id'=>$rid,'subject_id'=>$sid,'student_id'=>$msid,
                         'semester'=>$sc['semester'],'period_kind'=>$sc['period'],
-                        'nilai_sikap'=>$bintang,          // Mapping Rata-rata Bintang ke kolom Sikap
+                        'nilai_sikap'=>$bintang,
                         'nilai_pengetahuan'=>null,
                         'nilai_keterampilan'=>null,
                         'catatan_guru'=> ($cur['catatan_guru'] ?? '') ?: $desc,
+                        'image_path'=> $cur['image_path'] ?? null,
                         'status'=> $cur['status'] ?? 'draft',
                     ]);
                     $autoCount++;
@@ -128,6 +128,7 @@ if ($rid) {
                         'nilai_pengetahuan'=>$w['pengetahuan'],
                         'nilai_keterampilan'=>$w['keterampilan'],
                         'catatan_guru'=>$cur['catatan_guru'] ?? null,
+                        'image_path'=> $cur['image_path'] ?? null,
                         'status'=> $cur['status'] ?? 'draft',
                     ]);
                     $autoCount++;
@@ -175,7 +176,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                     'rombel_id'=>$rid,'subject_id'=>$sid,'student_id'=>$msid,
                     'semester'=>$sc['semester'],'period_kind'=>$sc['period'],
                     'nilai_sikap'=>$si, 'nilai_pengetahuan'=>$pe, 'nilai_keterampilan'=>$ke,
-                    'catatan_guru'=>$ca, 'status'=> $cur['status'] ?? 'draft',
+                    'catatan_guru'=>$ca, 'image_path'=>$cur['image_path'] ?? null,
+                    'status'=> $cur['status'] ?? 'draft',
                 ]);
                 $count++;
             }
@@ -210,8 +212,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                 $ca = trim((string)($vCa[$msid] ?? ''));
                 $ca = $ca === '' ? null : mb_substr($ca, 0, 1000);
 
+                // Proses Upload Gambar
+                $imgPath = $cur['image_path'] ?? null;
+                if (!empty($_FILES['img']['tmp_name'][$msid])) {
+                    $file = [
+                        'tmp_name' => $_FILES['img']['tmp_name'][$msid],
+                        'error'    => $_FILES['img']['error'][$msid],
+                        'size'     => $_FILES['img']['size'][$msid],
+                        'name'     => $_FILES['img']['name'][$msid]
+                    ];
+                    $imgPath = save_image_upload($file, 'rapor_tk', 'img_' . $msid);
+                }
+
                 if ($cur && in_array($cur['status'], ['approved','published'], true)) continue;
-                if ($si === null && $pe === null && $ke === null && $ca === null && !$existingId) continue;
+                if ($si === null && $pe === null && $ke === null && $ca === null && $imgPath === null && !$existingId) continue;
 
                 $newStatus = $cur['status'] ?? 'draft';
                 if ($op === 'submit' && !empty($sel[$msid])) {
@@ -224,7 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                     'rombel_id'=>$rid,'subject_id'=>$sid,'student_id'=>$msid,
                     'semester'=>$sc['semester'],'period_kind'=>$sc['period'],
                     'nilai_sikap'=>$si,'nilai_pengetahuan'=>$pe,'nilai_keterampilan'=>$ke,
-                    'catatan_guru'=>$ca, 'status'=>$newStatus,
+                    'catatan_guru'=>$ca, 'image_path'=>$imgPath, 'status'=>$newStatus,
                 ]);
                 $count++;
             }
@@ -304,7 +318,7 @@ $fgStatuses = fg_statuses();
       </div>
     <?php endif; ?>
 
-    <form method="post" id="fgForm">
+    <form method="post" id="fgForm" enctype="multipart/form-data">
       <?= csrf_field() ?>
 
       <div class="table-wrap">
@@ -320,7 +334,7 @@ $fgStatuses = fg_statuses();
                 <th style="width:100px; text-align:center;"><span class="badge badge-warning">Nilai Bintang</span></th>
                 <th style="width:150px; text-align:center;">Indikator</th>
                 <th>Catatan / Evaluasi Perkembangan</th>
-              <?php else: ?>
+                <th style="width:120px; text-align:center;">Foto Bukti</th> <?php else: ?>
                 <th style="width:90px"><span class="badge badge-info">Sikap</span></th>
                 <th style="width:110px"><span class="badge badge-primary">Pengetahuan</span></th>
                 <th style="width:110px"><span class="badge badge-success">Keterampilan</span></th>
@@ -342,7 +356,6 @@ $fgStatuses = fg_statuses();
             $vCa = $cur['catatan_guru'] ?? '';
             
             if ($isTK) {
-                // Di mode TK, nilai bintang menumpang di kolom nilai_sikap
                 $vBintang = $cur['nilai_sikap'] ?? null; 
             } else {
                 $vSi = $cur['nilai_sikap']        ?? '';
@@ -377,11 +390,17 @@ $fgStatuses = fg_statuses();
                         <span class="text-muted">—</span>
                     <?php endif; ?>
                 </td>
-                <td>
+                <td style="min-width: 200px;">
                     <textarea class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000" rows="2"
-                              style="width: 100%; min-width: 250px; resize: vertical;"
+                              style="width: 100%; resize: vertical;"
                               placeholder="(opsional) Terisi otomatis dari deskripsi harian jika kosong"
                               <?= $disabledAttr ?>><?= esc((string)$vCa) ?></textarea>
+                </td>
+                <td style="text-align:center;">
+                    <?php if (!empty($cur['image_path'])): ?>
+                        <img src="<?= esc(uploads_url($cur['image_path'])) ?>" style="max-width: 50px; height: 50px; object-fit: cover; display:block; margin: 0 auto 5px; border-radius: 4px; border: 1px solid #ccc;">
+                    <?php endif; ?>
+                    <input type="file" name="img[<?= $msid ?>]" accept="image/*" class="input input-sm" style="width: 100px;" <?= $disabledAttr ?>>
                 </td>
               <?php else: ?>
                 <td class="text-center"><?= $vSi !== '' && $vSi !== null ? '<strong>'.esc((string)(float)$vSi).'</strong>' : '<span class="text-muted">—</span>' ?></td>
@@ -406,7 +425,7 @@ $fgStatuses = fg_statuses();
 
       <?php if (!$ro): ?>
         <div class="between mt-4">
-          <span class="text-sm text-muted">Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek". "Simpan" hanya menyimpan draft tanpa ubah status.</span>
+          <span class="text-sm text-muted">Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek". "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
           <div class="row" style="gap:.5rem">
             <button class="btn btn-secondary" type="submit" name="op" value="save">💾 Simpan Draft</button>
             <button class="btn btn-primary"   type="submit" name="op" value="submit">📤 Ajukan ke Kepsek</button>

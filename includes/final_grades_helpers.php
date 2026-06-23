@@ -2,10 +2,10 @@
 /**
  * Stage 6 — Nilai Akhir PTS/PAS helpers.
  * Tabel: final_grades
- *   (rombel_id, subject_id, student_id, semester, period_kind=PTS|PAS,
- *    nilai_sikap, nilai_pengetahuan, nilai_keterampilan,
- *    catatan_guru, status=draft|submitted|revised|approved|published,
- *    submitted_by, reviewed_by, reviewed_at)
+ * (rombel_id, subject_id, student_id, semester, period_kind=PTS|PAS,
+ * nilai_sikap, nilai_pengetahuan, nilai_keterampilan,
+ * catatan_guru, status=draft|submitted|revised|approved|published,
+ * submitted_by, reviewed_by, reviewed_at, image_path)
  */
 declare(strict_types=1);
 
@@ -58,28 +58,31 @@ function final_grade_upsert(array $data): int
     if ($id) {
         $sql = "UPDATE final_grades SET
                   nilai_sikap=:si, nilai_pengetahuan=:pe, nilai_keterampilan=:ke,
-                  catatan_guru=:c, status=:status,
+                  catatan_guru=:c, status=:status, image_path=:img,
                   submitted_by = COALESCE(:submitted_by_val, submitted_by)
                 WHERE id=:id";
         $p = $pdo->prepare($sql);
         $p->execute([
             'si'=>$data['nilai_sikap'], 'pe'=>$data['nilai_pengetahuan'], 'ke'=>$data['nilai_keterampilan'],
-            'c'=>$data['catatan_guru'], 'status'=>$data['status'], 'submitted_by_val'=>$data['submitted_by'] ?? null,
+            'c'=>$data['catatan_guru'], 'status'=>$data['status'], 'img'=>$data['image_path'] ?? null,
+            'submitted_by_val'=>$data['submitted_by'] ?? null,
             'id'=>$id,
         ]);
         return $id;
     }
+    
     $sql = "INSERT INTO final_grades
               (rombel_id, subject_id, student_id, semester, period_kind,
                nilai_sikap, nilai_pengetahuan, nilai_keterampilan,
-               catatan_guru, status, submitted_by)
-            VALUES (:r,:s,:st,:sem,:p,:si,:pe,:ke,:c,:status,:submitted_by)";
+               catatan_guru, status, submitted_by, image_path)
+            VALUES (:r,:s,:st,:sem,:p,:si,:pe,:ke,:c,:status,:submitted_by,:img)";
     $stm = $pdo->prepare($sql);
     $stm->execute([
         'r'=>$data['rombel_id'],'s'=>$data['subject_id'],'st'=>$data['student_id'],
         'sem'=>$data['semester'],'p'=>$data['period_kind'],
         'si'=>$data['nilai_sikap'], 'pe'=>$data['nilai_pengetahuan'], 'ke'=>$data['nilai_keterampilan'],
         'c'=>$data['catatan_guru'], 'status'=>$data['status'], 'submitted_by'=>$data['submitted_by'] ?? null,
+        'img'=>$data['image_path'] ?? null,
     ]);
     return (int)$pdo->lastInsertId();
 }

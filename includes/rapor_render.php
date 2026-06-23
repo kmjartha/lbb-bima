@@ -23,18 +23,6 @@ require_once __DIR__ . '/helpers.php';
 /**
  * Build the full rapor document body (banner + identitas + all visible
  * sections) as an HTML string.
- *
- * @param array $args {
- * @var array      student     Row from students table
- * @var array      rombel      Row from rombel table
- * @var array      school      Row from school_profile
- * @var array|null tpl         report_templates row (header/footer img, layout)
- * @var array      sigs        report_signatures_for() result
- * @var array      scope       active_scope() shape: ['year','semester','period','year_id']
- * @var string     uploadsBase Absolute filesystem path to /public (for file_exists checks)
- * @var bool       forPdf      When true, image src become absolute file:// or filesystem
- * paths Dompdf can read directly instead of URLs.
- * }
  */
 function rapor_render_body(array $args): string
 {
@@ -216,7 +204,7 @@ function rapor_render_body(array $args): string
                       <th>Mata Pelajaran</th>
                       <?php if ($isTK): ?>
                         <th style="width:100px; text-align:center;">Nilai Bintang</th>
-                      <?php endif; ?>
+                        <th style="width:80px; text-align:center;">Foto</th> <?php endif; ?>
                       <th>Catatan</th>
                       <th style="width:90px; text-align:center;">Grade</th>
                     </tr>
@@ -225,13 +213,16 @@ function rapor_render_body(array $args): string
                   <?php
                     $no = 0;
                     $finalSum = 0.0; $finalCnt = 0;
-                    $colspanCat = $isTK ? 5 : 4;
+                    // TK punya 6 kolom (No, Mapel, Bintang, Foto, Catatan, Grade)
+                    // Non-TK punya 4 kolom (No, Mapel, Catatan, Grade)
+                    $colspanCat = $isTK ? 6 : 4; 
                     foreach ($subjGroups as $catNama => $subs): ?>
                     <tr><td colspan="<?= $colspanCat ?>" class="rapor-cat-row"><?= esc($catNama) ?></td></tr>
                     <?php foreach ($subs as $s): $no++;
                           $cell    = $cellsBySubj[(int)$s['id']] ?? null;
                           $overall = $cell ? ($cell['overall'] ?? null) : null;
                           $note    = $cell ? ($cell['note'] ?? null) : null;
+                          $imgPath = $cell ? ($cell['image_path'] ?? null) : null;
                           $pred    = kkm_predikat($jenjang, $overall);
                           if ($overall !== null) { $finalSum += $overall; $finalCnt++; }
                     ?>
@@ -242,12 +233,21 @@ function rapor_render_body(array $args): string
                         <?php if ($isTK): ?>
                           <td style="text-align:center; vertical-align:middle;">
                             <?php if ($overall !== null): 
-                                // Skala TK dibatasi maksimal 4 Bintang
                                 $starCount = max(1, min(4, (int)round((float)$overall)));
                             ?>
                                 <div style="color:#f59e0b; font-size:1.15rem; letter-spacing:1px; white-space:nowrap;">
                                     <?= str_repeat('★', $starCount) . str_repeat('☆', 4 - $starCount) ?>
                                 </div>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                          </td>
+                          <td style="text-align:center; vertical-align:middle;">
+                            <?php 
+                                $imgResolved = $imgPath ? $imgSrc($imgPath) : null;
+                                if ($imgResolved): 
+                            ?>
+                                <img src="<?= esc($imgResolved) ?>" alt="Foto" style="max-width:50px; max-height:50px; object-fit:cover; border-radius:4px; border:1px solid #ccc;">
                             <?php else: ?>
                                 <span class="text-muted">—</span>
                             <?php endif; ?>
@@ -261,7 +261,7 @@ function rapor_render_body(array $args): string
                   <?php endforeach;
                     $finalAvg = $finalCnt > 0 ? round($finalSum / $finalCnt, 2) : null;
                     $finalPred = kkm_predikat($jenjang, $finalAvg);
-                    $colspanTotal = $isTK ? 4 : 3;
+                    $colspanTotal = $isTK ? 5 : 3;
                   ?>
                     <tr class="rapor-total-row">
                       <td colspan="<?= $colspanTotal ?>" style="text-align:right">Nilai Akhir Gabungan (Rata-rata seluruh mapel)</td>
@@ -350,8 +350,6 @@ function rapor_render_body(array $args): string
           endswitch;
         endforeach; ?>
 
-      </div><!-- /.rapor-body -->
-    </div><!-- /.rapor-page -->
-    <?php
+      </div></div><?php
     return (string)ob_get_clean();
 }
