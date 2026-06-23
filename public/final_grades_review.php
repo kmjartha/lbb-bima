@@ -177,6 +177,7 @@ $fgStatuses = fg_statuses();
                   $vals = array_filter([$r['nilai_sikap'],$r['nilai_pengetahuan'],$r['nilai_keterampilan']], fn($x)=>$x!==null);
                   $avg  = $vals ? array_sum(array_map('floatval',$vals))/count($vals) : null;
                   $pk   = kkm_predikat($r['jenjang'], $avg);
+                  $rowKkm = subject_kkm_for((int)$r['subject_id'], (int)$r['tingkat']);
                   $stInfo = $fgStatuses[$r['status']] ?? $fgStatuses['draft'];
                 ?>
                   <tr>
@@ -190,9 +191,9 @@ $fgStatuses = fg_statuses();
                     <td class="text-center"><?= $r['nilai_sikap']!==null?esc((string)(float)$r['nilai_sikap']):'—' ?></td>
                     <td class="text-center"><?= $r['nilai_pengetahuan']!==null?esc((string)(float)$r['nilai_pengetahuan']):'—' ?></td>
                     <td class="text-center"><?= $r['nilai_keterampilan']!==null?esc((string)(float)$r['nilai_keterampilan']):'—' ?></td>
-                    <td class="text-center">
+                    <td class="text-center<?= kkm_below($avg, $rowKkm) ? ' cell-kkm-below' : '' ?>">
                       <?php if ($avg !== null): ?>
-                        <strong><?= esc((string)round($avg,2)) ?></strong>
+                        <strong class="<?= kkm_below($avg, $rowKkm) ? 'text-kkm-below' : '' ?>"><?= esc((string)round($avg,2)) ?></strong>
                         <div class="text-xs text-muted"><?= esc($pk['grade']) ?></div>
                       <?php else: ?>—<?php endif; ?>
                     </td>

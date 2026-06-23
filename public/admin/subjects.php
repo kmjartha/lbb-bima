@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/scope.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
+require_once __DIR__ . '/../../includes/grading_helpers.php';
 require_admin_any();
 
 $pdo = db();
@@ -68,6 +69,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_array($jenjangs) || !$jenjangs) throw new RuntimeException('Pilih minimal 1 jenjang.');
             foreach ($jenjangs as $j) if (!in_array($j, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
 
+            // KKM defaults per jenjang (e.g. kkm_default[SD] = 70)
+            $kkmDefaults = [];
+            foreach (['SD','SMP','SMA'] as $j) {
+                $raw = $_POST['kkm_default'][$j] ?? null;
+                if ($raw !== null && $raw !== '') {
+                    $v = (float)$raw;
+                    if ($v < 0 || $v > 100) throw new RuntimeException('KKM default ' . $j . ' harus antara 0-100.');
+                    $kkmDefaults[$j] = $v;
+                }
+            }
+            // KKM per-tingkat overrides (e.g. kkm_tingkat[7] = 78)
+            $kkmOverrides = [];
+            $rawOverrides = $_POST['kkm_tingkat'] ?? [];
+            if (is_array($rawOverrides)) {
+                foreach ($rawOverrides as $t => $v) {
+                    $t = (int)$t;
+                    if ($t < 1 || $t > 12) continue;
+                    if ($v === '' || $v === null) continue;
+                    $fv = (float)$v;
+                    if ($fv < 0 || $fv > 100) throw new RuntimeException('KKM kelas ' . $t . ' harus antara 0-100.');
+                    $kkmOverrides[$t] = $fv;
+                }
+            }
+
             $pdo->beginTransaction();
             // Inline category create
             if ($newCat !== '') {
@@ -93,6 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("DELETE FROM subject_jenjang_map WHERE subject_id = :id")->execute(['id'=>$id]);
             $insJ = $pdo->prepare("INSERT INTO subject_jenjang_map (subject_id, jenjang) VALUES (:s,:j)");
             foreach ($jenjangs as $j) $insJ->execute(['s'=>$id,'j'=>$j]);
+
+            // Rebuild KKM rows (default per jenjang, overridable per tingkat)
+            subject_kkm_save($id, $jenjangs, $kkmDefaults, $kkmOverrides);
 
             $pdo->commit();
             audit('save', 'subject:' . $id);
@@ -157,7 +185,34 @@ $stmtRows = $pdo->prepare($rowSql);
 $stmtRows->execute($params);
 $rows = $stmtRows->fetchAll();
 
-$edit = null; $editJ = [];
+// Pull KKM maps for all listed subjects in one query (avoid N+1).
+$kkmBySubject = [];
+if ($rows) {
+    $ids = array_map(fn($r) => (int)$r['id'], $rows);
+    $in  = implode(',', array_fill(0, count($ids), '?'));
+    $stK = $pdo->prepare("SELECT subject_id, tingkat, kkm FROM subject_kkm WHERE subject_id IN ($in)");
+    $stK->execute($ids);
+    foreach ($stK->fetchAll() as $k) {
+        $kkmBySubject[(int)$k['subject_id']][(int)$k['tingkat']] = (float)$k['kkm'];
+    }
+}
+
+/** Ringkasan KKM per jenjang untuk satu subject, mis. "SD 70 · SMP 75-78 · SMA 75". */
+function kkm_summary_for_subject(array $kkmMap): string
+{
+    if (!$kkmMap) return '—';
+    $parts = [];
+    foreach (['SD' => [1,2,3,4,5,6], 'SMP' => [7,8,9], 'SMA' => [10,11,12]] as $jenjang => $tingkatList) {
+        $vals = [];
+        foreach ($tingkatList as $t) if (isset($kkmMap[$t])) $vals[] = $kkmMap[$t];
+        if (!$vals) continue;
+        $min = min($vals); $max = max($vals);
+        $parts[] = $jenjang . ' ' . ($min === $max ? fmt_kkm($min) : fmt_kkm($min) . '-' . fmt_kkm($max));
+    }
+    return $parts ? implode(' · ', $parts) : '—';
+}
+
+$edit = null; $editJ = []; $editKkm = [];
 if ($editId) {
     $stmt = $pdo->prepare("SELECT * FROM subjects WHERE id = :id AND deleted_at IS NULL AND academic_year_id = :y");
     $stmt->execute(['id'=>$editId,'y'=>$sc['year_id']]);
@@ -166,6 +221,7 @@ if ($editId) {
         $j = $pdo->prepare("SELECT jenjang FROM subject_jenjang_map WHERE subject_id = :id");
         $j->execute(['id'=>$editId]);
         $editJ = $j->fetchAll(PDO::FETCH_COLUMN);
+        $editKkm = subject_kkm_map($editId);
     }
 }
 
@@ -200,11 +256,34 @@ require __DIR__ . '/../../includes/header.php';
           </div>
         </div>
         <div class="field">
-          <label class="label">Jenjang *</label>
-          <div style="display:flex; gap: var(--sp-4)">
+          <label class="label">Jenjang &amp; KKM *</label>
+          <p class="text-muted text-sm" style="margin:0 0 .5rem;">Centang jenjang, atur KKM default per jenjang. KKM dapat disesuaikan per tingkat kelas bila perlu.</p>
+          <div id="jenjang-kkm-rows" style="display:flex; flex-direction:column; gap:8px;">
             <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
-              <label class="checkbox-row"><input type="checkbox" name="jenjang[]" value="<?= $j ?>" <?= in_array($j, $editJ, true) ? 'checked' : '' ?>> <?= $j ?></label>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label class="checkbox-row" style="min-width:70px;">
+                  <input type="checkbox" class="jenjang-check" name="jenjang[]" value="<?= $j ?>" data-j="<?= $j ?>" <?= in_array($j, $editJ, true) ? 'checked' : '' ?>> <?= $j ?>
+                </label>
+                <?php if ($j !== 'TK'): ?>
+                  <?php
+                    $tingkatList = tingkat_for_jenjang($j);
+                    $existingVals = array_intersect_key($editKkm, array_flip($tingkatList));
+                    $defaultVal = $existingVals ? round(array_sum($existingVals) / count($existingVals), 2) : 70;
+                  ?>
+                  <span class="text-muted text-sm" style="min-width:80px;">kelas <?= $tingkatList[0] ?>-<?= $tingkatList[count($tingkatList)-1] ?></span>
+                  <label class="text-sm text-muted" style="margin-left:auto;">KKM default</label>
+                  <input type="number" class="input kkm-default-input" style="max-width:80px;" min="0" max="100" step="0.01"
+                         name="kkm_default[<?= $j ?>]" data-j="<?= $j ?>" value="<?= esc((string)$defaultVal) ?>">
+                <?php else: ?>
+                  <span class="text-muted text-sm">tidak memiliki KKM (jenjang TK)</span>
+                <?php endif; ?>
+              </div>
             <?php endforeach; ?>
+          </div>
+
+          <button type="button" id="kkm-advanced-toggle" class="btn btn-secondary btn-sm" style="margin-top:.5rem;">Sesuaikan KKM per tingkat kelas</button>
+          <div id="kkm-advanced-panel" style="display:none; margin-top:.5rem; padding:.75rem; border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.02);">
+            <div id="kkm-tingkat-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap:8px;"></div>
           </div>
         </div>
         <button class="btn btn-primary" type="submit">Simpan</button>
@@ -226,15 +305,16 @@ require __DIR__ . '/../../includes/header.php';
     
     <div class="table-wrap">
       <table class="t">
-        <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Jenjang</th><th></th></tr></thead>
+        <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Jenjang</th><th>KKM</th><th></th></tr></thead>
         <tbody>
-        <?php if (!$rows): ?><tr><td colspan="5"><div class="empty">Belum ada data.</div></td></tr><?php endif; ?>
+        <?php if (!$rows): ?><tr><td colspan="6"><div class="empty">Belum ada data.</div></td></tr><?php endif; ?>
         <?php foreach ($rows as $r): ?>
           <tr>
             <td><strong><?= esc($r['kode']) ?></strong></td>
             <td><?= esc($r['nama']) ?></td>
             <td><?= esc($r['cat_nama'] ?? '—') ?></td>
             <td><?php foreach (explode(',', (string)$r['jenjangs']) as $j) if ($j) echo '<span class="badge badge-primary" style="margin-right:4px">' . esc($j) . '</span>'; ?></td>
+            <td class="text-sm text-muted"><?= esc(kkm_summary_for_subject($kkmBySubject[(int)$r['id']] ?? [])) ?></td>
             <td style="text-align:right; white-space:nowrap">
               <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $q ? '&q='.urlencode($q) : '' ?><?= $page>1 ? '&p='.$page : '' ?>">Edit</a>
               <form method="post" style="display:inline" data-confirm="Hapus mapel <?= esc($r['nama']) ?>?">
@@ -264,4 +344,65 @@ require __DIR__ . '/../../includes/header.php';
 
   </div>
 </div>
+
+<script>
+(function () {
+  var TINGKAT_BY_JENJANG = {
+    SD:  [1,2,3,4,5,6],
+    SMP: [7,8,9],
+    SMA: [10,11,12]
+  };
+  // Existing per-tingkat KKM values from server (edit mode), e.g. {"7": 78, "8": 75}
+  var existingOverrides = <?= $editKkm ? json_encode($editKkm, JSON_NUMERIC_CHECK | JSON_FORCE_OBJECT) : '{}' ?>;
+
+  var grid = document.getElementById('kkm-tingkat-grid');
+  var toggleBtn = document.getElementById('kkm-advanced-toggle');
+  var panel = document.getElementById('kkm-advanced-panel');
+  if (!grid || !toggleBtn || !panel) return;
+
+  function defaultForJenjang(j) {
+    var input = document.querySelector('.kkm-default-input[data-j="' + j + '"]');
+    return input ? (parseFloat(input.value) || 70) : 70;
+  }
+
+  function isChecked(j) {
+    var cb = document.querySelector('.jenjang-check[data-j="' + j + '"]');
+    return cb ? cb.checked : false;
+  }
+
+  function renderGrid() {
+    // Preserve any values the user already typed in this session before re-render
+    var typed = {};
+    grid.querySelectorAll('.tingkat-kkm-input').forEach(function (inp) {
+      typed[inp.dataset.tingkat] = inp.value;
+    });
+
+    grid.innerHTML = '';
+    Object.keys(TINGKAT_BY_JENJANG).forEach(function (j) {
+      if (!isChecked(j)) return;
+      TINGKAT_BY_JENJANG[j].forEach(function (t) {
+        var val = typed[t] !== undefined ? typed[t] : (existingOverrides[t] !== undefined ? existingOverrides[t] : defaultForJenjang(j));
+        var cell = document.createElement('div');
+        cell.style.cssText = 'background:rgba(0,0,0,.03); border-radius:8px; padding:6px 8px;';
+        cell.innerHTML = '<div class="text-muted" style="font-size:11px; margin-bottom:3px;">Kelas ' + t + '</div>' +
+          '<input type="number" class="input tingkat-kkm-input" style="width:100%; padding:4px 6px;" min="0" max="100" step="0.01" ' +
+          'name="kkm_tingkat[' + t + ']" data-tingkat="' + t + '" value="' + val + '">';
+        grid.appendChild(cell);
+      });
+    });
+  }
+
+  toggleBtn.addEventListener('click', function () {
+    var hidden = panel.style.display === 'none';
+    panel.style.display = hidden ? 'block' : 'none';
+    toggleBtn.textContent = hidden ? 'Sembunyikan KKM per tingkat kelas' : 'Sesuaikan KKM per tingkat kelas';
+    if (hidden) renderGrid();
+  });
+
+  document.querySelectorAll('.jenjang-check, .kkm-default-input').forEach(function (el) {
+    el.addEventListener('change', function () { if (panel.style.display !== 'none') renderGrid(); });
+    el.addEventListener('input', function () { if (panel.style.display !== 'none') renderGrid(); });
+  });
+})();
+</script>
 <?php require __DIR__ . '/../../includes/footer.php'; ?>

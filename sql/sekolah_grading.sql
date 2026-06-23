@@ -700,7 +700,6 @@ CREATE TABLE `final_grades` (
   `catatan_guru` text DEFAULT NULL,
   `status` enum('draft','submitted','revised','approved','published') NOT NULL DEFAULT 'draft',
   `submitted_by` int(10) UNSIGNED DEFAULT NULL,
-  `submitted_by` int(10) UNSIGNED DEFAULT NULL,
   `reviewed_by` int(10) UNSIGNED DEFAULT NULL,
   `reviewed_at` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),

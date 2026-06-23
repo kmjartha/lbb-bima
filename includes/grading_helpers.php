@@ -292,3 +292,119 @@ function spk_overall(?float $si, ?float $pe, ?float $ke): ?float
     if (!$vals) return null;
     return round(array_sum($vals) / count($vals), 2);
 }
+
+/**
+ * ---------------------------------------------------------------------------
+ * KKM (Kriteria Ketuntasan Minimal) helpers.
+ *
+ * KKM is stored per (subject_id, tingkat) in `subject_kkm`, where `tingkat`
+ * is the numeric grade level (1-12) taken from `rombel.tingkat`. It is only
+ * ever compared against the combined SPK average (Σ Gabungan), never against
+ * individual ranah — Sikap is qualitative and is excluded by design.
+ *
+ * If no KKM row exists for a given subject+tingkat, helpers return null and
+ * callers must treat that as "no threshold configured" (never assume 0/70 —
+ * no red highlighting should be applied in that case).
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * KKM value for one subject at one tingkat (1-12), or null if not set.
+ * Pass $reset = true (used internally by subject_kkm_save()) to clear the
+ * in-memory cache after a write, so a later read in the same request never
+ * returns a stale value.
+ */
+function subject_kkm_for(int $subjectId, int $tingkat, bool $reset = false): ?float
+{
+    static $cache = [];
+    if ($reset) { $cache = []; return null; }
+
+    $key = $subjectId . ':' . $tingkat;
+    if (array_key_exists($key, $cache)) return $cache[$key];
+
+    $st = db()->prepare("SELECT kkm FROM subject_kkm WHERE subject_id = :s AND tingkat = :t");
+    $st->execute(['s' => $subjectId, 't' => $tingkat]);
+    $val = $st->fetchColumn();
+    return $cache[$key] = ($val === false ? null : (float)$val);
+}
+
+/** Full KKM map for a subject: [tingkat => kkm]. Used by the admin edit form. */
+function subject_kkm_map(int $subjectId): array
+{
+    $st = db()->prepare("SELECT tingkat, kkm FROM subject_kkm WHERE subject_id = :s");
+    $st->execute(['s' => $subjectId]);
+    $out = [];
+    foreach ($st->fetchAll() as $row) {
+        $out[(int)$row['tingkat']] = (float)$row['kkm'];
+    }
+    return $out;
+}
+
+/**
+ * True jika nilai gabungan SPK berada di bawah KKM. Mengembalikan false
+ * (tidak ada highlight) bila nilai atau KKM null -- tidak pernah berasumsi.
+ */
+function kkm_below(?float $value, ?float $kkm): bool
+{
+    if ($value === null || $kkm === null) return false;
+    return $value < $kkm;
+}
+
+/**
+ * Format angka KKM/nilai untuk tampilan: buang trailing zero desimal tanpa
+ * merusak bilangan bulat (mis. 90.00 -> "90", 78.50 -> "78.5", 100.0 -> "100").
+ * Catatan: TIDAK memakai rtrim($s,'0') pada string tanpa titik -- itu juga
+ * akan memakan digit signifikan (mis. "90" jadi "9").
+ */
+function fmt_kkm(float $val): string
+{
+    $s = number_format($val, 2, '.', '');
+    if (str_contains($s, '.')) {
+        $s = rtrim($s, '0');
+        $s = rtrim($s, '.');
+    }
+    return $s;
+}
+function tingkat_for_jenjang(string $jenjang): array
+{
+    return match ($jenjang) {
+        'SD'  => [1, 2, 3, 4, 5, 6],
+        'SMP' => [7, 8, 9],
+        'SMA' => [10, 11, 12],
+        default => [], // TK has no numeric tingkat / no KKM
+    };
+}
+
+/** Given a tingkat (1-12), return its jenjang label, or null (e.g. for TK). */
+function jenjang_for_tingkat(int $tingkat): ?string
+{
+    if ($tingkat >= 1 && $tingkat <= 6) return 'SD';
+    if ($tingkat >= 7 && $tingkat <= 9) return 'SMP';
+    if ($tingkat >= 10 && $tingkat <= 12) return 'SMA';
+    return null;
+}
+
+/**
+ * Replace all subject_kkm rows for a subject based on submitted jenjang
+ * defaults + per-tingkat overrides. Call inside a transaction.
+ *
+ * $jenjangChecked: list of jenjang keys that are active for this subject (e.g. ['SD','SMP']).
+ * $defaults: [jenjang => float] default KKM per jenjang.
+ * $overrides: [tingkat => float] explicit per-tingkat overrides (optional, sparse).
+ */
+function subject_kkm_save(int $subjectId, array $jenjangChecked, array $defaults, array $overrides): void
+{
+    $pdo = db();
+    $pdo->prepare("DELETE FROM subject_kkm WHERE subject_id = :s")->execute(['s' => $subjectId]);
+
+    $ins = $pdo->prepare("INSERT INTO subject_kkm (subject_id, tingkat, kkm) VALUES (:s, :t, :k)");
+    foreach ($jenjangChecked as $j) {
+        if ($j === 'TK') continue; // TK has no numeric tingkat
+        $default = $defaults[$j] ?? 70.0;
+        foreach (tingkat_for_jenjang($j) as $t) {
+            $kkm = $overrides[$t] ?? $default;
+            $ins->execute(['s' => $subjectId, 't' => $t, 'k' => $kkm]);
+        }
+    }
+    subject_kkm_for(0, 0, true); // invalidate cache so subsequent reads in this request are fresh
+}

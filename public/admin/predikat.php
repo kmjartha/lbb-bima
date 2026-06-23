@@ -24,9 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($minVal > $maxVal) throw new RuntimeException('Min tidak boleh lebih besar dari Max.');
             $pdo->prepare("UPDATE kkm_settings SET min_val=:mn, max_val=:mx, predikat=:p WHERE id=:id AND academic_year_id = :y")
                 ->execute(['mn'=>$minVal,'mx'=>$maxVal,'p'=>$pred,'id'=>$id,'y'=>$yearId]);
-            audit('save', 'kkm:' . $id);
-            flash('success', 'KKM diperbarui.');
-            redirect('admin/kkm.php?jenjang=' . urlencode((string)($_POST['jenjang'] ?? 'SD')));
+            audit('save', 'predikat:' . $id);
+            flash('success', 'Predikat diperbarui.');
+            redirect('admin/predikat.php?jenjang=' . urlencode((string)($_POST['jenjang'] ?? 'SD')));
         }
 
         if ($op === 'add_row') {
@@ -41,19 +41,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->fetchColumn()) throw new RuntimeException('Grade sudah ada pada jenjang ini.');
             $pdo->prepare("INSERT INTO kkm_settings (academic_year_id, jenjang, grade, min_val, max_val, predikat) VALUES (:y,:j,:g,:mn,:mx,:p)")
                 ->execute(['y'=>$yearId,'j'=>$jenjang,'g'=>$grade,'mn'=>$minVal,'mx'=>$maxVal,'p'=>$pred]);
-            audit('save', 'kkm:new:' . $grade);
-            flash('success', 'KKM baru ditambahkan.');
-            redirect('admin/kkm.php?jenjang=' . urlencode($jenjang));
+            audit('save', 'predikat:new:' . $grade);
+            flash('success', 'Predikat baru ditambahkan.');
+            redirect('admin/predikat.php?jenjang=' . urlencode($jenjang));
         }
 
         if ($op === 'delete_row') {
             $id = (int)($_POST['id'] ?? 0);
-            if ($id <= 0) throw new RuntimeException('ID KKM invalid.');
+            if ($id <= 0) throw new RuntimeException('ID Predikat invalid.');
             $pdo->prepare("DELETE FROM kkm_settings WHERE id = :id AND academic_year_id = :y")
                 ->execute(['id' => $id, 'y' => $yearId]);
-            audit('delete', 'kkm:' . $id);
-            flash('success', 'KKM dihapus.');
-            redirect('admin/kkm.php?jenjang=' . urlencode($jenjang));
+            audit('delete', 'predikat:' . $id);
+            flash('success', 'Predikat dihapus.');
+            redirect('admin/predikat.php?jenjang=' . urlencode($jenjang));
         }
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
@@ -100,11 +100,11 @@ require __DIR__ . '/../../includes/header.php';
   <div class="card-body">
     <div style="display:flex; gap:var(--sp-2); align-items:center; justify-content:space-between; flex-wrap:wrap;">
       <p class="text-muted text-sm" style="margin:0; flex:1 1 320px;">Tiap baris adalah rentang nilai untuk satu grade. Edit min/max/predikat lalu klik Simpan pada baris itu.</p>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="var c=document.getElementById('kkm-add-card'); c.style.display = c.style.display === 'none' ? 'block' : 'none';">Tambah KKM</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="var c=document.getElementById('predikat-add-card'); c.style.display = c.style.display === 'none' ? 'block' : 'none';">Tambah Predikat</button>
     </div>
   </div>
-  <div id="kkm-add-card" style="display:none; margin:1rem 1.5rem 0 1.5rem; padding:1rem; border:1px solid var(--border); border-radius:12px; background:rgba(0,0,0,.02)">
-    <form id="kkm-add-form" method="post" class="row" style="gap: var(--sp-2); align-items:flex-end;">
+  <div id="predikat-add-card" style="display:none; margin:1rem 1.5rem 0 1.5rem; padding:1rem; border:1px solid var(--border); border-radius:12px; background:rgba(0,0,0,.02)">
+    <form id="predikat-add-form" method="post" class="row" style="gap: var(--sp-2); align-items:flex-end;">
       <?= csrf_field() ?>
       <input type="hidden" name="op" value="add_row">
       <input type="hidden" name="jenjang" value="<?= esc($jenjang) ?>">
@@ -117,7 +117,7 @@ require __DIR__ . '/../../includes/header.php';
   </div>
   <div class="table-wrap">
     <?php /* Forms must live OUTSIDE the table; inputs reference them via form="..." */ ?>
-    <?php foreach ($rows as $r): $fid = 'kkm-f-' . (int)$r['id']; $did = 'kkm-d-' . (int)$r['id']; ?>
+    <?php foreach ($rows as $r): $fid = 'predikat-f-' . (int)$r['id']; $did = 'predikat-d-' . (int)$r['id']; ?>
       <form id="<?= esc($fid) ?>" method="post" style="display:none">
         <?= csrf_field() ?>
         <input type="hidden" name="op" value="save_row">
@@ -142,7 +142,7 @@ require __DIR__ . '/../../includes/header.php';
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($rows as $r): $fid = 'kkm-f-' . (int)$r['id']; $did = 'kkm-d-' . (int)$r['id']; ?>
+        <?php foreach ($rows as $r): $fid = 'predikat-f-' . (int)$r['id']; $did = 'predikat-d-' . (int)$r['id']; ?>
           <tr>
             <td><strong><?= esc($r['grade']) ?></strong></td>
             <td><input class="input" form="<?= esc($fid) ?>" type="number" step="0.01" name="min_val" value="<?= esc((string)$r['min_val']) ?>" style="max-width:110px;"></td>
@@ -150,7 +150,7 @@ require __DIR__ . '/../../includes/header.php';
             <td><input class="input" form="<?= esc($fid) ?>" type="text" name="predikat" value="<?= esc($r['predikat']) ?>"></td>
             <td style="text-align:right; white-space:nowrap">
               <button class="btn btn-primary btn-sm" form="<?= esc($fid) ?>" type="submit">Simpan</button>
-              <button class="btn btn-danger btn-sm" form="<?= esc($did) ?>" type="submit" onclick="return confirm('Hapus KKM <?= esc($r['grade']) ?>?')">Hapus</button>
+              <button class="btn btn-danger btn-sm" form="<?= esc($did) ?>" type="submit" onclick="return confirm('Hapus Predikat <?= esc($r['grade']) ?>?')">Hapus</button>
             </td>
           </tr>
         <?php endforeach; ?>

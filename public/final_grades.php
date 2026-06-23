@@ -251,7 +251,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
 
 $page_title = 'Nilai Akhir ' . $sc['period'];
 require __DIR__ . '/../includes/header.php';
-$kkmJenjang = $rombel['jenjang'] ?? 'SD';
+$predikatJenjang = $rombel['jenjang'] ?? 'SD';
+// KKM (Kriteria Ketuntasan Minimal) sesungguhnya: per mapel + tingkat kelas numerik rombel ini.
+// null jika belum diset utk subject+tingkat ini -> tidak ada highlight merah (lihat kkm_below()).
+$subjectKkm = ($sid && $rombel) ? subject_kkm_for($sid, (int)$rombel['tingkat']) : null;
 $fgStatuses = fg_statuses();
 ?>
 <?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>
@@ -338,7 +341,7 @@ $fgStatuses = fg_statuses();
                 <th style="width:90px"><span class="badge badge-info">Sikap</span></th>
                 <th style="width:110px"><span class="badge badge-primary">Pengetahuan</span></th>
                 <th style="width:110px"><span class="badge badge-success">Keterampilan</span></th>
-                <th style="width:140px">Σ Gabungan SPK · Predikat</th>
+                <th style="width:140px">Σ Gabungan SPK · Predikat<?php if ($subjectKkm !== null): ?><div class="text-xs text-muted" style="font-weight:400;">KKM: <?= esc(fmt_kkm($subjectKkm)) ?></div><?php endif; ?></th>
                 <th>Catatan Guru</th>
               <?php endif; ?>
 
@@ -363,7 +366,7 @@ $fgStatuses = fg_statuses();
                 $vKe = $cur['nilai_keterampilan'] ?? '';
                 $vals = array_filter([$vSi,$vPe,$vKe], fn($x)=>$x!==null && $x!=='');
                 $avg  = $vals ? array_sum(array_map('floatval',$vals))/count($vals) : null;
-                $pk   = kkm_predikat($kkmJenjang, $avg);
+                $pk   = kkm_predikat($predikatJenjang, $avg);
             }
           ?>
             <tr>
@@ -406,9 +409,9 @@ $fgStatuses = fg_statuses();
                 <td class="text-center"><?= $vSi !== '' && $vSi !== null ? '<strong>'.esc((string)(float)$vSi).'</strong>' : '<span class="text-muted">—</span>' ?></td>
                 <td class="text-center"><?= $vPe !== '' && $vPe !== null ? '<strong>'.esc((string)(float)$vPe).'</strong>' : '<span class="text-muted">—</span>' ?></td>
                 <td class="text-center"><?= $vKe !== '' && $vKe !== null ? '<strong>'.esc((string)(float)$vKe).'</strong>' : '<span class="text-muted">—</span>' ?></td>
-                <td class="text-center">
+                <td class="text-center<?= kkm_below($avg, $subjectKkm) ? ' cell-kkm-below' : '' ?>">
                   <?php if ($avg !== null): ?>
-                    <strong><?= esc((string)round($avg,2)) ?></strong>
+                    <strong class="<?= kkm_below($avg, $subjectKkm) ? 'text-kkm-below' : '' ?>"><?= esc((string)round($avg,2)) ?></strong>
                     <div class="text-xs text-muted"><?= esc($pk['grade']) ?> · <?= esc($pk['predikat']) ?></div>
                   <?php else: ?><span class="text-muted">—</span><?php endif; ?>
                 </td>

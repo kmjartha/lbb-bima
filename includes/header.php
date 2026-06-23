@@ -113,7 +113,7 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
         'Master Data' => [
           ['school_profile',    'admin/school_profile.php',    'Profil Sekolah',    'profile'],
           ['academic_years',    'admin/academic_years.php',    'Tahun Ajaran',      'calendar'],
-          ['kkm',               'admin/kkm.php',               'Predikat',          'target'],
+          ['predikat',          'admin/predikat.php',          'Predikat',          'target'],
           ['subject_categories','admin/subject_categories.php','Kategori Mapel',    'list'],
           ['subjects',          'admin/subjects.php',          'Mata Pelajaran',    'book'],
           ['electives',         'admin/electives.php',         'Mapel Pilihan',    'star'],

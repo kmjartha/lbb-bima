@@ -32,7 +32,7 @@ function _permission_matrix(): array
         // ---------- Master data ----------
         'school_profile'    => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'academic_years'    => ['view' => ['administrator'],                          'edit' => ['administrator']],
-        'kkm'               => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
+        'predikat'          => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'subjects'          => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'subject_categories'=> ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'teachers'          => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],

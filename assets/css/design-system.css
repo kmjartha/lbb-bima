@@ -88,6 +88,12 @@ h3 { font-size: var(--fs-18); }
 small, .text-sm { font-size: var(--fs-12); }
 .text-muted { color: var(--text-muted); }
 
+/* ---- KKM (Kriteria Ketuntasan Minimal) highlight ----
+   Applied only on: Rekap Nilai Harian, Nilai Akhir PTS/PAS, Verifikasi Nilai.
+   Never on parent-facing pages. */
+.text-kkm-below { color: var(--c-danger-700); font-weight: 600; }
+.cell-kkm-below { background: var(--c-danger-50); }
+
 /* ---- Layout shell ---- */
 .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
 .sidebar {
