@@ -3,7 +3,7 @@
  * Stage 8 — Rapor Printable.
  * Browser-side print → "Save as PDF" (cross-platform, zero dependency).
  * Roles: administrator / admin / kepsek / guru-wali (rombel-nya).
- *        Parent dilayani di Stage 9 (file terpisah, gating via 'published').
+ * Parent dilayani di Stage 9 (file terpisah, gating via 'published').
  *
  * Query: ?rombel_id=&student_id=  (period & semester dari scope topbar).
  */
@@ -37,7 +37,7 @@ if ($sid) {
         // Confirm membership
         $ok = false;
         foreach ($members as $m) if ((int)$m['id'] === $sid) { $ok = true; break; }
-        if (!$ok) { $student = null; flash('error', 'Siswa bukan anggota rombel.'); }
+        if (!$ok) { $student = null; flash('error', 'Student is not a member of this class.'); }
     }
 }
 
@@ -45,21 +45,21 @@ $school = $pdo->query("SELECT * FROM school_profile WHERE id = 1")->fetch() ?: [
 $tpl    = $rombel ? report_template_for($rombel['jenjang']) : null;
 $sigs   = $rombel ? report_signatures_for($rombel['jenjang'], (int)$rombel['id']) : [];
 
-$page_title = 'Rapor Siswa';
+$page_title = 'Student Report Card';
 require __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="card no-print">
   <div class="card-header">
-    <h3 class="card-title">Pilih Siswa</h3>
-    <span class="text-sm text-muted">TA <?= esc($sc['year']) ?> · <?= esc(ucfirst($sc['semester'])) ?> · <?= esc($sc['period']) ?></span>
+    <h3 class="card-title">Select Student</h3>
+    <span class="text-sm text-muted">AY <?= esc($sc['year']) ?> · <?= esc(ucfirst($sc['semester'])) ?> · <?= esc($sc['period']) ?></span>
   </div>
   <div class="card-body">
     <form method="get" class="row" style="gap: var(--sp-3); align-items: end">
       <div class="field" style="flex:1; min-width:260px">
-        <label class="label">Rombel</label>
+        <label class="label">Class</label>
         <select name="rombel_id" class="select" onchange="this.form.submit()">
-          <?php if (!$rombels): ?><option value="">— Tidak ada rombel terjangkau —</option><?php endif; ?>
+          <?php if (!$rombels): ?><option value="">— No accessible classes —</option><?php endif; ?>
           <?php foreach ($rombels as $r): ?>
             <option value="<?= (int)$r['id'] ?>" <?= $rid==$r['id']?'selected':'' ?>>
               <?= esc($r['jenjang'] . ' · ' . $r['nama']) ?>
@@ -68,9 +68,9 @@ require __DIR__ . '/../includes/header.php';
         </select>
       </div>
       <div class="field" style="flex:1; min-width:260px">
-        <label class="label">Siswa</label>
+        <label class="label">Student</label>
         <select name="student_id" class="select" onchange="this.form.submit()">
-          <option value="">— Pilih siswa —</option>
+          <option value="">— Select student —</option>
           <?php foreach ($members as $m): ?>
             <option value="<?= (int)$m['id'] ?>" <?= $sid==$m['id']?'selected':'' ?>><?= esc($m['nama']) ?> (<?= esc($m['nisn']) ?>)</option>
           <?php endforeach; ?>
@@ -85,14 +85,13 @@ require __DIR__ . '/../includes/header.php';
     </form>
     <?php if ($student && $rombel): ?>
       <?php if (rapor_is_published($rid, $sid, $sc['semester'], $sc['period'], $sc['year_id'])): ?>
-        <div class="alert alert-success" style="margin-top:12px">Rapor sudah <strong>dipublikasi</strong> — orang tua bisa melihat di Parent Portal.</div>
+        <div class="alert alert-success" style="margin-top:12px">Report card has been <strong>published</strong> — parents can view it in the Parent Portal.</div>
       <?php else: ?>
-        <div class="alert alert-warning" style="margin-top:12px">Rapor belum dipublikasi. Pratinjau ini hanya untuk staf.</div>
+        <div class="alert alert-warning" style="margin-top:12px">Report card is not yet published. This preview is for staff only.</div>
       <?php endif; ?>
     <?php endif; ?>
   </div>
 </div>
-
 
 <?php if ($rombel && $student): ?>
 <div class="print-area">
@@ -108,7 +107,7 @@ require __DIR__ . '/../includes/header.php';
       ]) ?>
 </div>
 <?php else: ?>
-  <div class="empty">Pilih rombel &amp; siswa untuk membuat rapor.</div>
+  <div class="empty">Please select a class & student to generate the report card.</div>
 <?php endif; ?>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

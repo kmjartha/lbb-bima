@@ -85,8 +85,8 @@ function rapor_render_body(array $args): string
         <?php /* ---------- identitas (always shown) ---------- */ ?>
         <?php if ($bannerSrc): ?>
           <div class="rapor-subhead">
-            <span><strong>RAPOR <?= esc($sc['period']) ?></strong> ·
-            Semester <?= esc(ucfirst($sc['semester'])) ?> · TA <?= esc($sc['year']) ?></span>
+            <span><strong>REPORT CARD <?= esc($sc['period']) ?></strong> ·
+            Semester <?= esc(ucfirst($sc['semester'])) ?> · AY <?= esc($sc['year']) ?></span>
           </div>
         <?php else:
           $logoSrcResolved = $logoSrc();
@@ -97,15 +97,15 @@ function rapor_render_body(array $args): string
               <td style="width:60px; vertical-align:middle;"><img class="logo" src="<?= esc($logoSrcResolved) ?>" alt="logo"></td>
             <?php endif; ?>
             <td style="vertical-align:middle;">
-              <h2 style="margin:0 0 3px; font-size:16px; color:#0f172a;"><?= esc($school['nama'] ?? 'Sekolah') ?></h2>
+              <h2 style="margin:0 0 3px; font-size:16px; color:#0f172a;"><?= esc($school['nama'] ?? 'School') ?></h2>
               <div class="meta" style="font-size:10px; color:#64748b;">
                 <?= esc(trim(($school['alamat'] ?? '') . ' ' . ($school['kota'] ?? '') . ' ' . ($school['provinsi'] ?? ''))) ?>
-                <?php if (!empty($school['telepon'])): ?> · Telp <?= esc($school['telepon']) ?><?php endif; ?>
+                <?php if (!empty($school['telepon'])): ?> · Phone: <?= esc($school['telepon']) ?><?php endif; ?>
               </div>
             </td>
             <td class="rapor-head-right" style="width:160px; vertical-align:middle; text-align:right;">
-              <strong><?= esc('RAPOR ' . $sc['period']) ?></strong><br>
-              Semester <?= esc(ucfirst($sc['semester'])) ?> · TA <?= esc($sc['year']) ?>
+              <strong><?= esc('REPORT CARD ' . $sc['period']) ?></strong><br>
+              Semester <?= esc(ucfirst($sc['semester'])) ?> · AY <?= esc($sc['year']) ?>
             </td>
           </tr></table>
           <?php else: ?>
@@ -114,15 +114,15 @@ function rapor_render_body(array $args): string
               <img class="logo" src="<?= esc($logoSrcResolved) ?>" alt="logo">
             <?php endif; ?>
             <div class="school">
-              <h2><?= esc($school['nama'] ?? 'Sekolah') ?></h2>
+              <h2><?= esc($school['nama'] ?? 'School') ?></h2>
               <div class="meta">
                 <?= esc(trim(($school['alamat'] ?? '') . ' ' . ($school['kota'] ?? '') . ' ' . ($school['provinsi'] ?? ''))) ?>
-                <?php if (!empty($school['telepon'])): ?> · Telp <?= esc($school['telepon']) ?><?php endif; ?>
+                <?php if (!empty($school['telepon'])): ?> · Phone: <?= esc($school['telepon']) ?><?php endif; ?>
               </div>
             </div>
             <div class="rapor-head-right">
-              <strong><?= esc('RAPOR ' . $sc['period']) ?></strong><br>
-              Semester <?= esc(ucfirst($sc['semester'])) ?> · TA <?= esc($sc['year']) ?>
+              <strong><?= esc('REPORT CARD ' . $sc['period']) ?></strong><br>
+              Semester <?= esc(ucfirst($sc['semester'])) ?> · AY <?= esc($sc['year']) ?>
             </div>
           </header>
           <?php endif; ?>
@@ -130,17 +130,17 @@ function rapor_render_body(array $args): string
 
         <table class="t-print" style="margin-bottom: 6px">
           <tr>
-            <td style="width:18%">Nama Siswa</td><td style="width:32%"><strong><?= esc($student['nama']) ?></strong></td>
-            <td style="width:18%">NISN / NIS</td><td><?= esc($student['nisn']) ?> / <?= esc($student['nis']) ?></td>
+            <td style="width:18%">Student Name</td><td style="width:32%"><strong><?= esc($student['nama']) ?></strong></td>
+            <td style="width:18%">NISN / Student ID</td><td><?= esc($student['nisn']) ?> / <?= esc($student['nis']) ?></td>
           </tr>
           <tr>
-            <td>Kelas</td><td><?= esc($rombel['jenjang'] . ' ' . $rombel['nama']) ?></td>
-            <td>Tingkat</td><td><?= esc((string)$rombel['tingkat']) ?></td>
+            <td>Class</td><td><?= esc($rombel['jenjang'] . ' ' . $rombel['nama']) ?></td>
+            <td>Level</td><td><?= esc((string)$rombel['tingkat']) ?></td>
           </tr>
           <tr>
-            <td>Tempat / Tgl Lahir</td>
+            <td>Place / Date of Birth</td>
             <td><?= esc(($student['tempat_lahir'] ?? '—') . ', ' . date('d M Y', strtotime($student['tgl_lahir']))) ?></td>
-            <td>Jenis Kelamin</td><td><?= $student['jk']==='L' ? 'Laki-laki' : 'Perempuan' ?></td>
+            <td>Gender</td><td><?= $student['jk'] === 'L' ? 'Male' : 'Female' ?></td>
           </tr>
         </table>
 
@@ -150,13 +150,13 @@ function rapor_render_body(array $args): string
           switch ($key):
             case 'character': ?>
               <div class="rapor-section">
-                <h3>Penilaian Karakter</h3>
+                <h3>Character Evaluation</h3>
                 <?php if (!$charEvals): ?>
-                  <div class="rapor-empty-note">Belum ada penilaian karakter.</div>
+                  <div class="rapor-empty-note">No character evaluation available.</div>
                 <?php else:
                   $grouped = [];
                   foreach ($charEvals as $ce) {
-                      $cat = $ce['kategori'] ? ucfirst($ce['kategori']) : 'Lainnya';
+                      $cat = $ce['kategori'] ? ucfirst($ce['kategori']) : 'Others';
                       $grouped[$cat][] = $ce;
                   }
                 ?>
@@ -196,16 +196,17 @@ function rapor_render_body(array $args): string
               $isTK = ($jenjang === 'TK');
             ?>
               <div class="rapor-section">
-                <h3>Penilaian Akademik (Nilai Akhir Gabungan SPK per Mata Pelajaran)</h3>
+                <h3>Academic Evaluation (Combined Final Score per Subject)</h3>
                 <table class="t-print">
                   <thead>
                     <tr>
                       <th style="width:32px">No</th>
-                      <th>Mata Pelajaran</th>
-                      <?php if ($isTK): ?>
-                        <th style="width:100px; text-align:center;">Nilai Bintang</th>
-                        <th style="width:80px; text-align:center;">Foto</th> <?php endif; ?>
-                      <th>Catatan</th>
+                      <th>Subject</th>
+                      <th style="width:60px; text-align:center;">Score</th> <?php if ($isTK): ?>
+                        <th style="width:100px; text-align:center;">Star Rating</th>
+                        <th style="width:80px; text-align:center;">Photo</th> 
+                      <?php endif; ?>
+                      <th>Remarks</th>
                       <th style="width:90px; text-align:center;">Grade</th>
                     </tr>
                   </thead>
@@ -213,9 +214,9 @@ function rapor_render_body(array $args): string
                   <?php
                     $no = 0;
                     $finalSum = 0.0; $finalCnt = 0;
-                    // TK punya 6 kolom (No, Mapel, Bintang, Foto, Catatan, Grade)
-                    // Non-TK punya 4 kolom (No, Mapel, Catatan, Grade)
-                    $colspanCat = $isTK ? 6 : 4; 
+                    // TK punya 7 kolom (No, Subject, Score, Star, Photo, Remarks, Grade)
+                    // Non-TK punya 5 kolom (No, Subject, Score, Remarks, Grade)
+                    $colspanCat = $isTK ? 7 : 5; 
                     foreach ($subjGroups as $catNama => $subs): ?>
                     <tr><td colspan="<?= $colspanCat ?>" class="rapor-cat-row"><?= esc($catNama) ?></td></tr>
                     <?php foreach ($subs as $s): $no++;
@@ -229,6 +230,8 @@ function rapor_render_body(array $args): string
                       <tr>
                         <td><?= $no ?></td>
                         <td><?= esc($s['nama']) ?></td>
+                        
+                        <td style="text-align:center"><strong><?= $overall !== null ? esc((string)round((float)$overall, 2)) : '—' ?></strong></td>
                         
                         <?php if ($isTK): ?>
                           <td style="text-align:center; vertical-align:middle;">
@@ -247,7 +250,7 @@ function rapor_render_body(array $args): string
                                 $imgResolved = $imgPath ? $imgSrc($imgPath) : null;
                                 if ($imgResolved): 
                             ?>
-                                <img src="<?= esc($imgResolved) ?>" alt="Foto" style="max-width:50px; max-height:50px; object-fit:cover; border-radius:4px; border:1px solid #ccc;">
+                                <img src="<?= esc($imgResolved) ?>" alt="Photo" style="max-width:50px; max-height:50px; object-fit:cover; border-radius:4px; border:1px solid #ccc;">
                             <?php else: ?>
                                 <span class="text-muted">—</span>
                             <?php endif; ?>
@@ -261,19 +264,18 @@ function rapor_render_body(array $args): string
                   <?php endforeach;
                     $finalAvg = $finalCnt > 0 ? round($finalSum / $finalCnt, 2) : null;
                     $finalPred = kkm_predikat($jenjang, $finalAvg);
-                    $colspanTotal = $isTK ? 5 : 3;
+                    // Colspan total diseimbangkan kembali
+                    $colspanTotal = $isTK ? 6 : 4;
                   ?>
                     <tr class="rapor-total-row">
-                      <td colspan="<?= $colspanTotal ?>" style="text-align:right">Nilai Akhir Gabungan (Rata-rata seluruh mapel)</td>
+                      <td colspan="<?= $colspanTotal ?>" style="text-align:right">Combined Final Score (Overall Average)</td>
                       <td style="text-align:center"><strong><?= $finalAvg !== null ? esc($finalPred['grade']) : '—' ?></strong></td>
                     </tr>
                   </tbody>
                 </table>
 
-                
-
                 <div class="rapor-kkm-legend">
-                  <strong>Skala KKM <?= esc($jenjang) ?>:</strong>
+                  <strong>Passing Grade (KKM) Scale for <?= esc($jenjang) ?>:</strong>
                   <?php foreach ($kkm as $k): ?>
                     <span class="kkm-pill"><?= esc($k['grade']) ?> (<?= number_format((float)$k['min_val'],0) ?>&ndash;<?= number_format((float)$k['max_val'],0) ?>) <?= esc($k['predikat']) ?></span>
                   <?php endforeach; ?>
@@ -283,9 +285,9 @@ function rapor_render_body(array $args): string
 
             case 'attendance': ?>
               <div class="rapor-section">
-                <h3>Kehadiran Semester</h3>
+                <h3>Semester Attendance</h3>
                 <table class="t-print rapor-table-narrow">
-                  <thead><tr><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpa</th><th>Total Hari</th></tr></thead>
+                  <thead><tr><th>Present</th><th>Excused</th><th>Sick</th><th>Unexcused</th><th>Total Days</th></tr></thead>
                   <tbody>
                     <tr style="text-align:center">
                       <td><?= (int)$myAtt['h'] ?></td><td><?= (int)$myAtt['i'] ?></td><td><?= (int)$myAtt['s'] ?></td><td><?= (int)$myAtt['a'] ?></td><td><?= (int)$myAtt['total'] ?></td>
@@ -297,13 +299,18 @@ function rapor_render_body(array $args): string
 
             case 'general_eval': ?>
               <div class="rapor-section">
-                <h3>Deskripsi / Narasi Umum</h3>
+                <h3>General Description / Narrative</h3>
                 <div class="rapor-note-box"><?= esc($generalRow[$sid] ?? '—') ?></div>
               </div>
             <?php break;
 
             case 'signatures':
-              $issued = ($school['kota'] ?? '—') . ', ' . date('d F Y');
+              $issued = ($school['kota'] ?? '—') . ', ' . date('F j, Y');
+              // Translator role function
+              $roleName = function($slot) {
+                  $roles = ['wali' => 'Homeroom Teacher', 'kepsek' => 'Principal', 'direktur' => 'Director', 'parent' => 'Parent/Guardian'];
+                  return $roles[$slot] ?? ucfirst($slot);
+              };
             ?>
               <div class="rapor-section rapor-signatures">
                 <div class="rapor-issued"><?= esc($issued) ?></div>
@@ -315,9 +322,9 @@ function rapor_render_body(array $args): string
                   ?>
                     <td>
                       <div class="sig-cell">
-                        <div class="role"><?= esc(ucfirst($slot)) ?></div>
-                        <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="ttd"><?php endif; ?></div>
-                        <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Tanda tangan orang tua)' : '—')) ?></div>
+                        <div class="role"><?= esc($roleName($slot)) ?></div>
+                        <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="Signature"><?php endif; ?></div>
+                        <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Parent/Guardian Signature)' : '—')) ?></div>
                         <div class="jabatan"><?= esc($sg['jabatan'] ?? '') ?></div>
                       </div>
                     </td>
@@ -330,9 +337,9 @@ function rapor_render_body(array $args): string
                       $ttdSrc = $slot !== 'parent' ? $imgSrc($sg['ttd_path'] ?? null) : null;
                   ?>
                     <div class="sig-cell">
-                      <div class="role"><?= esc(ucfirst($slot)) ?></div>
-                      <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="ttd"><?php endif; ?></div>
-                      <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Tanda tangan orang tua)' : '—')) ?></div>
+                      <div class="role"><?= esc($roleName($slot)) ?></div>
+                      <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="Signature"><?php endif; ?></div>
+                      <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Parent/Guardian Signature)' : '—')) ?></div>
                       <div class="jabatan"><?= esc($sg['jabatan'] ?? '') ?></div>
                     </div>
                   <?php endforeach; ?>
