@@ -53,8 +53,9 @@ function _permission_matrix(): array
         'elective_assignment'=>['view' => ['administrator','guru'],                 'edit' => ['administrator','guru']],
 
         // ---------- Penilaian ----------
-        // Absensi harian: only Guru/Wali (and Administrator). Admin & Kepsek don't see this.
-        'attendance'        => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
+        // Absensi harian: administrator/admin? and guru wali can input; kepsek can input
+        // only for rombel in his own jenjang via the attendance helpers scope.
+        'attendance'        => ['view' => ['administrator','kepsek','guru'],          'edit' => ['administrator','kepsek','guru']],
         'attendance_recap'  => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
         'grades_daily'      => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
         'grades_topic_recap'=> ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],

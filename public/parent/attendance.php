@@ -67,8 +67,8 @@ include __DIR__ . '/_layout.php';
         <li>
           <div>
             <div style="font-weight:600;"><?= esc(date('D, d M Y', strtotime($row['tanggal']))) ?></div>
-            <?php if (!empty($row['keterangan'])): ?>
-              <div class="muted" style="font-size:.75rem">“<?= esc($row['keterangan']) ?>”</div>
+            <?php if (!empty($row['catatan'])): ?>
+              <div class="muted" style="font-size:.75rem">“<?= esc($row['catatan']) ?>”</div>
             <?php endif; ?>
           </div>
           <span class="pill <?= esc($pillCls) ?>"><?= esc($lbl) ?></span>

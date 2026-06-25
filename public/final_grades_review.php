@@ -110,7 +110,7 @@ $fgStatuses = fg_statuses();
   <div class="card-body">
     <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.75rem">
       <div class="text-sm">
-        <strong><?= count($queue) ?></strong> baris menunggu verifikasi
+        <strong><?= count($queue) ?></strong> baris menunggu tindak lanjut
         <?= ($user['role']==='kepsek' && !empty($user['jenjang'])) ? '· jenjang <strong>'.esc($user['jenjang']).'</strong>' : '' ?>.
         Status: <span class="badge <?= $isLocked?'badge-warning':'badge-success' ?>">
           <?= $isLocked?'🔒 Semester terkunci':'🔓 Semester terbuka' ?>
@@ -132,7 +132,7 @@ $fgStatuses = fg_statuses();
 </div>
 
 <?php if (!$queue): ?>
-  <div class="card mt-4"><div class="card-body"><div class="empty">Tidak ada nilai akhir yang sedang menunggu verifikasi pada periode &amp; semester aktif.</div></div></div>
+  <div class="card mt-4"><div class="card-body"><div class="empty">Tidak ada nilai akhir yang sedang menunggu verifikasi atau publikasi pada periode &amp; semester aktif.</div></div></div>
 <?php else: ?>
 <form method="post" id="rvForm">
   <?= csrf_field() ?>

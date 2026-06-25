@@ -18,9 +18,59 @@ require_once __DIR__ . '/wali_helpers.php';
 /** Full student row for the logged-in parent (with safe fallback). */
 function parent_student(array $p): array
 {
-    $s = student_by_id((int)$p['student_id']);
-    if (!$s) { parent_logout(); redirect('parent/login.php'); }
-    return $s;
+    $studentId = (int)($p['student_id'] ?? 0);
+    if ($studentId <= 0) {
+        return [
+            'id' => 0,
+            'academic_year_id' => 0,
+            'nisn' => '',
+            'nis' => '',
+            'nama' => 'Orang Tua',
+            'jenjang' => '',
+            'tingkat' => '',
+            'jk' => '',
+            'tempat_lahir' => '',
+            'tgl_lahir' => '',
+            'alamat' => null,
+            'nama_ayah' => null,
+            'nama_ibu' => null,
+            'pekerjaan_ayah' => null,
+            'pekerjaan_ibu' => null,
+            'telp_ortu' => null,
+            'foto_path' => null,
+            'is_active' => 0,
+            'created_at' => null,
+            'updated_at' => null,
+            'deleted_at' => null,
+        ];
+    }
+
+    $st = db()->prepare("SELECT * FROM students WHERE id = :i AND deleted_at IS NULL LIMIT 1");
+    $st->execute(['i' => $studentId]);
+    $s = $st->fetch();
+    return $s ?: [
+        'id' => 0,
+        'academic_year_id' => 0,
+        'nisn' => '',
+        'nis' => '',
+        'nama' => 'Orang Tua',
+        'jenjang' => '',
+        'tingkat' => '',
+        'jk' => '',
+        'tempat_lahir' => '',
+        'tgl_lahir' => '',
+        'alamat' => null,
+        'nama_ayah' => null,
+        'nama_ibu' => null,
+        'pekerjaan_ayah' => null,
+        'pekerjaan_ibu' => null,
+        'telp_ortu' => null,
+        'foto_path' => null,
+        'is_active' => 0,
+        'created_at' => null,
+        'updated_at' => null,
+        'deleted_at' => null,
+    ];
 }
 
 /**
@@ -54,18 +104,37 @@ function rombel_wali_user(int $rombelId): ?array
     return ($r && $r['id']) ? $r : null;
 }
 
+function parent_effective_year_id(int $studentId, int $preferredYearId): int
+{
+    $candidates = [];
+    if ($preferredYearId > 0) $candidates[] = $preferredYearId;
+
+    $student = db()->prepare("SELECT academic_year_id FROM students WHERE id=:i AND deleted_at IS NULL LIMIT 1");
+    $student->execute(['i' => $studentId]);
+    $studentYearId = (int)($student->fetchColumn() ?: 0);
+    if ($studentYearId > 0 && !in_array($studentYearId, $candidates, true)) $candidates[] = $studentYearId;
+
+    foreach ($candidates as $yearId) {
+        $rombel = parent_rombel_for_year($studentId, $yearId);
+        if ($rombel) return $yearId;
+    }
+
+    return $candidates[0] ?? $preferredYearId;
+}
+
 /**
- * For each (semester, period) in the active year, return whether the student's
+ * For each (semester, period) in the effective year, return whether the student's
  * report is published. Used by parent home and rapor selector.
  */
 function parent_publish_matrix(int $studentId, int $yearId): array
 {
-    $rombel = parent_rombel_for_year($studentId, $yearId);
+    $reportYearId = parent_effective_year_id($studentId, $yearId);
+    $rombel = parent_rombel_for_year($studentId, $reportYearId);
     $matrix = [];
     foreach (['ganjil','genap'] as $sem) {
         foreach (['PTS','PAS'] as $pk) {
             $matrix[$sem][$pk] = $rombel
-                ? rapor_is_published((int)$rombel['id'], $studentId, $sem, $pk, $yearId)
+                ? rapor_is_published((int)$rombel['id'], $studentId, $sem, $pk, $reportYearId)
                 : false;
         }
     }
@@ -76,9 +145,10 @@ function parent_publish_matrix(int $studentId, int $yearId): array
 function parent_scope_published(array $student): bool
 {
     $sc = active_scope();
-    $rombel = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
+    $reportYearId = parent_effective_year_id((int)$student['id'], (int)$sc['year_id']);
+    $rombel = parent_rombel_for_year((int)$student['id'], $reportYearId);
     if (!$rombel) return false;
-    return rapor_is_published((int)$rombel['id'], (int)$student['id'], $sc['semester'], $sc['period'], (int)$sc['year_id']);
+    return rapor_is_published((int)$rombel['id'], (int)$student['id'], $sc['semester'], $sc['period'], $reportYearId);
 }
 
 /**
@@ -97,12 +167,34 @@ function parent_attendance_summary(int $studentId, int $rombelId, string $semest
 function parent_attendance_log(int $studentId, int $rombelId, string $semester, int $yearId, int $limit = 60): array
 {
     $st = db()->prepare(
-        "SELECT a.tanggal, a.status, a.keterangan
-           FROM attendance a
-          WHERE a.student_id=:s AND a.rombel_id=:r AND a.semester=:sem AND a.academic_year_id=:y
-          ORDER BY a.tanggal DESC LIMIT $limit"
+        "SELECT start_date, end_date
+         FROM semesters_state
+         WHERE academic_year_id = :y AND semester = :s"
     );
-    $st->execute(['s'=>$studentId,'r'=>$rombelId,'sem'=>$semester,'y'=>$yearId]);
+    $st->execute(['y' => $yearId, 's' => $semester]);
+    $period = $st->fetch();
+
+    if ($period && $period['start_date'] && $period['end_date']) {
+        $from = $period['start_date'];
+        $to = $period['end_date'];
+    } else {
+        $row = db()->prepare("SELECT label FROM academic_years WHERE id=:y");
+        $row->execute(['y' => $yearId]);
+        $label = (string)$row->fetchColumn();
+        $parts = explode('/', $label);
+        $y1 = (int)($parts[0] ?? date('Y'));
+        $y2 = (int)($parts[1] ?? ($y1 + 1));
+        if ($semester === 'ganjil') { $from = "$y1-07-01"; $to = "$y1-12-31"; }
+        else                        { $from = "$y2-01-01"; $to = "$y2-06-30"; }
+    }
+
+    $st = db()->prepare(
+        "SELECT tanggal, status, catatan
+           FROM attendance
+          WHERE student_id=:s AND rombel_id=:r AND tanggal BETWEEN :from AND :to
+          ORDER BY tanggal DESC LIMIT $limit"
+    );
+    $st->execute(['s'=>$studentId,'r'=>$rombelId,'from'=>$from,'to'=>$to]);
     return $st->fetchAll();
 }
 

@@ -23,6 +23,18 @@ require_once __DIR__ . '/helpers.php';
 /**
  * Build the full rapor document body (banner + identitas + all visible
  * sections) as an HTML string.
+ *
+ * @param array $args {
+ *   @var array      student     Row from students table
+ *   @var array      rombel      Row from rombel table
+ *   @var array      school      Row from school_profile
+ *   @var array|null tpl         report_templates row (header/footer img, layout)
+ *   @var array      sigs        report_signatures_for() result
+ *   @var array      scope       active_scope() shape: ['year','semester','period','year_id']
+ *   @var string     uploadsBase Absolute filesystem path to /public (for file_exists checks)
+ *   @var bool       forPdf      When true, image src become absolute file:// or filesystem
+ *                                paths Dompdf can read directly instead of URLs.
+ * }
  */
 function rapor_render_body(array $args): string
 {
@@ -44,6 +56,8 @@ function rapor_render_body(array $args): string
     $subjGroups  = subjects_grouped_for_rombel($rid, $sc['semester']);
     $charEvals   = character_evals_for_student($rid, $sid, $sc['semester'], $sc['period'], $jenjang);
     $generalRow  = general_evals_for($rid, $sc['semester'], $sc['period']);
+    $waliRow     = wali_notes_for($rid, $sc['semester'], $sc['period']);
+    $ekskul      = ekskul_grades_for_student($sid, $sc['semester'], (int)$sc['year_id']);
     $att         = attendance_summary_for_rombel($rid, $sc['semester'], (int)$sc['year_id']);
     $myAtt       = $att[$sid] ?? ['h'=>0,'i'=>0,'s'=>0,'a'=>0,'total'=>0];
     $scales      = character_scales();
@@ -53,9 +67,9 @@ function rapor_render_body(array $args): string
     $hiddenSet = $resolved['hidden'];
 
     /** Resolve an uploaded image to whatever <img src> the current
-     * rendering context needs: a normal URL on screen, or an absolute
-     * filesystem path for Dompdf (which fetches local files directly —
-     * no HTTP round-trip, no auth cookies needed). */
+     *  rendering context needs: a normal URL on screen, or an absolute
+     *  filesystem path for Dompdf (which fetches local files directly —
+     *  no HTTP round-trip, no auth cookies needed). */
     $imgSrc = function (?string $relPath) use ($publicDir, $forPdf): ?string {
         if (!$relPath) return null;
         $abs = $publicDir . '/uploads/' . ltrim($relPath, '/');
@@ -85,8 +99,8 @@ function rapor_render_body(array $args): string
         <?php /* ---------- identitas (always shown) ---------- */ ?>
         <?php if ($bannerSrc): ?>
           <div class="rapor-subhead">
-            <span><strong>REPORT CARD <?= esc($sc['period']) ?></strong> ·
-            Semester <?= esc(ucfirst($sc['semester'])) ?> · AY <?= esc($sc['year']) ?></span>
+            <span><strong>REPORT <?= esc($sc['period']) ?></strong> ·
+            Semester <?= esc(ucfirst($sc['semester'])) ?> · Academic Year <?= esc($sc['year']) ?></span>
           </div>
         <?php else:
           $logoSrcResolved = $logoSrc();
@@ -100,12 +114,12 @@ function rapor_render_body(array $args): string
               <h2 style="margin:0 0 3px; font-size:16px; color:#0f172a;"><?= esc($school['nama'] ?? 'School') ?></h2>
               <div class="meta" style="font-size:10px; color:#64748b;">
                 <?= esc(trim(($school['alamat'] ?? '') . ' ' . ($school['kota'] ?? '') . ' ' . ($school['provinsi'] ?? ''))) ?>
-                <?php if (!empty($school['telepon'])): ?> · Phone: <?= esc($school['telepon']) ?><?php endif; ?>
+                <?php if (!empty($school['telepon'])): ?> · Phone <?= esc($school['telepon']) ?><?php endif; ?>
               </div>
             </td>
             <td class="rapor-head-right" style="width:160px; vertical-align:middle; text-align:right;">
-              <strong><?= esc('REPORT CARD ' . $sc['period']) ?></strong><br>
-              Semester <?= esc(ucfirst($sc['semester'])) ?> · AY <?= esc($sc['year']) ?>
+              <strong><?= esc('REPORT ' . $sc['period']) ?></strong><br>
+              Semester <?= esc(ucfirst($sc['semester'])) ?> · Academic Year <?= esc($sc['year']) ?>
             </td>
           </tr></table>
           <?php else: ?>
@@ -116,13 +130,13 @@ function rapor_render_body(array $args): string
             <div class="school">
               <h2><?= esc($school['nama'] ?? 'School') ?></h2>
               <div class="meta">
-                <?= esc(trim(($school['alamat'] ?? '') . ' ' . ($school['kota'] ?? '') . ' ' . ($school['provinsi'] ?? ''))) ?>
-                <?php if (!empty($school['telepon'])): ?> · Phone: <?= esc($school['telepon']) ?><?php endif; ?>
+              <?= esc(trim(($school['alamat'] ?? '') . ' ' . ((($school['kota'] ?? '') === 'Jakarta') ? 'Badung' : ($school['kota'] ?? '')) . ' ' . ($school['provinsi'] ?? ''))) ?>
+                <?php if (!empty($school['telepon'])): ?> · Phone <?= esc($school['telepon']) ?><?php endif; ?>
               </div>
             </div>
             <div class="rapor-head-right">
-              <strong><?= esc('REPORT CARD ' . $sc['period']) ?></strong><br>
-              Semester <?= esc(ucfirst($sc['semester'])) ?> · AY <?= esc($sc['year']) ?>
+              <strong><?= esc('REPORT ' . $sc['period']) ?></strong><br>
+              Semester <?= esc(ucfirst($sc['semester'])) ?> · Academic Year <?= esc($sc['year']) ?>
             </div>
           </header>
           <?php endif; ?>
@@ -131,16 +145,16 @@ function rapor_render_body(array $args): string
         <table class="t-print" style="margin-bottom: 6px">
           <tr>
             <td style="width:18%">Student Name</td><td style="width:32%"><strong><?= esc($student['nama']) ?></strong></td>
-            <td style="width:18%">NISN / Student ID</td><td><?= esc($student['nisn']) ?> / <?= esc($student['nis']) ?></td>
+            <td style="width:18%">NISN / NIS</td><td><?= esc($student['nisn']) ?> / <?= esc($student['nis']) ?></td>
           </tr>
           <tr>
             <td>Class</td><td><?= esc($rombel['jenjang'] . ' ' . $rombel['nama']) ?></td>
-            <td>Level</td><td><?= esc((string)$rombel['tingkat']) ?></td>
+            <td>Grade Level</td><td><?= esc((string)$rombel['tingkat']) ?></td>
           </tr>
           <tr>
             <td>Place / Date of Birth</td>
             <td><?= esc(($student['tempat_lahir'] ?? '—') . ', ' . date('d M Y', strtotime($student['tgl_lahir']))) ?></td>
-            <td>Gender</td><td><?= $student['jk'] === 'L' ? 'Male' : 'Female' ?></td>
+            <td>Gender</td><td><?= $student['jk']==='L' ? 'Male' : 'Female' ?></td>
           </tr>
         </table>
 
@@ -150,13 +164,13 @@ function rapor_render_body(array $args): string
           switch ($key):
             case 'character': ?>
               <div class="rapor-section">
-                <h3>Character Evaluation</h3>
+                <h3>Character Assessment</h3>
                 <?php if (!$charEvals): ?>
-                  <div class="rapor-empty-note">No character evaluation available.</div>
+                  <div class="rapor-empty-note">No character assessment yet.</div>
                 <?php else:
                   $grouped = [];
                   foreach ($charEvals as $ce) {
-                      $cat = $ce['kategori'] ? ucfirst($ce['kategori']) : 'Others';
+                      $cat = $ce['kategori'] ? ucfirst($ce['kategori']) : 'Other';
                       $grouped[$cat][] = $ce;
                   }
                 ?>
@@ -178,7 +192,7 @@ function rapor_render_body(array $args): string
                       <?php if ($index === 0): ?>
                         <td class="category-cell" rowspan="<?= $total ?>"><?= esc($cat) ?></td>
                       <?php endif; ?>
-                      <td><?= esc($ce['aspek_nama']) ?></td>
+                      <td><?= esc(trim(($ce['aspek_nama'] ?? '') . (!empty($ce['remark']) ? ' — ' . $ce['remark'] : ''))) ?></td>
                       <td class="scale-cell"><?= $scale === 'NI' ? '&#10003;' : '' ?></td>
                       <td class="scale-cell"><?= $scale === 'SI' ? '&#10003;' : '' ?></td>
                       <td class="scale-cell"><?= $scale === 'WI' ? '&#10003;' : '' ?></td>
@@ -192,90 +206,58 @@ function rapor_render_body(array $args): string
               </div>
             <?php break;
 
-            case 'academic': 
-              $isTK = ($jenjang === 'TK');
-            ?>
+            case 'academic': ?>
               <div class="rapor-section">
-                <h3>Academic Evaluation (Combined Final Score per Subject)</h3>
+                <h3>Academic Assessment (Combined Final SPK Score per Subject)</h3>
                 <table class="t-print">
                   <thead>
                     <tr>
                       <th style="width:32px">No</th>
                       <th>Subject</th>
-                      <th style="width:60px; text-align:center;">Score</th> <?php if ($isTK): ?>
-                        <th style="width:100px; text-align:center;">Star Rating</th>
-                        <th style="width:80px; text-align:center;">Photo</th> 
-                      <?php endif; ?>
                       <th>Remarks</th>
-                      <th style="width:90px; text-align:center;">Grade</th>
+                      <th style="width:110px">Score</th>
+                      <th style="width:90px">Grade</th>
                     </tr>
                   </thead>
                   <tbody>
                   <?php
                     $no = 0;
                     $finalSum = 0.0; $finalCnt = 0;
-                    // TK punya 7 kolom (No, Subject, Score, Star, Photo, Remarks, Grade)
-                    // Non-TK punya 5 kolom (No, Subject, Score, Remarks, Grade)
-                    $colspanCat = $isTK ? 7 : 5; 
                     foreach ($subjGroups as $catNama => $subs): ?>
-                    <tr><td colspan="<?= $colspanCat ?>" class="rapor-cat-row"><?= esc($catNama) ?></td></tr>
+                    <tr><td colspan="5" class="rapor-cat-row"><?= esc($catNama) ?></td></tr>
                     <?php foreach ($subs as $s): $no++;
                           $cell    = $cellsBySubj[(int)$s['id']] ?? null;
                           $overall = $cell ? ($cell['overall'] ?? null) : null;
                           $note    = $cell ? ($cell['note'] ?? null) : null;
-                          $imgPath = $cell ? ($cell['image_path'] ?? null) : null;
                           $pred    = kkm_predikat($jenjang, $overall);
                           if ($overall !== null) { $finalSum += $overall; $finalCnt++; }
                     ?>
                       <tr>
                         <td><?= $no ?></td>
                         <td><?= esc($s['nama']) ?></td>
-                        
-                        <td style="text-align:center"><strong><?= $overall !== null ? esc((string)round((float)$overall, 2)) : '—' ?></strong></td>
-                        
-                        <?php if ($isTK): ?>
-                          <td style="text-align:center; vertical-align:middle;">
-                            <?php if ($overall !== null): 
-                                $starCount = max(1, min(4, (int)round((float)$overall)));
-                            ?>
-                                <div style="color:#f59e0b; font-size:1.15rem; letter-spacing:1px; white-space:nowrap;">
-                                    <?= str_repeat('★', $starCount) . str_repeat('☆', 4 - $starCount) ?>
-                                </div>
-                            <?php else: ?>
-                                <span class="text-muted">—</span>
-                            <?php endif; ?>
-                          </td>
-                          <td style="text-align:center; vertical-align:middle;">
-                            <?php 
-                                $imgResolved = $imgPath ? $imgSrc($imgPath) : null;
-                                if ($imgResolved): 
-                            ?>
-                                <img src="<?= esc($imgResolved) ?>" alt="Photo" style="max-width:50px; max-height:50px; object-fit:cover; border-radius:4px; border:1px solid #ccc;">
-                            <?php else: ?>
-                                <span class="text-muted">—</span>
-                            <?php endif; ?>
-                          </td>
-                        <?php endif; ?>
-
                         <td><?= esc($note ?? '—') ?></td>
+                        <td style="text-align:center"><strong><?= $overall !== null ? esc((string)$overall) : '—' ?></strong></td>
                         <td style="text-align:center"><strong><?= $overall !== null ? esc($pred['grade']) : '—' ?></strong></td>
                       </tr>
                     <?php endforeach; ?>
                   <?php endforeach;
                     $finalAvg = $finalCnt > 0 ? round($finalSum / $finalCnt, 2) : null;
                     $finalPred = kkm_predikat($jenjang, $finalAvg);
-                    // Colspan total diseimbangkan kembali
-                    $colspanTotal = $isTK ? 6 : 4;
                   ?>
                     <tr class="rapor-total-row">
-                      <td colspan="<?= $colspanTotal ?>" style="text-align:right">Combined Final Score (Overall Average)</td>
+                      <td colspan="4" style="text-align:right">Combined Final Score (Average of all subjects)</td>
                       <td style="text-align:center"><strong><?= $finalAvg !== null ? esc($finalPred['grade']) : '—' ?></strong></td>
                     </tr>
                   </tbody>
                 </table>
 
+                <div class="rapor-foot-note">
+                  <strong>Final Score (&Sigma; SPK)</strong> for each subject is the combined average of
+                  Attitude, Knowledge, and Skills scores in this <?= esc($jenjang) ?> period.
+                </div>
+
                 <div class="rapor-kkm-legend">
-                  <strong>Passing Grade (KKM) Scale for <?= esc($jenjang) ?>:</strong>
+                  <strong>KKM Scale <?= esc($jenjang) ?>:</strong>
                   <?php foreach ($kkm as $k): ?>
                     <span class="kkm-pill"><?= esc($k['grade']) ?> (<?= number_format((float)$k['min_val'],0) ?>&ndash;<?= number_format((float)$k['max_val'],0) ?>) <?= esc($k['predikat']) ?></span>
                   <?php endforeach; ?>
@@ -283,17 +265,46 @@ function rapor_render_body(array $args): string
               </div>
             <?php break;
 
+            case 'extracurricular': ?>
+              <div class="rapor-section">
+                <h3>Extracurricular</h3>
+                <?php if (!$ekskul): ?>
+                  <div class="rapor-empty-note">No extracurricular grades have been recorded.</div>
+                <?php else: ?>
+                <table class="t-print rapor-table-narrow">
+                  <thead><tr><th>Extracurricular</th><th style="width:80px">Achievement Level</th><th>Notes</th></tr></thead>
+                  <tbody>
+                  <?php foreach ($ekskul as $e): ?>
+                    <tr>
+                      <td><?= esc($e['ekskul_nama']) ?></td>
+                      <td style="text-align:center"><strong><?= esc($e['predikat'] ?? '—') ?></strong></td>
+                      <td><?= esc($e['catatan'] ?? '') ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                  </tbody>
+                </table>
+                <?php endif; ?>
+              </div>
+            <?php break;
+
             case 'attendance': ?>
               <div class="rapor-section">
                 <h3>Semester Attendance</h3>
-                <table class="t-print rapor-table-narrow">
-                  <thead><tr><th>Present</th><th>Excused</th><th>Sick</th><th>Unexcused</th><th>Total Days</th></tr></thead>
+                <table class="t-print" style="width:100%; max-width:720px">
+                  <thead><tr><th>Present</th><th>Permit</th><th>Sick</th><th>Absent</th><th>Total Days</th></tr></thead>
                   <tbody>
                     <tr style="text-align:center">
                       <td><?= (int)$myAtt['h'] ?></td><td><?= (int)$myAtt['i'] ?></td><td><?= (int)$myAtt['s'] ?></td><td><?= (int)$myAtt['a'] ?></td><td><?= (int)$myAtt['total'] ?></td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            <?php break;
+
+            case 'wali_note': ?>
+              <div class="rapor-section">
+                <h3>Homeroom Teacher's Notes</h3>
+                <div class="rapor-note-box"><?= esc($waliRow[$sid] ?? '—') ?></div>
               </div>
             <?php break;
 
@@ -305,12 +316,9 @@ function rapor_render_body(array $args): string
             <?php break;
 
             case 'signatures':
-              $issued = ($school['kota'] ?? '—') . ', ' . date('F j, Y');
-              // Translator role function
-              $roleName = function($slot) {
-                  $roles = ['wali' => 'Homeroom Teacher', 'kepsek' => 'Principal', 'direktur' => 'Director', 'parent' => 'Parent/Guardian'];
-                  return $roles[$slot] ?? ucfirst($slot);
-              };
+              $city = (($school['kota'] ?? '') === 'Jakarta') ? 'Badung' : ($school['kota'] ?? '—');
+              $issued = $city . ', ' . date('d F Y');
+              $roleLabels = ['wali' => 'Homeroom Teacher', 'kepsek' => 'Principal', 'direktur' => 'Director', 'parent' => 'Parent'];
             ?>
               <div class="rapor-section rapor-signatures">
                 <div class="rapor-issued"><?= esc($issued) ?></div>
@@ -322,9 +330,9 @@ function rapor_render_body(array $args): string
                   ?>
                     <td>
                       <div class="sig-cell">
-                        <div class="role"><?= esc($roleName($slot)) ?></div>
-                        <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="Signature"><?php endif; ?></div>
-                        <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Parent/Guardian Signature)' : '—')) ?></div>
+                        <div class="role"><?= esc($roleLabels[$slot] ?? ucfirst($slot)) ?></div>
+                        <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="ttd"><?php endif; ?></div>
+                        <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Parent signature)' : '—')) ?></div>
                         <div class="jabatan"><?= esc($sg['jabatan'] ?? '') ?></div>
                       </div>
                     </td>
@@ -337,9 +345,9 @@ function rapor_render_body(array $args): string
                       $ttdSrc = $slot !== 'parent' ? $imgSrc($sg['ttd_path'] ?? null) : null;
                   ?>
                     <div class="sig-cell">
-                      <div class="role"><?= esc($roleName($slot)) ?></div>
-                      <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="Signature"><?php endif; ?></div>
-                      <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Parent/Guardian Signature)' : '—')) ?></div>
+                      <div class="role"><?= esc($roleLabels[$slot] ?? ucfirst($slot)) ?></div>
+                      <div class="ttd"><?php if ($ttdSrc): ?><img src="<?= esc($ttdSrc) ?>" alt="ttd"><?php endif; ?></div>
+                      <div class="nama"><?= esc($sg['nama'] ?? ($slot==='parent' ? '(Parent signature)' : '—')) ?></div>
                       <div class="jabatan"><?= esc($sg['jabatan'] ?? '') ?></div>
                     </div>
                   <?php endforeach; ?>
@@ -354,6 +362,8 @@ function rapor_render_body(array $args): string
           endswitch;
         endforeach; ?>
 
-      </div></div><?php
+      </div><!-- /.rapor-body -->
+    </div><!-- /.rapor-page -->
+    <?php
     return (string)ob_get_clean();
 }

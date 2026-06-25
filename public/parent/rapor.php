@@ -19,9 +19,10 @@ $sc      = active_scope();
 $sem  = in_array($_GET['sem'] ?? '', ['ganjil','genap'], true) ? $_GET['sem'] : $sc['semester'];
 $pk   = in_array($_GET['pk']  ?? '', ['PTS','PAS'], true)      ? $_GET['pk']  : $sc['period'];
 
-$rombel = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
-$publishMatrix = parent_publish_matrix((int)$student['id'], (int)$sc['year_id']);
-$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, (int)$sc['year_id']) : false;
+$reportYearId = parent_effective_year_id((int)$student['id'], (int)$sc['year_id']);
+$rombel = parent_rombel_for_year((int)$student['id'], $reportYearId);
+$publishMatrix = parent_publish_matrix((int)$student['id'], $reportYearId);
+$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, $reportYearId) : false;
 
 audit('parent_view_rapor', 'student:' . $student['id'], ['sem'=>$sem,'pk'=>$pk,'ok'=>$published?1:0]);
 
@@ -78,7 +79,7 @@ $sigs   = $rombel ? report_signatures_for($rombel['jenjang'], (int)$rombel['id']
         'school'      => $school,
         'tpl'         => $tpl,
         'sigs'        => $sigs,
-        'scope'       => ['year' => $sc['year'], 'year_id' => $sc['year_id'], 'semester' => $sem, 'period' => $pk],
+        'scope'       => ['year' => $sc['year'], 'year_id' => $reportYearId, 'semester' => $sem, 'period' => $pk],
         'uploadsBase' => __DIR__ . '/..',
         'forPdf'      => false,
       ]) ?>

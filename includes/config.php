@@ -39,13 +39,18 @@ $_env = function(string $key, string $default): string {
     return ($val !== false && $val !== '') ? $val : $default;
 };
 
+$dbHost = $_env('DB_HOST', '127.0.0.1');
+if ($dbHost === 'localhost') {
+    $dbHost = '127.0.0.1';
+}
+
 return [
     'app_name'    => $_env('APP_NAME', 'LBB Bima'),
     'base_url'    => $_env('APP_BASE_URL', '/public/'),
     'env'         => $_env('APP_ENV', 'development'),
 
     'db' => [
-        'host'    => $_env('DB_HOST', ''),
+        'host'    => $dbHost,
         'port'    => (int)$_env('DB_PORT', '3306'),
         'name'    => $_env('DB_NAME', ''),
         'user'    => $_env('DB_USER', ''),

@@ -116,7 +116,8 @@ function final_grade_status_counts(int $rombelId, int $subjectId, string $semest
 }
 
 /**
- * Pending review queue for a Kepsek (filtered by jenjang) or Admin (all).
+ * Review/publish queue for a Kepsek (filtered by jenjang) or Admin (all).
+ * Includes rows still awaiting review, revision, or publication.
  * Returns rows with rombel/subject/student labels.
  */
 function review_queue(array $user, string $semester, string $period, ?int $yearId = null): array
@@ -136,14 +137,15 @@ function review_queue(array $user, string $semester, string $period, ?int $yearI
         JOIN students st ON st.id = fg.student_id
         LEFT JOIN users u ON u.id = fg.submitted_by
         WHERE fg.semester=:sem AND fg.period_kind=:p
-          AND fg.status IN ('submitted','revised')
+          AND fg.status IN ('submitted','revised','approved')
           AND r.academic_year_id = :y";
     $params = ['sem'=>$semester,'p'=>$period,'y'=>$yearId];
     if (($user['role'] ?? '') === 'kepsek' && !empty($user['jenjang'])) {
         $sql .= " AND r.jenjang = :j";
         $params['j'] = $user['jenjang'];
     }
-    $sql .= " ORDER BY COALESCE(u.nama, 'zzz'), r.jenjang, r.tingkat, r.nama, sb.nama, st.nama";
+    $sql .= " ORDER BY CASE fg.status WHEN 'submitted' THEN 0 WHEN 'revised' THEN 1 WHEN 'approved' THEN 2 ELSE 3 END,
+                      COALESCE(u.nama, 'zzz'), r.jenjang, r.tingkat, r.nama, sb.nama, st.nama";
     $st = db()->prepare($sql);
     $st->execute($params);
     return $st->fetchAll();

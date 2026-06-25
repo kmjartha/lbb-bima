@@ -50,14 +50,52 @@ function current_user(): ?array
 function parent_login(string $nisn, string $password, bool $remember = false): array
 {
     $yearId = active_scope()['year_id'];
-    $stmt = db()->prepare(
+    $studentStmt = db()->prepare(
+        "SELECT id, nisn, nama, jenjang, tingkat, tgl_lahir
+         FROM students
+         WHERE nisn = :n AND deleted_at IS NULL
+         ORDER BY CASE WHEN academic_year_id = :y THEN 0 ELSE 1 END, id LIMIT 1"
+    );
+    $studentStmt->execute(['n' => $nisn, 'y' => $yearId]);
+    $student = $studentStmt->fetch();
+    if (!$student) throw new RuntimeException('Akun ortu tidak ditemukan.');
+
+    $parentStmt = db()->prepare(
         "SELECT pa.*, s.nama, s.jenjang, s.tingkat
          FROM parents_auth pa JOIN students s ON s.id = pa.student_id
-         WHERE s.nisn = :n AND s.academic_year_id = :y AND pa.is_active = 1 AND s.deleted_at IS NULL LIMIT 1"
+         WHERE pa.student_id = :sid AND pa.is_active = 1 AND s.deleted_at IS NULL LIMIT 1"
     );
-    $stmt->execute(['n' => $nisn, 'y' => $yearId]);
-    $row = $stmt->fetch();
-    if (!$row) throw new RuntimeException('Akun ortu tidak ditemukan.');
+    $parentStmt->execute(['sid' => (int)$student['id']]);
+    $row = $parentStmt->fetch();
+
+    if (!$row) {
+        $defaultPassword = '';
+        if (!empty($student['tgl_lahir'])) {
+            try {
+                $defaultPassword = (new DateTime((string)$student['tgl_lahir']))->format('dmY');
+            } catch (Throwable) {
+                $defaultPassword = '';
+            }
+        }
+        if ($defaultPassword === '') {
+            $defaultPassword = (string)$student['nisn'];
+        }
+
+        $hash = password_hash($defaultPassword, PASSWORD_DEFAULT);
+        db()->prepare("INSERT INTO parents_auth (student_id, password_hash, must_change_pw) VALUES (:sid, :hash, 1)")
+            ->execute(['sid' => (int)$student['id'], 'hash' => $hash]);
+
+        $row = [
+            'id' => (int)db()->lastInsertId(),
+            'student_id' => (int)$student['id'],
+            'password_hash' => $hash,
+            'must_change_pw' => 1,
+            'nama' => $student['nama'],
+            'jenjang' => $student['jenjang'],
+            'tingkat' => (int)$student['tingkat'],
+        ];
+    }
+
     if (!password_verify($password, $row['password_hash'])) throw new RuntimeException('NISN atau password salah.');
 
     session_regenerate_id(true);
@@ -147,9 +185,8 @@ function try_remember_login(string $kind): ?array
     }
 
     if ($kind === 'parent') {
-        $yearId = active_scope()['year_id'];
-        $u = db()->prepare("SELECT pa.*, s.nama, s.jenjang, s.tingkat FROM parents_auth pa JOIN students s ON s.id = pa.student_id WHERE pa.id = :id AND s.academic_year_id = :y");
-        $u->execute(['id' => $row[$col], 'y' => $yearId]);
+        $u = db()->prepare("SELECT pa.*, s.nama, s.jenjang, s.tingkat FROM parents_auth pa JOIN students s ON s.id = pa.student_id WHERE pa.id = :id AND pa.is_active = 1 AND s.deleted_at IS NULL LIMIT 1");
+        $u->execute(['id' => $row[$col]]);
         $r = $u->fetch();
         if (!$r) return null;
         $_SESSION['parent'] = [

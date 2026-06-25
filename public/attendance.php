@@ -1,7 +1,7 @@
 <?php
 /**
  * Stage 4 — Absensi Harian (input per rombel per tanggal).
- * Roles: administrator, admin, kepsek (read-mostly), guru (wali/pengampu).
+ * Roles: administrator, kepsek (jenjang-nya), guru (wali/pengampu).
  */
 declare(strict_types=1);
 

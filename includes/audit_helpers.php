@@ -116,17 +116,17 @@ function audit_today_by_action(int $limit = 8): array
 }
 
 /* =====================================================================
- * Notification helpers — Kepsek pending review queue.
- * Source of truth: final_grades.status = 'submitted'.
+ * Notification helpers — Kepsek pending review/publish queue.
+ * Source of truth: final_grades.status in ('submitted','revised','approved').
  * Filtered by jenjang for kepsek (their own jenjang only).
  * ===================================================================== */
 
-/** Number of submitted final-grade rows pending review for a kepsek. */
+/** Number of final-grade rows awaiting review or publication for a kepsek. */
 function notif_pending_review_count(?string $jenjang = null, ?int $yearId = null): int
 {
     $sql = "SELECT COUNT(*) FROM final_grades fg
             JOIN rombel r ON r.id = fg.rombel_id
-            WHERE fg.status = 'submitted'";
+            WHERE fg.status IN ('submitted','revised','approved')";
     $b = [];
     if ($jenjang) { $sql .= " AND r.jenjang = :j"; $b['j'] = $jenjang; }
     if ($yearId !== null) { $sql .= " AND r.academic_year_id = :y"; $b['y'] = $yearId; }
@@ -136,7 +136,7 @@ function notif_pending_review_count(?string $jenjang = null, ?int $yearId = null
 }
 
 /**
- * List recent pending submissions grouped by (rombel, subject, semester, period).
+ * List recent pending submissions or approved rows grouped by (rombel, subject, semester, period).
  */
 function notif_pending_review_list(?string $jenjang = null, int $limit = 10, ?int $yearId = null): array
 {
@@ -149,7 +149,7 @@ function notif_pending_review_list(?string $jenjang = null, int $limit = 10, ?in
           FROM final_grades fg
           JOIN rombel r   ON r.id = fg.rombel_id
           JOIN subjects s ON s.id = fg.subject_id
-         WHERE fg.status = 'submitted'";
+         WHERE fg.status IN ('submitted','revised','approved')";
     $b = [];
     if ($jenjang) { $sql .= " AND r.jenjang = :j"; $b['j'] = $jenjang; }
     if ($yearId !== null) { $sql .= " AND r.academic_year_id = :y"; $b['y'] = $yearId; }

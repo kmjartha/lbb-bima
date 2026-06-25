@@ -9,25 +9,26 @@ require_once __DIR__ . '/../../includes/parent_helpers.php';
 
 $p       = require_parent();
 $student = parent_student($p);
+$studentId = (int)($student['id'] ?? 0);
 $sc      = active_scope();
-$rombel  = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
+$rombel  = $studentId > 0 ? parent_rombel_for_year($studentId, (int)$sc['year_id']) : null;
 
-$publishMatrix = parent_publish_matrix((int)$student['id'], (int)$sc['year_id']);
-$attSummary = $rombel
-    ? parent_attendance_summary((int)$student['id'], (int)$rombel['id'], $sc['semester'], (int)$sc['year_id'])
+$publishMatrix = $studentId > 0 ? parent_publish_matrix($studentId, (int)$sc['year_id']) : [];
+$attSummary = $rombel && $studentId > 0
+    ? parent_attendance_summary($studentId, (int)$rombel['id'], $sc['semester'], (int)$sc['year_id'])
     : ['h'=>0,'i'=>0,'s'=>0,'a'=>0,'total'=>0];
 
-$publishedNow = $rombel
-    ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sc['semester'], $sc['period'], (int)$sc['year_id'])
+$publishedNow = $rombel && $studentId > 0
+    ? rapor_is_published((int)$rombel['id'], $studentId, $sc['semester'], $sc['period'], (int)$sc['year_id'])
     : false;
 
-$gradesPreview = ($publishedNow && $rombel)
-    ? parent_published_grades((int)$student['id'], (int)$rombel['id'], $sc['semester'], $sc['period'])
+$gradesPreview = ($publishedNow && $rombel && $studentId > 0)
+    ? parent_published_grades($studentId, (int)$rombel['id'], $sc['semester'], $sc['period'])
     : [];
 $avg = $gradesPreview ? parent_grades_overall_avg($gradesPreview) : null;
 $wali = $rombel ? rombel_wali_user((int)$rombel['id']) : null;
 
-audit('parent_view_home', 'student:' . $student['id']);
+audit('parent_view_home', 'student:' . $studentId);
 
 $page_title  = 'Beranda';
 $current_nav = 'home';
@@ -49,6 +50,7 @@ include __DIR__ . '/_layout.php';
   </div>
 </div>
 
+<?php if ($studentId > 0 && $rombel): ?>
 <div class="p-card">
   <h3>Status Rapor (TA <?= esc($sc['year']) ?>)</h3>
   <div class="muted" style="margin-bottom:.5rem;">Rapor hanya tampil setelah Kepala Sekolah mempublikasikan.</div>
@@ -113,6 +115,15 @@ include __DIR__ . '/_layout.php';
     <div class="icon">📋</div>
     <div><strong>Nilai <?= esc($sc['period']) ?> belum dipublikasi</strong></div>
     <div class="muted">Anda akan otomatis melihat nilai dan rapor di sini setelah Kepala Sekolah memvalidasi.</div>
+  </div>
+</div>
+<?php endif; ?>
+<?php else: ?>
+<div class="p-card">
+  <div class="p-empty">
+    <div class="icon">🧑‍🏫</div>
+    <div><strong>Data siswa belum siap</strong></div>
+    <div class="muted">Halaman beranda belum bisa menampilkan ringkasan karena data siswa atau rombel belum tersedia.</div>
   </div>
 </div>
 <?php endif; ?>
