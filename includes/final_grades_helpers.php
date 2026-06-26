@@ -129,7 +129,7 @@ function review_queue(array $user, string $semester, string $period, ?int $yearI
        "SELECT fg.*,
                r.jenjang, r.tingkat, r.nama AS rombel_nama,
                sb.kode AS subj_kode, sb.nama AS subj_nama, e.kode AS elective_kode,
-               st.nisn, st.nama AS student_nama,
+               st.nis, st.nisn, st.nama AS student_nama,
                u.nama AS submitted_by_name, u.niy AS submitted_by_niy
         FROM final_grades fg
         JOIN rombel   r  ON r.id  = fg.rombel_id

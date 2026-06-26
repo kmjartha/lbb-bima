@@ -193,7 +193,7 @@ $fgStatuses = fg_statuses();
                     <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').elective_subject_label($r['subj_nama'], $r['elective_kode'] ?? null)) ?></td>
                     <td>
                       <strong><?= esc($r['student_nama']) ?></strong>
-                      <div class="text-xs text-muted"><?= esc($r['nisn']) ?></div>
+                      <div class="text-xs text-muted"><?= esc($r['nis']) ?></div>
                     </td>
                     <td class="text-center"><?= $r['nilai_sikap']!==null?esc((string)(float)$r['nilai_sikap']):'—' ?></td>
                     <td class="text-center"><?= $r['nilai_pengetahuan']!==null?esc((string)(float)$r['nilai_pengetahuan']):'—' ?></td>

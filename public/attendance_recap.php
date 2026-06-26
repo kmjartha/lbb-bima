@@ -53,9 +53,9 @@ if ($rombel && (($_GET['export'] ?? '') === 'csv')) {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="'.$fname.'"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['NISN','Nama','JK','H','I','S','A','Total Tercatat']);
+    fputcsv($out, ['NIS','Nama','JK','H','I','S','A','Total Tercatat']);
     foreach ($recap as $r) {
-        fputcsv($out, [$r['nisn'],$r['nama'],$r['jk'],(int)$r['h'],(int)$r['i'],(int)$r['s_'],(int)$r['a'],(int)$r['total']]);
+      fputcsv($out, [$r['nis'],$r['nama'],$r['jk'],(int)$r['h'],(int)$r['i'],(int)$r['s_'],(int)$r['a'],(int)$r['total']]);
     }
     fclose($out); exit;
 }
@@ -108,7 +108,7 @@ require __DIR__ . '/../includes/header.php';
       <thead>
         <tr>
           <th style="width:40px">#</th>
-          <th>NISN</th><th>Nama</th><th>JK</th>
+          <th>NIS</th><th>Nama</th><th>JK</th>
           <th class="text-center">H</th>
           <th class="text-center">I</th>
           <th class="text-center">S</th>
@@ -124,7 +124,7 @@ require __DIR__ . '/../includes/header.php';
         <?php foreach ($recap as $i => $r): $tot=(int)$r['total']; $pct = $tot ? round(((int)$r['h']/$tot)*100) : 0; ?>
           <tr>
             <td><?= $i+1 ?></td>
-            <td><?= esc($r['nisn']) ?></td>
+            <td><?= esc($r['nis']) ?></td>
             <td><strong><?= esc($r['nama']) ?></strong></td>
             <td><?= esc($r['jk']) ?></td>
             <td class="text-center"><span class="badge badge-success"><?= (int)$r['h'] ?></span></td>

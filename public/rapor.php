@@ -74,7 +74,7 @@ require __DIR__ . '/../includes/header.php';
         <select name="student_id" class="select" onchange="this.form.submit()">
           <option value="">— Select student —</option>
           <?php foreach ($members as $m): ?>
-            <option value="<?= (int)$m['id'] ?>" <?= $sid==$m['id']?'selected':'' ?>><?= esc($m['nama']) ?> (<?= esc($m['nisn']) ?>)</option>
+            <option value="<?= (int)$m['id'] ?>" <?= $sid==$m['id']?'selected':'' ?>><?= esc($m['nama']) ?> (<?= esc($m['nis']) ?>)</option>
           <?php endforeach; ?>
         </select>
       </div>

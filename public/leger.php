@@ -106,7 +106,7 @@ require __DIR__ . '/../includes/header.php';
                 <tr>
                   <th style="width:32px">No</th>
                   <th style="min-width:160px">Nama Siswa</th>
-                  <th style="width:90px">NISN</th>
+                  <th style="width:90px">NIS</th>
                   <?php foreach ($matrix['subjects'] as $s): ?>
                     <th style="text-align:center; font-size:11px; max-width:140px; word-wrap:break-word;"><?= esc(elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></th>
                   <?php endforeach; ?>
@@ -118,7 +118,7 @@ require __DIR__ . '/../includes/header.php';
                 <tr>
                   <th rowspan="2" style="width:32px">No</th>
                   <th rowspan="2" style="min-width:160px">Nama Siswa</th>
-                  <th rowspan="2" style="width:90px">NISN</th>
+                  <th rowspan="2" style="width:90px">NIS</th>
                   <?php foreach ($matrix['subjects'] as $s): ?>
                     <th colspan="3" style="text-align:center" title="<?= esc(elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?>"><?= esc($s['kode']) ?></th>
                   <?php endforeach; ?>
@@ -142,7 +142,7 @@ require __DIR__ . '/../includes/header.php';
               <tr>
                 <td><?= $i+1 ?></td>
                 <td><strong><?= esc($m['nama']) ?></strong></td>
-                <td><?= esc($m['nisn']) ?></td>
+                <td><?= esc($m['nis']) ?></td>
 
                 <?php if ($isTK): ?>
                     <?php foreach ($matrix['subjects'] as $s):

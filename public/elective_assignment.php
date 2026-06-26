@@ -254,7 +254,7 @@ require __DIR__ . '/../includes/header.php';
                 <tr>
                   <th style="width:32px">#</th>
                   <th>Rombel</th>
-                  <th>NISN</th>
+                  <th>NIS</th>
                   <th>Nama</th>
                   <th>Sub-kelas</th>
                 </tr>
@@ -264,7 +264,7 @@ require __DIR__ . '/../includes/header.php';
                   <tr>
                     <td><?= $i++ ?></td>
                     <td><?= esc($s['jenjang'] . ' ' . $s['tingkat'] . ' · ' . $s['rombel_nama']) ?></td>
-                    <td class="text-muted"><?= esc($s['nisn']) ?></td>
+                    <td class="text-muted"><?= esc($s['nis']) ?></td>
                     <td><?= esc($s['nama']) ?></td>
                     <td>
                       <select class="select select-sm" name="assignments[<?= (int)$s['id'] ?>]" <?= $canEdit ? '' : 'disabled' ?> style="min-width:180px; max-width:320px; width:100%;">

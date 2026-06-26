@@ -311,7 +311,7 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
         <thead>
           <tr>
             <th style="width:42px">#</th>
-            <th style="min-width:80px">NISN</th>
+            <th style="min-width:80px">NIS</th>
             <th style="min-width:180px">Nama Siswa</th>
             <th style="width:64px">Absen</th>
             
@@ -341,7 +341,7 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
         ?>
           <tr data-row data-sid="<?= $msid ?>" class="<?= $isAbsent ? 'is-absent' : '' ?>">
             <td class="num-cell"><?= $i+1 ?></td>
-            <td class="text-sm text-muted" style="font-family:monospace"><?= esc($m['nisn']) ?></td>
+            <td class="text-sm text-muted" style="font-family:monospace"><?= esc($m['nis']) ?></td>
             <td class="name-cell">
               <strong><?= esc($m['nama']) ?></strong>
             </td>

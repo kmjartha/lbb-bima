@@ -56,7 +56,7 @@ function elective_rombels_for(int $electiveId): array
 function elective_students(int $electiveId): array
 {
     $st = db()->prepare(
-        "SELECT DISTINCT s.id, s.nisn, s.nama,
+        "SELECT DISTINCT s.id, s.nis, s.nisn, s.nama,
                 r.jenjang, r.tingkat, r.nama AS rombel_nama
          FROM elective_rombels er
          JOIN rombel_members rm ON rm.rombel_id = er.rombel_id

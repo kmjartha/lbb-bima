@@ -42,7 +42,7 @@ include __DIR__ . '/_layout.php';
     </div>
     <div style="flex:1;">
       <div style="font-weight:700; font-size:1.05rem; line-height:1.15;"><?= esc($student['nama']) ?></div>
-      <div class="muted">NISN <?= esc($student['nisn']) ?> · <?= esc($rombel['nama'] ?? '— belum di rombel —') ?></div>
+      <div class="muted">NIS <?= esc($student['nis']) ?> · <?= esc($rombel['nama'] ?? '— belum di rombel —') ?></div>
       <?php if ($wali): ?>
         <div class="muted">Wali Kelas: <?= esc($wali['nama']) ?></div>
       <?php endif; ?>

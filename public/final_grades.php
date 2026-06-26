@@ -359,7 +359,7 @@ $fgStatuses = fg_statuses();
             <tr>
               <th style="width:36px"><input type="checkbox" id="selAll" <?= $ro?'disabled':'' ?>></th>
               <th style="width:36px">#</th>
-              <th>NISN</th>
+              <th>NIS</th>
               <th>Nama</th>
               
               <?php if ($isTK): ?>
@@ -404,7 +404,7 @@ $fgStatuses = fg_statuses();
                   class="rowSel" <?= ($ro || $locked) ? 'disabled' : '' ?>>
               </td>
               <td><?= $i+1 ?></td>
-              <td><?= esc($m['nisn']) ?></td>
+              <td><?= esc($m['nis']) ?></td>
               <td><strong><?= esc($m['nama']) ?></strong></td>
               
               <?php if ($isTK): ?>

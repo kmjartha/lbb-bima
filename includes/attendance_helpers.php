@@ -96,7 +96,7 @@ function assert_can_access_rombel(array $user, int $rombelId): array
 function rombel_members(int $rombelId): array
 {
     $st = db()->prepare(
-        "SELECT s.id, s.nisn, s.nama, s.jk
+            "SELECT s.id, s.nis, s.nisn, s.nama, s.jk
          FROM rombel_members rm
          JOIN students s ON s.id = rm.student_id
          WHERE rm.rombel_id = :r AND s.deleted_at IS NULL
@@ -139,7 +139,7 @@ function rombel_members_for_subject(int $rombelId, int $subjectId, string $semes
 
     // Elective subject — hanya siswa yang di-assign ke opsi ini di semester ini
     $st = $pdo->prepare(
-        "SELECT s.id, s.nisn, s.nama, s.jk
+        "SELECT s.id, s.nis, s.nisn, s.nama, s.jk
          FROM elective_assignments ea
          JOIN students s ON s.id = ea.student_id
          JOIN rombel_members rm ON rm.student_id = s.id AND rm.rombel_id = :r
@@ -171,7 +171,7 @@ function attendance_for(int $rombelId, string $date): array
 function attendance_recap(int $rombelId, string $from, string $to): array
 {
     $st = db()->prepare(
-        "SELECT s.id, s.nisn, s.nama, s.jk,
+        "SELECT s.id, s.nis, s.nisn, s.nama, s.jk,
                 SUM(a.status='H') AS h,
                 SUM(a.status='I') AS i,
                 SUM(a.status='S') AS s_,
@@ -184,7 +184,7 @@ function attendance_recap(int $rombelId, string $from, string $to): array
                AND a.rombel_id  = rm.rombel_id
                AND a.tanggal BETWEEN :f AND :t
          WHERE rm.rombel_id = :r AND s.deleted_at IS NULL
-         GROUP BY s.id, s.nisn, s.nama, s.jk
+         GROUP BY s.id, s.nis, s.nisn, s.nama, s.jk
          ORDER BY s.nama"
     );
     $st->execute(['r' => $rombelId, 'f' => $from, 't' => $to]);

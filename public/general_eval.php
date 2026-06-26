@@ -92,7 +92,7 @@ require __DIR__ . '/../includes/header.php';
           <td><?= $i+1 ?></td>
           <td>
             <strong><?= esc($m['nama']) ?></strong>
-            <div class="text-sm text-muted">NISN <?= esc($m['nisn']) ?></div>
+            <div class="text-sm text-muted">NIS <?= esc($m['nis']) ?></div>
           </td>
           <td>
             <textarea class="input" name="narasi[<?= (int)$m['id'] ?>]" rows="3" maxlength="3000"

@@ -130,7 +130,7 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($focusSid && $renderMembers): /* Vertical per-aspect form (mobile friendly) */ ?>
     <?php $m = $renderMembers[0]; $mid = (int)$m['id']; ?>
     <div class="card-body">
-      <div class="text-sm text-muted">NISN <?= esc($m['nisn']) ?> · <?= esc($m['jk']) ?></div>
+      <div class="text-sm text-muted">NIS <?= esc($m['nis']) ?> · <?= esc($m['jk']) ?></div>
     </div>
     <div class="table-wrap">
       <table class="t">

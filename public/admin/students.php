@@ -14,7 +14,7 @@ $editId = int_or_null($_GET['edit'] ?? null);
 
 function tingkat_options_for_jenjang(string $jenjang): array {
     return match ($jenjang) {
-        'TK' => [1, 2],
+        'TK' => [0, 1, 2],
         'SD' => [1, 2, 3, 4, 5, 6],
         'SMP' => [7, 8, 9],
         'SMA' => [10, 11, 12],
@@ -203,11 +203,11 @@ require __DIR__ . '/../../includes/header.php';
         <div class="field"><label class="label">Nama *</label><input class="input" name="nama" required value="<?= esc($edit['nama'] ?? '') ?>"></div>
         <div class="row">
           <div class="field"><label class="label">Jenjang *</label>
-            <select class="select" name="jenjang" required>
+            <select class="select" name="jenjang" id="jenjang_select_form" required>
               <?php foreach (['TK','SD','SMP','SMA'] as $j): ?><option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '')===$j?'selected':'' ?>><?= $j ?></option><?php endforeach; ?>
             </select>
           </div>
-          <div class="field"><label class="label">Tingkat *</label><input class="input" type="number" name="tingkat" min="1" max="12" required value="<?= esc($edit['tingkat'] ?? '') ?>"></div>
+          <div class="field"><label class="label">Tingkat *</label><input class="input" type="number" name="tingkat" id="tingkat_input_form" min="1" max="12" required value="<?= esc($edit['tingkat'] ?? '') ?>"></div>
           <div class="field"><label class="label">JK *</label>
             <select class="select" name="jk" required>
               <option value="L" <?= ($edit['jk'] ?? '')==='L'?'selected':'' ?>>Laki-laki</option>
@@ -215,6 +215,31 @@ require __DIR__ . '/../../includes/header.php';
             </select>
           </div>
         </div>
+        <script>
+          (function() {
+            const jenjangSelect = document.getElementById('jenjang_select_form');
+            const tingkatInput = document.getElementById('tingkat_input_form');
+            
+            const constraints = {
+              'TK': { min: 0, max: 2 },
+              'SD': { min: 1, max: 6 },
+              'SMP': { min: 7, max: 9 },
+              'SMA': { min: 10, max: 12 }
+            };
+            
+            function updateTingkatConstraints() {
+              const jenjang = jenjangSelect.value;
+              const constraint = constraints[jenjang];
+              if (constraint) {
+                tingkatInput.min = constraint.min;
+                tingkatInput.max = constraint.max;
+              }
+            }
+            
+            jenjangSelect.addEventListener('change', updateTingkatConstraints);
+            updateTingkatConstraints();
+          })();
+        </script>
         <div class="row">
           <div class="field"><label class="label">Tempat Lahir</label><input class="input" name="tempat_lahir" value="<?= esc($edit['tempat_lahir'] ?? '') ?>"></div>
           <div class="field"><label class="label">Tanggal Lahir *</label><input class="input" type="date" name="tgl_lahir" required value="<?= esc($edit['tgl_lahir'] ?? '') ?>"></div>
@@ -308,7 +333,7 @@ require __DIR__ . '/../../includes/header.php';
   if (!jenjangSelect || !tingkatSelect) return;
 
   const optionsByJenjang = {
-    TK: ['1', '2'],
+    TK: ['0', '1', '2'],
     SD: ['1', '2', '3', '4', '5', '6'],
     SMP: ['7', '8', '9'],
     SMA: ['10', '11', '12']

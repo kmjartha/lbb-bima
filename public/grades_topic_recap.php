@@ -91,7 +91,7 @@ if (($_GET['export'] ?? '') === 'csv' && $rombel && $sid) {
     $out = fopen('php://output', 'w');
     
     if ($isTK) {
-        $hdr = ['NISN','Nama'];
+        $hdr = ['NIS','Nama'];
         foreach ($rec['topics'] as $t) {
             $hdr[] = ($t['kode'] ? $t['kode'].' ' : '').$t['judul'].' (Avg Bintang)';
             $hdr[] = 'Deskripsi '.$t['kode'];
@@ -101,7 +101,7 @@ if (($_GET['export'] ?? '') === 'csv' && $rombel && $sid) {
         
         foreach ($members as $m) {
             $msid = (int)$m['id'];
-            $row = [$m['nisn'], $m['nama']];
+            $row = [$m['nis'], $m['nama']];
             foreach ($rec['topics'] as $t) {
                 $tid = (int)$t['id'];
                 $row[] = isset($tkData[$msid][$tid]) ? number_format((float)$tkData[$msid][$tid]['avg_bintang'], 2) : '';
@@ -111,7 +111,7 @@ if (($_GET['export'] ?? '') === 'csv' && $rombel && $sid) {
             fputcsv($out, $row);
         }
     } else {
-        $hdr = ['NISN','Nama'];
+        $hdr = ['NIS','Nama'];
         foreach ($rec['topics'] as $t) {
             $hdr[] = ($t['kode'] ? $t['kode'].' ' : '').$t['judul'].' (Σ SPK)';
         }
@@ -120,7 +120,7 @@ if (($_GET['export'] ?? '') === 'csv' && $rombel && $sid) {
         
         foreach ($members as $m) {
             $msid = (int)$m['id'];
-            $row = [$m['nisn'], $m['nama']];
+            $row = [$m['nis'], $m['nama']];
             foreach ($rec['topics'] as $t) {
                 $td = $rec['data'][$msid][(int)$t['id']] ?? null;
                 $row[] = $td ? (spk_overall($td['sikap'] ?? null, $td['pengetahuan'] ?? null, $td['keterampilan'] ?? null) ?? '') : '';
@@ -247,7 +247,7 @@ $displayTopics = $topicId
             <tr>
               <td class="sticky-col text-center"><?= $i+1 ?></td>
               <td class="sticky-col sticky-col-2"><strong><?= esc($m['nama']) ?></strong>
-                <div class="text-xs text-muted"><?= esc($m['nisn']) ?></div>
+                <div class="text-xs text-muted"><?= esc($m['nis']) ?></div>
               </td>
               
               <?php foreach ($displayTopics as $t):

@@ -150,7 +150,7 @@ require __DIR__ . '/../includes/header.php';
             <thead>
               <tr>
                 <th style="width:48px">#</th>
-                <th>NISN</th>
+                <th>NIS</th>
                 <th>Nama</th>
                 <th style="width:60px">JK</th>
                 <th style="width:320px">Status</th>
@@ -161,7 +161,7 @@ require __DIR__ . '/../includes/header.php';
             <?php foreach ($members as $i => $m): $sid = (int)$m['id']; $cur = $existing[$sid]['status'] ?? ''; $note = $existing[$sid]['catatan'] ?? ''; ?>
               <tr>
                 <td><?= $i+1 ?></td>
-                <td><?= esc($m['nisn']) ?></td>
+                <td><?= esc($m['nis']) ?></td>
                 <td><strong><?= esc($m['nama']) ?></strong></td>
                 <td><?= esc($m['jk']) ?></td>
                 <td>

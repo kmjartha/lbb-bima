@@ -26,7 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $waliId    = int_or_null($_POST['wali_id'] ?? null);
             $kapasitas = max(1, (int)($_POST['kapasitas'] ?? 28));
             if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
-            if ($tingkat < 1 || $tingkat > 12) throw new RuntimeException('Tingkat 1-12.');
+            if ($jenjang === 'TK') {
+                if ($tingkat < 0 || $tingkat > 2) throw new RuntimeException('Tingkat TK 0-2.');
+            } else {
+                if ($tingkat < 1 || $tingkat > 12) throw new RuntimeException('Tingkat 1-12.');
+            }
 
             if ($id) {
                 $pdo->prepare("UPDATE rombel SET jenjang=:j, tingkat=:t, nama=:n, wali_id=:w, kapasitas=:k WHERE id=:id AND academic_year_id=:y")
@@ -152,16 +156,41 @@ require __DIR__ . '/../../includes/header.php';
         <?php if ($edit): ?><input type="hidden" name="id" value="<?= (int)$edit['id'] ?>"><?php endif; ?>
         <div class="row">
           <div class="field"><label class="label">Jenjang *</label>
-            <select class="select" name="jenjang" required>
+            <select class="select" name="jenjang" id="jenjang_select" required>
               <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
                 <option value="<?= $j ?>" <?= ($edit['jenjang']??'')===$j?'selected':'' ?>><?= $j ?></option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="field"><label class="label">Tingkat *</label>
-            <input class="input" type="number" name="tingkat" min="1" max="12" required value="<?= esc($edit['tingkat']??'') ?>">
+            <input class="input" type="number" name="tingkat" id="tingkat_input" min="1" max="12" required value="<?= esc($edit['tingkat']??'') ?>">
           </div>
         </div>
+        <script>
+          (function() {
+            const jenjangSelect = document.getElementById('jenjang_select');
+            const tingkatInput = document.getElementById('tingkat_input');
+            
+            const constraints = {
+              'TK': { min: 0, max: 2 },
+              'SD': { min: 1, max: 6 },
+              'SMP': { min: 7, max: 9 },
+              'SMA': { min: 10, max: 12 }
+            };
+            
+            function updateTingkatConstraints() {
+              const jenjang = jenjangSelect.value;
+              const constraint = constraints[jenjang];
+              if (constraint) {
+                tingkatInput.min = constraint.min;
+                tingkatInput.max = constraint.max;
+              }
+            }
+            
+            jenjangSelect.addEventListener('change', updateTingkatConstraints);
+            updateTingkatConstraints();
+          })();
+        </script>
         <div class="row">
           <div class="field"><label class="label">Nama Rombel *</label><input class="input" name="nama" required placeholder="1A / 7-Bilal" value="<?= esc($edit['nama']??'') ?>"></div>
           <div class="field" style="flex:0 0 130px"><label class="label">Kapasitas</label><input class="input" type="number" name="kapasitas" min="1" max="60" value="<?= esc($edit['kapasitas']??28) ?>"></div>
@@ -222,10 +251,10 @@ require __DIR__ . '/../../includes/header.php';
         <h4 class="mb-2">Anggota Saat Ini (<?= count($members) ?>)</h4>
         <?php if (!$members): ?><div class="empty">Belum ada anggota.</div><?php else: ?>
           <div class="table-wrap"><table class="t">
-            <thead><tr><th>NISN</th><th>Nama</th><th>JK</th><th></th></tr></thead><tbody>
+            <thead><tr><th>NIS</th><th>Nama</th><th>JK</th><th></th></tr></thead><tbody>
             <?php foreach ($members as $s): ?>
               <tr>
-                <td><?= esc($s['nisn']) ?></td><td><?= esc($s['nama']) ?></td><td><?= esc($s['jk']) ?></td>
+                <td><?= esc($s['nis']) ?></td><td><?= esc($s['nama']) ?></td><td><?= esc($s['jk']) ?></td>
                 <td style="text-align:right">
                   <?php if ($canEdit): ?><form method="post" style="display:inline" data-confirm="Keluarkan <?= esc($s['nama']) ?>?">
                     <?= csrf_field() ?><input type="hidden" name="op" value="remove_member">
@@ -243,12 +272,14 @@ require __DIR__ . '/../../includes/header.php';
         <?php if (!$eligible): ?><div class="empty">Tidak ada siswa eligible.</div><?php else: ?>
           <form method="post">
             <?= csrf_field() ?><input type="hidden" name="op" value="add_members"><input type="hidden" name="rombel_id" value="<?= (int)$manage['id'] ?>">
-            <select class="select" name="student_ids[]" multiple size="10" style="height:auto">
+            <div style="max-height:260px; overflow:auto; border:1px solid #e6e6e6; padding:8px; border-radius:6px">
               <?php foreach ($eligible as $s): ?>
-                <option value="<?= (int)$s['id'] ?>"><?= esc($s['nisn'].' — '.$s['nama'].' ('.$s['jk'].')') ?></option>
+                <label style="display:block; margin-bottom:6px;">
+                  <input type="checkbox" name="student_ids[]" value="<?= (int)$s['id'] ?>"> <?= esc($s['nis'].' — '.$s['nama'].' ('.$s['jk'].')') ?>
+                </label>
               <?php endforeach; ?>
-            </select>
-            <div class="help">Tahan Ctrl/Cmd untuk pilih banyak.</div>
+            </div>
+            <div class="help">Centang siswa yang akan ditambahkan.</div>
             <button class="btn btn-primary mt-2">Tambahkan</button>
           </form>
         <?php endif; ?><?php endif; ?>
