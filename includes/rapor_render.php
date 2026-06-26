@@ -53,7 +53,7 @@ function rapor_render_body(array $args): string
     $kkm         = kkm_scale($jenjang);
     $matrix      = leger_matrix($rid, $sc['semester'], $sc['period']);
     $cellsBySubj = $matrix['data'][$sid] ?? [];
-    $subjGroups  = subjects_grouped_for_rombel($rid, $sc['semester']);
+    $subjGroups  = subjects_grouped_for_rombel($rid, $sc['semester'], $sid);
     $charEvals   = character_evals_for_student($rid, $sid, $sc['semester'], $sc['period'], $jenjang);
     $generalRow  = general_evals_for($rid, $sc['semester'], $sc['period']);
     $att         = attendance_summary_for_rombel($rid, $sc['semester'], (int)$sc['year_id']);

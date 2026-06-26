@@ -387,12 +387,17 @@ function character_evals_for_student(int $rombelId, int $studentId, string $sem,
     return $st->fetchAll();
 }
 
-/** Subjects ordered by category for a rombel + semester (used in rapor body). */
-function subjects_grouped_for_rombel(int $rombelId, string $semester): array
+/** Subjects ordered by category for a rombel + semester (used in rapor body).
+ *
+ * If a student id is provided, elective-derived shadow subjects are filtered
+ * so only the options assigned to that student for the semester appear.
+ */
+function subjects_grouped_for_rombel(int $rombelId, string $semester, ?int $studentId = null): array
 {
     $yearId = active_scope()['year_id'];
     $st = db()->prepare(
-        "SELECT DISTINCT s.id, s.kode, s.nama, s.category_id, sc.nama AS kategori_nama
+        "SELECT DISTINCT s.id, s.kode, s.nama, s.category_id, sc.nama AS kategori_nama,
+                         s.elective_class_id
          FROM rombel_subject_teachers rst
          JOIN subjects s          ON s.id = rst.subject_id AND s.academic_year_id = :y
          LEFT JOIN subject_categories sc ON sc.id = s.category_id
@@ -403,8 +408,26 @@ function subjects_grouped_for_rombel(int $rombelId, string $semester): array
     );
     $st->execute(['y'=>$yearId, 'r' => $rombelId, 'sem' => $semester]);
     $rows = $st->fetchAll();
+
+    $assignedElectiveClassIds = [];
+    if ($studentId !== null) {
+        $st2 = db()->prepare(
+            "SELECT elective_class_id FROM elective_assignments
+             WHERE student_id = :st AND semester = :sem"
+        );
+        $st2->execute(['st' => $studentId, 'sem' => $semester]);
+        foreach ($st2->fetchAll() as $row) {
+            $assignedElectiveClassIds[] = (int)$row['elective_class_id'];
+        }
+    }
+
     $out = [];
     foreach ($rows as $r) {
+        $electiveClassId = $r['elective_class_id'] !== null ? (int)$r['elective_class_id'] : null;
+        if ($studentId !== null && $electiveClassId !== null && !in_array($electiveClassId, $assignedElectiveClassIds, true)) {
+            continue;
+        }
+        unset($r['elective_class_id']);
         $cat = $r['kategori_nama'] ?? 'Lainnya';
         $out[$cat][] = $r;
     }

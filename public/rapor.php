@@ -103,7 +103,7 @@ require __DIR__ . '/../includes/header.php';
   $kkm       = kkm_scale($jenjang);
   $matrix    = leger_matrix($rid, $sc['semester'], $sc['period']);
   $cellsBySubj = $matrix['data'][(int)$student['id']] ?? [];
-  $subjGroups  = subjects_grouped_for_rombel($rid, $sc['semester']);
+  $subjGroups  = subjects_grouped_for_rombel($rid, $sc['semester'], (int)$student['id']);
   $charEvals   = character_evals_for_student($rid, (int)$student['id'], $sc['semester'], $sc['period']);
   $generalRow  = general_evals_for($rid, $sc['semester'], $sc['period']);
   $att         = attendance_summary_for_rombel($rid, $sc['semester'], $sc['year_id']);
