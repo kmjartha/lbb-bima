@@ -124,10 +124,12 @@ if ($rombelId) {
     if ($current) {
             if ($me['role'] === 'guru') {
                 $s = $pdo->prepare(
-                    "SELECT DISTINCT s.id, s.kode, s.nama
+                    "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
                      FROM subjects s
                      JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
                      JOIN teachers t ON t.id = rst.teacher_id
+                     LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+                     LEFT JOIN electives e ON e.id = ec.elective_id
                      WHERE rst.rombel_id = :r
                        AND t.user_id = :u
                        AND (rst.semester IS NULL OR rst.semester = :sem)
@@ -139,8 +141,10 @@ if ($rombelId) {
                 $subjects = $s->fetchAll();
             } else {
                 $s = $pdo->prepare(
-                    "SELECT DISTINCT s.id, s.kode, s.nama FROM subjects s
+                    "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode FROM subjects s
                      JOIN subject_jenjang_map jm ON jm.subject_id=s.id
+                     LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+                     LEFT JOIN electives e ON e.id = ec.elective_id
                      WHERE jm.jenjang=:j AND s.deleted_at IS NULL AND s.academic_year_id = :y
                      ORDER BY s.kode"
                 );
@@ -184,7 +188,7 @@ require __DIR__ . '/../../includes/header.php';
         <select class="select" name="subject_id" onchange="this.form.submit()">
           <option value="">— Pilih mapel —</option>
           <?php foreach ($subjects as $s): ?>
-            <option value="<?= (int)$s['id'] ?>" <?= $subjectId===(int)$s['id']?'selected':'' ?>><?= esc($s['kode'].' — '.$s['nama']) ?></option>
+            <option value="<?= (int)$s['id'] ?>" <?= $subjectId===(int)$s['id']?'selected':'' ?>><?= esc($s['kode'].' — '.elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></option>
           <?php endforeach; ?>
         </select>
       </div>

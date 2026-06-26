@@ -212,6 +212,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                 $ca = trim((string)($vCa[$msid] ?? ''));
                 $ca = $ca === '' ? null : mb_substr($ca, 0, 1000);
 
+                $shouldRequireNote = false;
+                if ($cur && !in_array($cur['status'], ['approved','published'], true)) {
+                    $shouldRequireNote = true;
+                } elseif ($si !== null || $pe !== null || $ke !== null || (!empty($_FILES['img']['tmp_name'][$msid]) && !empty($_FILES['img']['tmp_name'][$msid]))) {
+                    $shouldRequireNote = true;
+                } elseif ($op === 'submit' && !empty($sel[$msid])) {
+                    $shouldRequireNote = true;
+                }
+                if ($shouldRequireNote && $ca === null) {
+                    throw new RuntimeException('Catatan guru wajib diisi untuk siswa ' . $m['nama'] . '.');
+                }
+
                 // Proses Upload Gambar
                 $imgPath = $cur['image_path'] ?? null;
                 if (!empty($_FILES['img']['tmp_name'][$msid])) {
@@ -281,7 +293,7 @@ $fgStatuses = fg_statuses();
         <select class="select" name="subject_id" onchange="this.form.submit()">
           <?php foreach ($subjects as $s): ?>
             <option value="<?= (int)$s['id'] ?>" <?= $sid==(int)$s['id']?'selected':'' ?>>
-              <?= esc(($s['kode']?($s['kode'].' · '):'').$s['nama']) ?>
+              <?= esc(($s['kode']?($s['kode'].' · '):'').elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?>
             </option>
           <?php endforeach; ?>
         </select>
@@ -396,8 +408,8 @@ $fgStatuses = fg_statuses();
                 <td style="min-width: 200px;">
                     <textarea class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000" rows="2"
                               style="width: 100%; resize: vertical;"
-                              placeholder="(opsional) Terisi otomatis dari deskripsi harian jika kosong"
-                              <?= $disabledAttr ?>><?= esc((string)$vCa) ?></textarea>
+                              placeholder="Wajib diisi"
+                              <?= $disabledAttr ?> required><?= esc((string)$vCa) ?></textarea>
                 </td>
                 <td style="text-align:center;">
                     <?php if (!empty($cur['image_path'])): ?>
@@ -416,7 +428,7 @@ $fgStatuses = fg_statuses();
                   <?php else: ?><span class="text-muted">—</span><?php endif; ?>
                 </td>
                 <td><input class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000"
-                           value="<?= esc((string)$vCa) ?>" placeholder="(opsional)" <?= $disabledAttr ?>></td>
+                           value="<?= esc((string)$vCa) ?>" placeholder="Wajib diisi" <?= $disabledAttr ?> required></td>
               <?php endif; ?>
 
               <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
@@ -428,7 +440,7 @@ $fgStatuses = fg_statuses();
 
       <?php if (!$ro): ?>
         <div class="between mt-4">
-          <span class="text-sm text-muted">Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek". "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
+          <span class="text-sm text-muted">Catatan guru wajib diisi untuk setiap siswa yang disimpan atau diajukan. Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek". "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
           <div class="row" style="gap:.5rem">
             <button class="btn btn-secondary" type="submit" name="op" value="save">💾 Simpan Draft</button>
             <button class="btn btn-primary"   type="submit" name="op" value="submit">📤 Ajukan ke Kepsek</button>

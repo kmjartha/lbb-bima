@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
 require_once __DIR__ . '/../../includes/scope.php';
+require_once __DIR__ . '/../../includes/elective_helpers.php';
 $me = require_view('rombel_teachers');
 $canEdit = can_edit('rombel_teachers', $me);
 
@@ -69,8 +70,11 @@ if ($rombelId) {
     if ($current) {
         // Subjects available for this jenjang
         $s = $pdo->prepare(
-            "SELECT s.id, s.kode, s.nama FROM subjects s
+            "SELECT s.id, s.kode, s.nama, e.kode AS elective_kode
+             FROM subjects s
              JOIN subject_jenjang_map jm ON jm.subject_id=s.id
+             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+             LEFT JOIN electives e ON e.id = ec.elective_id
              WHERE jm.jenjang=:j AND s.deleted_at IS NULL AND s.academic_year_id = :y ORDER BY s.kode"
         );
         $s->execute(['j'=>$current['jenjang'], 'y'=>$sc['year_id']]); $subjects = $s->fetchAll();
@@ -84,9 +88,11 @@ if ($rombelId) {
         );
         $teachers = $teachers->execute(['y' => $sc['year_id']]) ? $teachers->fetchAll() : [];
         $a = $pdo->prepare(
-            "SELECT rst.*, s.kode AS s_kode, s.nama AS s_nama, u.nama AS t_nama, u.niy AS t_niy
+            "SELECT rst.*, s.kode AS s_kode, s.nama AS s_nama, e.kode AS elective_kode, u.nama AS t_nama, u.niy AS t_niy
              FROM rombel_subject_teachers rst
              JOIN subjects s ON s.id=rst.subject_id AND s.academic_year_id = :y
+             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+             LEFT JOIN electives e ON e.id = ec.elective_id
              JOIN teachers t ON t.id=rst.teacher_id
              JOIN users u ON u.id=t.user_id
              WHERE rst.rombel_id = :r ORDER BY s.kode, rst.semester"
@@ -131,7 +137,7 @@ require __DIR__ . '/../../includes/header.php';
           <select class="select" name="subject_id" required>
             <option value="">— Pilih mapel —</option>
             <?php foreach ($subjects as $s): ?>
-              <option value="<?= (int)$s['id'] ?>"><?= esc($s['kode'].' — '.$s['nama']) ?></option>
+              <option value="<?= (int)$s['id'] ?>"><?= esc($s['kode'].' — '.elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -164,7 +170,7 @@ require __DIR__ . '/../../includes/header.php';
         <?php if (!$assignments): ?><tr><td colspan="4"><div class="empty">Belum ada mapping.</div></td></tr><?php endif; ?>
         <?php foreach ($assignments as $a): ?>
           <tr>
-            <td><strong><?= esc($a['s_kode']) ?></strong> · <?= esc($a['s_nama']) ?></td>
+            <td><strong><?= esc($a['s_kode']) ?></strong> · <?= esc(elective_subject_label($a['s_nama'], $a['elective_kode'] ?? null)) ?></td>
             <td><?= esc($a['t_nama']) ?> <span class="text-muted text-sm">(<?= esc($a['t_niy']) ?>)</span></td>
             <td><span class="badge"><?= esc($a['semester'] ?? 'Ganjil + Genap') ?></span></td>
             <td style="text-align:right">

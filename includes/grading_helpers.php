@@ -90,12 +90,14 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
 
     if (in_array($role, ['administrator','admin','kepsek'], true)) {
         $st = $pdo->prepare(
-            "SELECT DISTINCT s.id, s.kode, s.nama
+            "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
              FROM subjects s
              LEFT JOIN rombel_subject_teachers rst
                     ON rst.subject_id = s.id
                    AND rst.rombel_id  = :r
                    AND (rst.semester IS NULL OR rst.semester = :sem)
+             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+             LEFT JOIN electives e ON e.id = ec.elective_id
              WHERE s.deleted_at IS NULL
                AND s.academic_year_id = :y
              ORDER BY s.nama"
@@ -111,9 +113,11 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
         $tid = (int)($stt->fetchColumn() ?: 0);
 
         $st = $pdo->prepare(
-            "SELECT DISTINCT s.id, s.kode, s.nama
+            "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
              FROM rombel_subject_teachers rst
              JOIN subjects s ON s.id = rst.subject_id
+             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+             LEFT JOIN electives e ON e.id = ec.elective_id
              WHERE rst.rombel_id = :r
                AND rst.teacher_id = :t
                AND (rst.semester IS NULL OR rst.semester = :sem)

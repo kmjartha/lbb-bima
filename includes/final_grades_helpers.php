@@ -128,23 +128,25 @@ function review_queue(array $user, string $semester, string $period, ?int $yearI
     $sql =
        "SELECT fg.*,
                r.jenjang, r.tingkat, r.nama AS rombel_nama,
-               sb.kode AS subj_kode, sb.nama AS subj_nama,
+               sb.kode AS subj_kode, sb.nama AS subj_nama, e.kode AS elective_kode,
                st.nisn, st.nama AS student_nama,
                u.nama AS submitted_by_name, u.niy AS submitted_by_niy
         FROM final_grades fg
         JOIN rombel   r  ON r.id  = fg.rombel_id
         JOIN subjects sb ON sb.id = fg.subject_id
+        LEFT JOIN elective_classes ec ON ec.id = sb.elective_class_id
+        LEFT JOIN electives e ON e.id = ec.elective_id
         JOIN students st ON st.id = fg.student_id
         LEFT JOIN users u ON u.id = fg.submitted_by
         WHERE fg.semester=:sem AND fg.period_kind=:p
-          AND fg.status IN ('submitted','revised','approved')
+          AND fg.status IN ('submitted','revised','approved','published')
           AND r.academic_year_id = :y";
     $params = ['sem'=>$semester,'p'=>$period,'y'=>$yearId];
     if (($user['role'] ?? '') === 'kepsek' && !empty($user['jenjang'])) {
         $sql .= " AND r.jenjang = :j";
         $params['j'] = $user['jenjang'];
     }
-    $sql .= " ORDER BY CASE fg.status WHEN 'submitted' THEN 0 WHEN 'revised' THEN 1 WHEN 'approved' THEN 2 ELSE 3 END,
+    $sql .= " ORDER BY CASE fg.status WHEN 'submitted' THEN 0 WHEN 'revised' THEN 1 WHEN 'approved' THEN 2 WHEN 'published' THEN 3 ELSE 4 END,
                       COALESCE(u.nama, 'zzz'), r.jenjang, r.tingkat, r.nama, sb.nama, st.nama";
     $st = db()->prepare($sql);
     $st->execute($params);

@@ -2,11 +2,11 @@
 /**
  * Stage 8 — Leger + Rapor PDF + Display Settings helpers.
  * Centralises:
- * - Aggregate final grades per (rombel, semester, period) in a leger-friendly shape
- * - Attendance recap per student per semester
- * - Ranking computation (kelas + paralel)
- * - Report template + signatures fetch
- * - File upload helper for header/footer/TTD images
+ *   - Aggregate final grades per (rombel, semester, period) in a leger-friendly shape
+ *   - Attendance recap per student per semester
+ *   - Ranking computation (kelas + paralel)
+ *   - Report template + signatures fetch
+ *   - File upload helper for header/footer/TTD images
  */
 declare(strict_types=1);
 
@@ -104,11 +104,11 @@ function attendance_summary_for_rombel(int $rombelId, string $semester, int $yea
 /**
  * Final-grade matrix for leger:
  * Returns:
- * [
- * 'subjects' => [ [id, kode, nama], ... ],   // ordered by nama
- * 'data'     => [ student_id => [ subject_id => ['si','pe','ke','status','image_path'] ] ],
- * 'avg'      => [ student_id => [ 'si','pe','ke','overall' ] ],
- * ]
+ *   [
+ *     'subjects' => [ [id, kode, nama], ... ],   // ordered by nama
+ *     'data'     => [ student_id => [ subject_id => ['si','pe','ke','status'] ] ],
+ *     'avg'      => [ student_id => [ 'si','pe','ke','overall' ] ],
+ *   ]
  *
  * Uses period_kind from $period (PTS or PAS).
  */
@@ -117,9 +117,11 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
     $pdo = db();
 
     $stSub = $pdo->prepare(
-        "SELECT DISTINCT s.id, s.kode, s.nama, s.category_id
+        "SELECT DISTINCT s.id, s.kode, s.nama, s.category_id, e.kode AS elective_kode
          FROM rombel_subject_teachers rst
          JOIN subjects s ON s.id = rst.subject_id
+         LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+         LEFT JOIN electives e ON e.id = ec.elective_id
          WHERE rst.rombel_id = :r
            AND (rst.semester IS NULL OR rst.semester = :sem)
            AND s.deleted_at IS NULL
@@ -128,11 +130,10 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
     $stSub->execute(['r' => $rombelId, 'sem' => $semester]);
     $subjects = $stSub->fetchAll();
 
-    // [PERBAIKAN] Tambahkan kolom image_path
     $stFg = $pdo->prepare(
         "SELECT student_id, subject_id,
                 nilai_sikap AS si, nilai_pengetahuan AS pe, nilai_keterampilan AS ke,
-                catatan_guru AS note, status, image_path
+                catatan_guru AS note, status
          FROM final_grades
          WHERE rombel_id = :r AND semester = :sem AND period_kind = :p"
     );
@@ -150,7 +151,6 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
             'overall' => spk_overall($si, $pe, $ke),
             'note' => $row['note'] === null ? null : (string)$row['note'],
             'status' => (string)$row['status'],
-            'image_path' => $row['image_path'] ?? null, // [PERBAIKAN] Ambil image_path
         ];
     }
 
@@ -168,6 +168,8 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
             $a[$k] = $cnt > 0 ? round($num / $cnt, 2) : null;
         }
         // Overall = mean of Sikap + Pengetahuan + Keterampilan (gabungan SPK).
+        // Inilah nilai akhir tunggal yang ditampilkan di rapor siswa per mapel,
+        // dan dipakai untuk ranking & predikat akhir.
         $vals = array_filter([$a['si'], $a['pe'], $a['ke']], fn($v) => $v !== null);
         $a['overall'] = $vals ? round(array_sum($vals) / count($vals), 2) : null;
         $avg[$sid] = $a;
@@ -247,11 +249,8 @@ function report_template_for(string $jenjang): array
     $st->execute(['y' => $yearId, 'j' => $jenjang]);
     $row = $st->fetch();
     if ($row) return $row;
-    
-    // Menggunakan INSERT IGNORE untuk mengabaikan error duplicate key
-    db()->prepare("INSERT IGNORE INTO report_templates (academic_year_id, jenjang) VALUES (:y,:j)")
+    db()->prepare("INSERT INTO report_templates (academic_year_id, jenjang) VALUES (:y,:j)")
         ->execute(['y' => $yearId, 'j' => $jenjang]);
-        
     $st->execute(['y' => $yearId, 'j' => $jenjang]);
     return $st->fetch() ?: ['jenjang' => $jenjang, 'layout_json' => null, 'header_img' => null, 'footer_img' => null];
 }
@@ -278,23 +277,21 @@ function report_template_save(string $jenjang, ?string $headerImg, ?string $foot
  */
 function rapor_layout_resolve(?array $tpl): array
 {
-    $allowed = rapor_default_layout();
     $order = (!empty($tpl['layout_json']))
         ? (array)json_decode($tpl['layout_json'], true)
-        : $allowed;
-    $order = array_values(array_filter($order, fn($k) => in_array($k, $allowed, true)));
+        : rapor_default_layout();
     $hiddenList = (!empty($tpl['layout_hidden_json']))
         ? (array)json_decode($tpl['layout_hidden_json'], true)
         : [];
     $hidden = [];
     foreach ($hiddenList as $k) {
         $k = (string)$k;
-        if ($k !== 'identitas' && in_array($k, $allowed, true)) $hidden[$k] = true;
+        if ($k !== 'identitas') $hidden[$k] = true;
     }
     return ['order' => $order, 'hidden' => $hidden];
 }
 
-function report_signatures_for(string $jenjang, ?int $rombelId = null): array
+function report_signatures_for(string $jenjang): array
 {
     $yearId = active_scope()['year_id'];
     $st = db()->prepare("SELECT * FROM report_signatures WHERE academic_year_id = :y AND jenjang = :j");
@@ -306,25 +303,6 @@ function report_signatures_for(string $jenjang, ?int $rombelId = null): array
         foreach ($rows as $r) if ($r['slot'] === $slot) { $found = $r; break; }
         $out[$slot] = $found ?: ['slot' => $slot, 'jenjang' => $jenjang, 'nama' => null, 'jabatan' => null, 'ttd_path' => null];
     }
-
-    if ($rombelId !== null) {
-        $st = db()->prepare(
-            "SELECT u.id, u.nama, u.ttd_path
-               FROM rombel r
-               LEFT JOIN users u ON u.id = r.wali_id
-              WHERE r.id = :r"
-        );
-        $st->execute(['r' => $rombelId]);
-        $wali = $st->fetch();
-        if ($wali && $wali['id']) {
-            $out['wali'] = array_merge($out['wali'], [
-                'nama'     => $wali['nama'] ?: $out['wali']['nama'],
-                'jabatan'  => $out['wali']['jabatan'] ?: 'Wali Kelas',
-                'ttd_path' => $wali['ttd_path'] ?? $out['wali']['ttd_path'],
-            ]);
-        }
-    }
-
     return $out;
 }
 
@@ -339,9 +317,8 @@ function report_signature_save(string $jenjang, string $slot, ?string $nama, ?st
         $pdo->prepare("UPDATE report_signatures SET nama=:n, jabatan=:jb, ttd_path=:t WHERE id=:i")
             ->execute(['n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath,'i'=>$id]);
     } else {
-        // Menggunakan INSERT IGNORE untuk menjaga keamanan jika slot bersamaan dibuat
         $pdo->prepare(
-            "INSERT IGNORE INTO report_signatures (academic_year_id, jenjang, slot, nama, jabatan, ttd_path)
+            "INSERT INTO report_signatures (academic_year_id, jenjang, slot, nama, jabatan, ttd_path)
              VALUES (:y,:j,:s,:n,:jb,:t)"
         )->execute(['y'=>$yearId,'j'=>$jenjang,'s'=>$slot,'n'=>$nama,'jb'=>$jabatan,'t'=>$ttdPath]);
     }
@@ -354,7 +331,9 @@ function rapor_default_layout(): array
         'identitas',
         'character',
         'academic',
+        'extracurricular',
         'attendance',
+        'wali_note',
         'general_eval',
         'signatures',
     ];
@@ -395,26 +374,17 @@ function kkm_scale(string $jenjang): array
 }
 
 /** All character evals for a student (joined with aspect). */
-function character_evals_for_student(int $rombelId, int $studentId, string $sem, string $period, ?string $jenjang = null): array
+function character_evals_for_student(int $rombelId, int $studentId, string $sem, string $period): array
 {
     $yearId = active_scope()['year_id'];
-    $query = 
+    $st = db()->prepare(
         "SELECT ce.*, ca.nama AS aspek_nama, ca.kategori
          FROM character_evaluations ce
-         JOIN character_aspects ca ON ca.id = ce.aspect_id AND ca.academic_year_id = :y";
-    if ($jenjang) {
-        $query .= " AND ca.jenjang = :j";
-    }
-    $query .= 
-        " WHERE ce.rombel_id=:r AND ce.student_id=:st AND ce.semester=:sem AND ce.period_kind=:p
-         ORDER BY FIELD(ca.kategori,'Spiritual and morality','Discipline','Manner','Obedience','Focus and Confidence','spiritual','sosial'), ca.nama";
-
-    $params = ['y'=>$yearId,'r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period];
-    if ($jenjang) {
-        $params['j'] = $jenjang;
-    }
-    $st = db()->prepare($query);
-    $st->execute($params);
+         JOIN character_aspects ca ON ca.id = ce.aspect_id AND ca.academic_year_id = :y
+         WHERE ce.rombel_id=:r AND ce.student_id=:st AND ce.semester=:sem AND ce.period_kind=:p
+         ORDER BY FIELD(ca.kategori,'Spiritual and morality','Discipline','Manner','Obedience','Focus and Confidence','spiritual','sosial'), ca.nama"
+    );
+    $st->execute(['y'=>$yearId,'r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period]);
     return $st->fetchAll();
 }
 

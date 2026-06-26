@@ -108,7 +108,7 @@ require __DIR__ . '/../includes/header.php';
                   <th style="min-width:160px">Nama Siswa</th>
                   <th style="width:90px">NISN</th>
                   <?php foreach ($matrix['subjects'] as $s): ?>
-                    <th style="text-align:center; font-size:11px; max-width:140px; word-wrap:break-word;"><?= esc($s['nama']) ?></th>
+                    <th style="text-align:center; font-size:11px; max-width:140px; word-wrap:break-word;"><?= esc(elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></th>
                   <?php endforeach; ?>
                   <th style="text-align:center; background:#fffbe6">Rata-rata</th>
                   <th style="text-align:center">Rank Kelas</th>
@@ -120,7 +120,7 @@ require __DIR__ . '/../includes/header.php';
                   <th rowspan="2" style="min-width:160px">Nama Siswa</th>
                   <th rowspan="2" style="width:90px">NISN</th>
                   <?php foreach ($matrix['subjects'] as $s): ?>
-                    <th colspan="3" style="text-align:center" title="<?= esc($s['nama']) ?>"><?= esc($s['kode']) ?></th>
+                    <th colspan="3" style="text-align:center" title="<?= esc(elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?>"><?= esc($s['kode']) ?></th>
                   <?php endforeach; ?>
                   <th colspan="4" style="text-align:center">Rata-rata</th>
                   <th rowspan="2">Rank Kelas</th>

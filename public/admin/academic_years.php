@@ -81,10 +81,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // ---- subjects ----
+        // Exclude elective-derived ("shadow") subjects: their source of truth
+        // is an elective option, which this routine does not copy. Copying
+        // them here would create orphaned plain subjects in the new year.
         $subjMap = [];
         $s = $pdo->prepare("SELECT id, kode, nama, category_id
                             FROM subjects
-                            WHERE academic_year_id = :y AND deleted_at IS NULL");
+                            WHERE academic_year_id = :y AND deleted_at IS NULL
+                              AND elective_class_id IS NULL");
         $s->execute(['y' => $copy_from]);
         $ins = $pdo->prepare("INSERT INTO subjects (academic_year_id, kode, nama, category_id)
                               VALUES (:y, :k, :n, :c)");

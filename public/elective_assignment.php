@@ -29,8 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $eid = (int)($_POST['elective_id'] ?? 0);
-            $sid = (int)($_POST['student_id'] ?? 0);
-            $cid = int_or_null($_POST['elective_class_id'] ?? null);
+            $assignmentValues = $_POST['assignments'] ?? [];
 
             $st = $pdo->prepare(
                 "SELECT 1 FROM elective_rombels er
@@ -45,34 +44,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Mapel pilihan tidak ditemukan atau tidak dapat diakses.');
             }
 
-            $st = $pdo->prepare(
-                "SELECT 1 FROM elective_rombels er
-                   JOIN rombel_members rm ON rm.rombel_id = er.rombel_id
-                  WHERE er.elective_id = :e AND rm.student_id = :s"
-            );
-            $st->execute(['e' => $eid, 's' => $sid]);
-            if (!$st->fetchColumn()) {
-                throw new RuntimeException('Siswa bukan anggota rombel yang terkait mapel ini.');
-            }
-
-            if ($cid === null) {
-                $pdo->prepare("DELETE FROM elective_assignments WHERE elective_id = :e AND student_id = :s AND semester = :sem")
-                    ->execute(['e' => $eid, 's' => $sid, 'sem' => $semester]);
-            } else {
-                $st = $pdo->prepare("SELECT id FROM elective_classes WHERE id = :c AND elective_id = :e AND deleted_at IS NULL");
-                $st->execute(['c' => $cid, 'e' => $eid]);
-                if (!$st->fetchColumn()) {
-                    throw new RuntimeException('Sub-kelas tidak valid.');
+            $students = elective_students($eid);
+            foreach ($students as $student) {
+                $sid = (int)$student['id'];
+                if (!array_key_exists((string)$sid, $assignmentValues)) {
+                    continue;
                 }
 
-                $pdo->prepare(
-                    "INSERT INTO elective_assignments (elective_id, elective_class_id, student_id, semester, assigned_by)
-                     VALUES (:e, :c, :s, :sem, :by)
-                     ON DUPLICATE KEY UPDATE elective_class_id = VALUES(elective_class_id), assigned_by = VALUES(assigned_by)"
-                )->execute(['e' => $eid, 'c' => $cid, 's' => $sid, 'sem' => $semester, 'by' => $user['id']]);
+                $st = $pdo->prepare(
+                    "SELECT 1 FROM elective_rombels er
+                       JOIN rombel_members rm ON rm.rombel_id = er.rombel_id
+                      WHERE er.elective_id = :e AND rm.student_id = :s"
+                );
+                $st->execute(['e' => $eid, 's' => $sid]);
+                if (!$st->fetchColumn()) {
+                    throw new RuntimeException('Siswa bukan anggota rombel yang terkait mapel ini.');
+                }
+
+                $cid = int_or_null($assignmentValues[(string)$sid] ?? null);
+
+                if ($cid === null) {
+                    $pdo->prepare("DELETE FROM elective_assignments WHERE elective_id = :e AND student_id = :s AND semester = :sem")
+                        ->execute(['e' => $eid, 's' => $sid, 'sem' => $semester]);
+                } else {
+                    $st = $pdo->prepare("SELECT id FROM elective_classes WHERE id = :c AND elective_id = :e AND deleted_at IS NULL");
+                    $st->execute(['c' => $cid, 'e' => $eid]);
+                    if (!$st->fetchColumn()) {
+                        throw new RuntimeException('Sub-kelas tidak valid.');
+                    }
+
+                    $pdo->prepare(
+                        "INSERT INTO elective_assignments (elective_id, elective_class_id, student_id, semester, assigned_by)
+                         VALUES (:e, :c, :s, :sem, :by)
+                         ON DUPLICATE KEY UPDATE elective_class_id = VALUES(elective_class_id), assigned_by = VALUES(assigned_by)"
+                    )->execute(['e' => $eid, 'c' => $cid, 's' => $sid, 'sem' => $semester, 'by' => $user['id']]);
+                }
             }
 
-            audit('save', "elective_assign:e{$eid}:s{$sid}:" . $semester);
+            audit('save', "elective_assign:e{$eid}:" . $semester);
             flash('success', 'Penempatan siswa diperbarui.');
             redirect('elective_assignment.php?elective_id=' . $eid);
         }
@@ -230,48 +239,50 @@ require __DIR__ . '/../includes/header.php';
       <?php elseif (!$students): ?>
         <div class="alert alert-info">Belum ada siswa pada rombel terkait.</div>
       <?php else: ?>
-        <div class="table-wrap">
-          <table class="t">
-            <thead>
-              <tr>
-                <th style="width:32px">#</th>
-                <th>Rombel</th>
-                <th>NISN</th>
-                <th>Nama</th>
-                <th colspan="2">Sub-kelas</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php $i = 1; foreach ($students as $s): $cur = $assignMap[(int)$selectedElective['id']][(int)$s['id']] ?? null; ?>
+        <form method="post" style="margin:0;">
+          <?= csrf_field() ?>
+          <input type="hidden" name="op" value="assign">
+          <input type="hidden" name="elective_id" value="<?= (int)$selectedElective['id'] ?>">
+          <?php if ($canEdit): ?>
+            <div class="between" style="margin-bottom:1rem; justify-content:flex-end;">
+              <button class="btn btn-primary" type="submit">Simpan</button>
+            </div>
+          <?php endif; ?>
+          <div class="table-wrap">
+            <table class="t">
+              <thead>
                 <tr>
-                  <td><?= $i++ ?></td>
-                  <td><?= esc($s['jenjang'] . ' ' . $s['tingkat'] . ' · ' . $s['rombel_nama']) ?></td>
-                  <td class="text-muted"><?= esc($s['nisn']) ?></td>
-                  <td><?= esc($s['nama']) ?></td>
-                  <td colspan="2">
-                    <form method="post" style="margin:0; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
-                      <?= csrf_field() ?><input type="hidden" name="op" value="assign">
-                      <input type="hidden" name="elective_id" value="<?= (int)$selectedElective['id'] ?>">
-                      <input type="hidden" name="student_id" value="<?= (int)$s['id'] ?>">
-                      <select class="select select-sm" name="elective_class_id" <?= $canEdit ? '' : 'disabled' ?> style="min-width:180px; max-width:320px; flex:1;">
+                  <th style="width:32px">#</th>
+                  <th>Rombel</th>
+                  <th>NISN</th>
+                  <th>Nama</th>
+                  <th>Sub-kelas</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php $i = 1; foreach ($students as $s): $cur = $assignMap[(int)$s['id']] ?? null; ?>
+                  <tr>
+                    <td><?= $i++ ?></td>
+                    <td><?= esc($s['jenjang'] . ' ' . $s['tingkat'] . ' · ' . $s['rombel_nama']) ?></td>
+                    <td class="text-muted"><?= esc($s['nisn']) ?></td>
+                    <td><?= esc($s['nama']) ?></td>
+                    <td>
+                      <select class="select select-sm" name="assignments[<?= (int)$s['id'] ?>]" <?= $canEdit ? '' : 'disabled' ?> style="min-width:180px; max-width:320px; width:100%;">
                         <option value="">— pilih sub-kelas —</option>
                         <?php foreach ($classes as $c): ?>
-                          <option value="<?= (int)$c['id'] ?>" <?= ($cur === (int)$c['id']) ? 'selected' : '' ?> >
+                          <option value="<?= (int)$c['id'] ?>" <?= ($cur === (int)$c['id']) ? 'selected' : '' ?>>
                             <?= esc($c['nama']) ?>
                           </option>
                         <?php endforeach; ?>
                       </select>
-                      <?php if ($canEdit): ?>
-                        <button class="btn btn-primary btn-sm" type="submit"><?= $cur ? 'Switch' : 'Simpan' ?></button>
-                      <?php endif; ?>
-                    </form>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-        <div class="text-xs text-muted" style="margin-top:.75rem;">Tip: pilih sub-kelas untuk siswa dan klik Simpan / Switch untuk memperbarui penempatan.</div>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </form>
+        <div class="text-xs text-muted" style="margin-top:.75rem;">Tip: pilih sub-kelas untuk siswa lalu klik Simpan untuk memperbarui seluruh penempatan pada halaman ini.</div>
       <?php endif; ?>
     <?php endif; ?>
   </div>

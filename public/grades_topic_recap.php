@@ -168,7 +168,7 @@ $displayTopics = $topicId
           <?php if (!$subjects): ?><option value="">— Tidak ada mapel —</option><?php endif; ?>
           <?php foreach ($subjects as $s): ?>
             <option value="<?= (int)$s['id'] ?>" <?= $sid==(int)$s['id']?'selected':'' ?>>
-              <?= esc(($s['kode']?($s['kode'].' · '):'').$s['nama']) ?>
+              <?= esc(($s['kode']?($s['kode'].' · '):'').elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?>
             </option>
           <?php endforeach; ?>
         </select>

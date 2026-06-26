@@ -12,6 +12,16 @@ $pdo = db();
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 
+function tingkat_options_for_jenjang(string $jenjang): array {
+    return match ($jenjang) {
+        'TK' => [1, 2],
+        'SD' => [1, 2, 3, 4, 5, 6],
+        'SMP' => [7, 8, 9],
+        'SMA' => [10, 11, 12],
+        default => [],
+    };
+}
+
 // jenjang filter
 $jf = in_array(($_GET['jenjang'] ?? ''), ['TK','SD','SMP','SMA'], true) ? $_GET['jenjang'] : '';
 $q  = trim((string)($_GET['q'] ?? ''));
@@ -111,6 +121,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $newJenjang = $_POST['new_jenjang'] ?? '';
           $newTingkat = int_or_null($_POST['new_tingkat'] ?? null);
           if (!$ids) throw new RuntimeException('Pilih minimal 1 siswa.');
+          if ($newJenjang !== '' && $newTingkat !== null && !in_array($newTingkat, tingkat_options_for_jenjang($newJenjang), true)) {
+              throw new RuntimeException('Tingkat tidak sesuai jenjang yang dipilih.');
+          }
           $sets = [];
           $params = [];
           if (in_array($newJenjang, ['TK','SD','SMP','SMA'], true)) { $sets[] = "jenjang = :j"; $params['j'] = $newJenjang; }
@@ -249,7 +262,9 @@ require __DIR__ . '/../../includes/header.php';
             <select class="select" name="new_jenjang"><option value="">— Tetap —</option><?php foreach (['TK','SD','SMP','SMA'] as $j): ?><option><?= $j ?></option><?php endforeach; ?></select>
           </div>
           <div class="field" style="flex: 0 0 140px"><label class="label">Promote Tingkat</label>
-            <input class="input" type="number" name="new_tingkat" min="1" max="12" placeholder="—">
+            <select class="select" name="new_tingkat" id="new_tingkat">
+              <option value="">— Tetap —</option>
+            </select>
           </div>
           <div class="field" style="flex: 0 0 auto"><button class="btn btn-primary btn-sm" type="submit" data-confirm="Promote semua siswa terpilih?">Batch Promote</button></div>
         </div>
@@ -286,4 +301,46 @@ require __DIR__ . '/../../includes/header.php';
     <div class="card-body"><?= paginator($total, $per, $page, qs([])) ?></div>
   </div>
 </div>
+<script>
+(function () {
+  const jenjangSelect = document.querySelector('select[name="new_jenjang"]');
+  const tingkatSelect = document.getElementById('new_tingkat');
+  if (!jenjangSelect || !tingkatSelect) return;
+
+  const optionsByJenjang = {
+    TK: ['1', '2'],
+    SD: ['1', '2', '3', '4', '5', '6'],
+    SMP: ['7', '8', '9'],
+    SMA: ['10', '11', '12']
+  };
+
+  function refreshTingkatOptions() {
+    const jenjang = jenjangSelect.value;
+    const currentValue = tingkatSelect.value;
+    tingkatSelect.innerHTML = '<option value="">— Tetap —</option>';
+
+    if (!jenjang) {
+      tingkatSelect.disabled = true;
+      return;
+    }
+
+    tingkatSelect.disabled = false;
+    const levels = optionsByJenjang[jenjang] || [];
+    levels.forEach(function (level) {
+      const option = document.createElement('option');
+      option.value = level;
+      option.textContent = level;
+      if (currentValue === level) option.selected = true;
+      tingkatSelect.appendChild(option);
+    });
+
+    if (!levels.includes(currentValue)) {
+      tingkatSelect.value = '';
+    }
+  }
+
+  jenjangSelect.addEventListener('change', refreshTingkatOptions);
+  refreshTingkatOptions();
+})();
+</script>
 <?php require __DIR__ . '/../../includes/footer.php'; ?>

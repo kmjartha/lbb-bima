@@ -154,3 +154,27 @@ function kkm_predikat(string $jenjang, ?float $nilai): array
     $stmt->execute(['y' => $yearId, 'j' => $jenjang, 'n' => $nilai]);
     return $stmt->fetch() ?: ['grade' => '—', 'predikat' => '—'];
 }
+
+/* ---------- Elective-derived ("shadow") subject labeling ---------- */
+
+/**
+ * Disambiguating label for a subject row that may be one of:
+ *  - a regular subject               -> just its own nama
+ *  - an elective option (opsi)       -> "Opsi (KodeMapelPilihan)", e.g. "Coding (CGV)"
+ *
+ * $electiveKode should be null/empty for regular subjects, and the parent
+ * elective's kode (e.g. "CGV") for shadow subjects synced from an elective
+ * option. Pass it from a query that LEFT JOINs elective_classes/electives.
+ *
+ * Used on staff-facing listings (Guru Pengampu, Subjek Penilaian, Nilai
+ * Akhir, Leger) where the same option name could collide with an unrelated
+ * regular subject name. NOT used on Rapor, which already groups subjects by
+ * category and shows the pure option name with no extra disambiguation.
+ */
+function elective_subject_label(string $nama, ?string $electiveKode): string
+{
+    if ($electiveKode === null || $electiveKode === '') {
+        return $nama;
+    }
+    return $nama . ' (' . $electiveKode . ')';
+}

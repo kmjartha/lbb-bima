@@ -62,13 +62,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     break;
                 case 'revise':
-                    if (in_array($row['status'], ['submitted','approved'], true)) {
+                    if (in_array($row['status'], ['submitted','approved','published'], true)) {
                         final_grade_set_status($id, 'revised', (int)$user['id']); $changed++;
                     }
                     break;
                 case 'publish':
                     if ($row['status'] === 'approved') {
                         final_grade_set_status($id, 'published', (int)$user['id']); $changed++;
+                    }
+                    break;
+                case 'unpublish':
+                    if ($row['status'] === 'published') {
+                        final_grade_set_status($id, 'approved', (int)$user['id']); $changed++;
                     }
                     break;
                 default: throw new RuntimeException('Aksi tidak dikenal.');
@@ -144,7 +149,9 @@ $fgStatuses = fg_statuses();
                 onclick="return confirm('Kirim balik untuk revisi?')">↩ Minta Revisi</button>
         <button class="btn btn-primary btn-sm"  type="submit" name="op" value="publish"
                 onclick="return confirm('Publish nilai? (status approved → published)')">📣 Publish Terpilih</button>
-        <span class="text-sm text-muted" style="align-self:center">Publish hanya untuk baris ber-status <em>approved</em>.</span>
+        <button class="btn btn-secondary btn-sm" type="submit" name="op" value="unpublish"
+                onclick="return confirm('Batalkan publikasi nilai? (status published → approved)')">↺ Batal Publish Terpilih</button>
+        <span class="text-sm text-muted" style="align-self:center">Publish hanya untuk baris ber-status <em>approved</em>; batal publish hanya untuk <em>published</em>; minta revisi bisa dari <em>approved</em> atau <em>published</em>.</span>
       </div>
 
       <?php foreach ($queueBySubmitter as $group): ?>
@@ -183,7 +190,7 @@ $fgStatuses = fg_statuses();
                   <tr>
                     <td class="text-center"><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" class="rowSel"></td>
                     <td><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['rombel_nama']) ?></td>
-                    <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').$r['subj_nama']) ?></td>
+                    <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').elective_subject_label($r['subj_nama'], $r['elective_kode'] ?? null)) ?></td>
                     <td>
                       <strong><?= esc($r['student_nama']) ?></strong>
                       <div class="text-xs text-muted"><?= esc($r['nisn']) ?></div>

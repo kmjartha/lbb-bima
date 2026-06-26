@@ -121,14 +121,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         "UPDATE elective_classes SET nama = :n, kapasitas = :k, deleted_at = NULL WHERE id = :id AND elective_id = :e"
                     );
                     $update->execute(['n' => $option['nama'], 'k' => $option['kapasitas'], 'id' => $option['id'], 'e' => $id]);
-                    $usedIds[] = $option['id'];
+                    $classId = $option['id'];
                 } else {
                     $insert = $pdo->prepare(
                         "INSERT INTO elective_classes (elective_id, nama, kapasitas) VALUES (:e, :n, :k)"
                     );
                     $insert->execute(['e' => $id, 'n' => $option['nama'], 'k' => $option['kapasitas']]);
-                    $usedIds[] = (int)$pdo->lastInsertId();
+                    $classId = (int)$pdo->lastInsertId();
                 }
+                $usedIds[] = $classId;
+                // Treat this option exactly like a regular mata pelajaran:
+                // sync/create its shadow subject so it shows up in Guru
+                // Pengampu, Subjek Penilaian, Nilai Akhir, Leger, and Rapor.
+                elective_class_sync_subject($classId, $option['nama'], $yearId, $jenjang, $categoryId);
             }
 
             if ($existingClassIds) {
@@ -137,6 +142,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->prepare(
                         "UPDATE elective_classes SET deleted_at = NOW() WHERE id IN (" . implode(',', array_map('intval', $toDelete)) . ")"
                     )->execute();
+                    foreach ($toDelete as $removedClassId) {
+                        elective_class_archive_subject((int)$removedClassId);
+                    }
                 }
             }
 
@@ -148,7 +156,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
+            $pdo->beginTransaction();
+            $classIds = $pdo->prepare("SELECT id FROM elective_classes WHERE elective_id = :e AND deleted_at IS NULL");
+            $classIds->execute(['e' => $id]);
+            foreach ($classIds->fetchAll(PDO::FETCH_COLUMN) as $classId) {
+                elective_class_archive_subject((int)$classId);
+            }
             $pdo->prepare("UPDATE electives SET deleted_at = NOW() WHERE id = :id")->execute(['id' => $id]);
+            $pdo->commit();
             audit('delete', 'elective:' . $id);
             flash('success', 'Mapel pilihan dihapus.');
             redirect('admin/electives.php');

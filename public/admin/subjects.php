@@ -61,6 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'save') {
             $id   = int_or_null($_POST['id'] ?? null);
+            if ($id) {
+                $chk = $pdo->prepare("SELECT elective_class_id FROM subjects WHERE id = :id AND academic_year_id = :y");
+                $chk->execute(['id' => $id, 'y' => $sc['year_id']]);
+                if ($chk->fetchColumn()) {
+                    throw new RuntimeException('Mapel ini berasal dari opsi Mapel Pilihan dan hanya bisa diubah lewat halaman Mapel Pilihan.');
+                }
+            }
             $kode = req_str($_POST, 'kode', 20);
             $nama = req_str($_POST, 'nama', 120);
             $catId = int_or_null($_POST['category_id'] ?? null);
@@ -130,6 +137,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
+            $chk = $pdo->prepare("SELECT elective_class_id FROM subjects WHERE id = :id AND academic_year_id = :y");
+            $chk->execute(['id' => $id, 'y' => $sc['year_id']]);
+            if ($chk->fetchColumn()) {
+                throw new RuntimeException('Mapel ini berasal dari opsi Mapel Pilihan. Hapus opsinya lewat halaman Mapel Pilihan.');
+            }
             $pdo->prepare("UPDATE subjects SET deleted_at = NOW() WHERE id = :id AND academic_year_id = :y")
                 ->execute(['id'=>$id, 'y'=>$sc['year_id']]);
             audit('delete', 'subject:' . $id);
@@ -172,11 +184,13 @@ if ($page > $totalPages) $page = $totalPages;
 $offset = ($page - 1) * $limit;
 
 // Fetch rows
-$rowSql = "SELECT s.*, c.nama AS cat_nama,
+$rowSql = "SELECT s.*, c.nama AS cat_nama, e.id AS elective_id, e.kode AS elective_kode,
                   GROUP_CONCAT(jm.jenjang ORDER BY FIELD(jm.jenjang,'TK','SD','SMP','SMA') SEPARATOR ',') AS jenjangs
            FROM subjects s
            LEFT JOIN subject_categories c ON c.id = s.category_id
            LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
+           LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+           LEFT JOIN electives e ON e.id = ec.elective_id
            $whereSql
            GROUP BY s.id ORDER BY s.kode
            LIMIT $limit OFFSET $offset";
@@ -217,6 +231,13 @@ if ($editId) {
     $stmt = $pdo->prepare("SELECT * FROM subjects WHERE id = :id AND deleted_at IS NULL AND academic_year_id = :y");
     $stmt->execute(['id'=>$editId,'y'=>$sc['year_id']]);
     $edit = $stmt->fetch();
+    if ($edit && $edit['elective_class_id']) {
+        $ecRow = $pdo->prepare("SELECT elective_id FROM elective_classes WHERE id = :id");
+        $ecRow->execute(['id' => $edit['elective_class_id']]);
+        $electiveId = (int)($ecRow->fetchColumn() ?: 0);
+        flash('error', 'Mapel ini berasal dari opsi Mapel Pilihan dan hanya bisa diubah lewat halaman Mapel Pilihan.');
+        redirect('admin/electives.php' . ($electiveId ? '?edit=' . $electiveId : ''));
+    }
     if ($edit) {
         $j = $pdo->prepare("SELECT jenjang FROM subject_jenjang_map WHERE subject_id = :id");
         $j->execute(['id'=>$editId]);
@@ -309,18 +330,25 @@ require __DIR__ . '/../../includes/header.php';
         <tbody>
         <?php if (!$rows): ?><tr><td colspan="6"><div class="empty">Belum ada data.</div></td></tr><?php endif; ?>
         <?php foreach ($rows as $r): ?>
+          <?php $isElective = !empty($r['elective_id']); ?>
           <tr>
             <td><strong><?= esc($r['kode']) ?></strong></td>
-            <td><?= esc($r['nama']) ?></td>
+            <td><?= esc($r['nama']) ?>
+              <?php if ($isElective): ?><span class="badge" title="Opsi mapel pilihan <?= esc($r['elective_kode']) ?>">Opsi (<?= esc($r['elective_kode']) ?>)</span><?php endif; ?>
+            </td>
             <td><?= esc($r['cat_nama'] ?? '—') ?></td>
             <td><?php foreach (explode(',', (string)$r['jenjangs']) as $j) if ($j) echo '<span class="badge badge-primary" style="margin-right:4px">' . esc($j) . '</span>'; ?></td>
             <td class="text-sm text-muted"><?= esc(kkm_summary_for_subject($kkmBySubject[(int)$r['id']] ?? [])) ?></td>
             <td style="text-align:right; white-space:nowrap">
-              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $q ? '&q='.urlencode($q) : '' ?><?= $page>1 ? '&p='.$page : '' ?>">Edit</a>
-              <form method="post" style="display:inline" data-confirm="Hapus mapel <?= esc($r['nama']) ?>?">
-                <?= csrf_field() ?><input type="hidden" name="op" value="delete"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <button class="btn btn-danger btn-sm" type="submit">Hapus</button>
-              </form>
+              <?php if ($isElective): ?>
+                <a class="btn btn-secondary btn-sm" href="<?= esc(url('admin/electives.php?edit=' . (int)$r['elective_id'])) ?>" title="Kelola opsi ini lewat Mapel Pilihan">Kelola di Mapel Pilihan</a>
+              <?php else: ?>
+                <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $q ? '&q='.urlencode($q) : '' ?><?= $page>1 ? '&p='.$page : '' ?>">Edit</a>
+                <form method="post" style="display:inline" data-confirm="Hapus mapel <?= esc($r['nama']) ?>?">
+                  <?= csrf_field() ?><input type="hidden" name="op" value="delete"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                  <button class="btn btn-danger btn-sm" type="submit">Hapus</button>
+                </form>
+              <?php endif; ?>
             </td>
           </tr>
         <?php endforeach; ?>
