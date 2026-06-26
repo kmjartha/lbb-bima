@@ -320,7 +320,10 @@ small, .text-sm { font-size: var(--fs-12); }
  * Stage 8 — Print / PDF (Leger + Rapor) — A4 paper with multi-page support
  * Use class="print-area" on the printable wrapper, "no-print" elsewhere.
  * ====================================================================== */
-.print-area { background: #eef0f3; color: #111; padding: 16px 0; }
+.print-area {
+  background: #dde1e7; color: #111; padding: 28px 16px;
+  display: flex; justify-content: center;
+}
 
 /* The paper itself — exact A4 width, zero padding so the banner can hug the edges.
  * All non-banner content lives inside .rapor-body which provides the inner padding. */
@@ -329,17 +332,18 @@ small, .text-sm { font-size: var(--fs-12); }
   width: 210mm;
   min-height: 297mm;
   padding: 0;
-  margin: 16px auto;
+  margin: 0 auto;
   box-sizing: border-box;
-  box-shadow: 0 6px 28px rgba(15, 23, 42, .12);
-  border-radius: 4px;
-  font: 13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .08), 0 12px 32px rgba(15, 23, 42, .14);
+  border-radius: 2px;
+  font: 12.5px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: #1f2937;
   overflow: hidden;
+  flex-shrink: 0;
 }
 .leger-page { padding: 15mm; } /* leger keeps the old padding model */
 
-.rapor-body { padding: 15mm; }
+.rapor-body { padding: 16mm 15mm; }
 
 /* Full-width banner header — exactly 21cm (full A4 width), height scales with aspect ratio. */
 .rapor-banner {
@@ -379,26 +383,26 @@ small, .text-sm { font-size: var(--fs-12); }
 }
 .rapor-subhead strong { color: #0f172a; font-weight: 600; }
 
-.rapor-section { margin: 20px 0; break-inside: avoid; page-break-inside: avoid; }
+.rapor-section { margin: 16px 0; break-inside: avoid; page-break-inside: avoid; }
 .rapor-section:first-child { margin-top: 0; }
 .rapor-section h3 {
-  margin: 0 0 10px;
-  font-size: 11px;
-  font-weight: 600;
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .07em;
   color: #475569;
-  padding-left: 10px;
+  padding-left: 9px;
   border-left: 3px solid #2563eb;
   break-after: avoid;
   page-break-after: avoid;
 }
 
-.t-print { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; color: #1f2937; }
+.t-print { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11.5px; color: #1f2937; }
 .t-print th, .t-print td {
   border-bottom: 1px solid #e5e7eb;
   border-right: 1px solid #e5e7eb;
-  padding: 7px 10px;
+  padding: 6px 9px;
   vertical-align: top;
 }
 .t-print tr > th:first-child, .t-print tr > td:first-child { border-left: 1px solid #e5e7eb; }
@@ -437,7 +441,7 @@ small, .text-sm { font-size: var(--fs-12); }
   vertical-align: top;
 }
 
-.sig-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px; break-inside: avoid; page-break-inside: avoid; }
+.sig-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px; break-inside: avoid; page-break-inside: avoid; }
 .sig-cell {
   padding: 8px 6px 0;
   text-align: center;
@@ -471,7 +475,7 @@ small, .text-sm { font-size: var(--fs-12); }
   .sidebar, .topbar, .alert, .no-print, .nav, .sidebar-foot, .sidebar-backdrop { display: none !important; }
   .main { padding: 0 !important; }
   .content { padding: 0 !important; }
-  .print-area { background: #fff !important; padding: 0 !important; }
+  .print-area { background: #fff !important; padding: 0 !important; display: block !important; }
   .rapor-page, .leger-page {
     box-shadow: none;
     border-radius: 0;
@@ -482,7 +486,7 @@ small, .text-sm { font-size: var(--fs-12); }
   }
   .leger-page { padding: 15mm; }
   .rapor-page { padding: 0; }
-  .rapor-body { padding: 15mm; }
+  .rapor-body { padding: 16mm 15mm; }
   .rapor-banner { width: 210mm; margin: 0; }
 }
 

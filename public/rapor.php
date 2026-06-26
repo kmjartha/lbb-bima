@@ -78,8 +78,14 @@ require __DIR__ . '/../includes/header.php';
           <?php endforeach; ?>
         </select>
       </div>
-      <div class="field"><label class="label">&nbsp;</label>
-        <button type="button" class="btn btn-primary" onclick="window.print()" <?= $student?'':'disabled' ?>>🖨️ Print / Save as PDF</button>
+      <div class="field">
+        <label class="label">&nbsp;</label>
+        <div style="display:flex; gap:8px">
+          <button type="button" class="btn btn-secondary" onclick="window.print()" <?= $student?'':'disabled' ?>>🖨️ Print</button>
+          <a class="btn btn-primary" href="<?= $student ? esc(url('rapor_pdf.php?rombel_id='.$rid.'&student_id='.$sid)) : '#' ?>"
+             <?= $student?'':'aria-disabled="true" onclick="return false;" tabindex="-1"' ?>
+             style="<?= $student?'':'opacity:.5; pointer-events:none;' ?>">⬇️ Download PDF</a>
+        </div>
       </div>
     </form>
     <?php if ($student && $rombel): ?>
