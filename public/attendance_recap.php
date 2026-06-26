@@ -17,10 +17,17 @@ $rombels = accessible_rombel($user);
 $rid     = int_or_null($_GET['rombel_id'] ?? null);
 if (!$rid && $rombels) $rid = (int)$rombels[0]['id'];
 
-$bulan   = (string)($_GET['bulan'] ?? date('Y-m'));
-if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) $bulan = date('Y-m');
-$from    = $bulan . '-01';
-$to      = date('Y-m-t', strtotime($from));
+$bulan = (string)($_GET['bulan'] ?? '');
+if ($bulan !== '' && !preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+    $bulan = '';
+}
+
+if ($bulan !== '') {
+    $from = $bulan . '-01';
+    $to   = date('Y-m-t', strtotime($from));
+} else {
+    [$from, $to] = semester_date_window((int)$sc['year_id'], $sc['semester']);
+}
 
 $rombel = null; $recap = []; $dates = []; $matrix = [];
 if ($rid) {

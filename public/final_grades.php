@@ -193,10 +193,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
             $sel = $_POST['sel'] ?? [];
 
             $count = 0;
+            $selectedForSubmit = [];
+            if ($op === 'submit') {
+                foreach ($members as $m) {
+                    $msid = (int)$m['id'];
+                    if (!empty($sel[$msid])) {
+                        $selectedForSubmit[$msid] = true;
+                    }
+                }
+                if ($selectedForSubmit === []) {
+                    throw new RuntimeException('Pilih minimal satu siswa untuk diajukan.');
+                }
+            }
+
             foreach ($members as $m) {
                 $msid = (int)$m['id'];
                 $cur  = $existing[$msid] ?? null;
                 $existingId = $cur['id'] ?? null;
+
+                if ($op === 'submit' && empty($sel[$msid])) {
+                    continue;
+                }
 
                 if ($isTK) {
                     $si = isset($tkSyncData[$msid]) ? $tkSyncData[$msid]['bintang'] : null;
@@ -409,7 +426,8 @@ $fgStatuses = fg_statuses();
                     <textarea class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000" rows="2"
                               style="width: 100%; resize: vertical;"
                               placeholder="Wajib diisi"
-                              <?= $disabledAttr ?> required><?= esc((string)$vCa) ?></textarea>
+                              data-note-field data-row-id="<?= $msid ?>"
+                              <?= $disabledAttr ?>><?= esc((string)$vCa) ?></textarea>
                 </td>
                 <td style="text-align:center;">
                     <?php if (!empty($cur['image_path'])): ?>
@@ -428,7 +446,9 @@ $fgStatuses = fg_statuses();
                   <?php else: ?><span class="text-muted">—</span><?php endif; ?>
                 </td>
                 <td><input class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000"
-                           value="<?= esc((string)$vCa) ?>" placeholder="Wajib diisi" <?= $disabledAttr ?> required></td>
+                           value="<?= esc((string)$vCa) ?>" placeholder="Wajib diisi"
+                           data-note-field data-row-id="<?= $msid ?>"
+                           <?= $disabledAttr ?>></td>
               <?php endif; ?>
 
               <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
@@ -440,7 +460,7 @@ $fgStatuses = fg_statuses();
 
       <?php if (!$ro): ?>
         <div class="between mt-4">
-          <span class="text-sm text-muted">Catatan guru wajib diisi untuk setiap siswa yang disimpan atau diajukan. Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek". "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
+          <span class="text-sm text-muted">Catatan guru wajib diisi untuk siswa yang akan disimpan atau diajukan. Saat mengajukan, hanya baris yang dicentang yang diwajibkan melengkapi catatan. "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
           <div class="row" style="gap:.5rem">
             <button class="btn btn-secondary" type="submit" name="op" value="save">💾 Simpan Draft</button>
             <button class="btn btn-primary"   type="submit" name="op" value="submit">📤 Ajukan ke Kepsek</button>
@@ -453,10 +473,36 @@ $fgStatuses = fg_statuses();
 
 <script>
 (function(){
+  const form = document.getElementById('fgForm');
   const all = document.getElementById('selAll');
-  if (!all) return;
-  all.addEventListener('change', () => {
-    document.querySelectorAll('.rowSel').forEach(cb => { if (!cb.disabled) cb.checked = all.checked; });
+  if (all) {
+    all.addEventListener('change', () => {
+      document.querySelectorAll('.rowSel').forEach(cb => { if (!cb.disabled) cb.checked = all.checked; });
+    });
+  }
+
+  if (!form) return;
+
+  form.addEventListener('submit', function(e){
+    const submitter = e.submitter;
+    const action = submitter && submitter.name === 'op' ? submitter.value : null;
+    const noteFields = form.querySelectorAll('[data-note-field]');
+    const shouldRequireAll = action !== 'submit';
+
+    noteFields.forEach(field => {
+      const rowId = field.getAttribute('data-row-id');
+      const checkbox = rowId ? form.querySelector('input.rowSel[name="sel[' + rowId + ']" ]') : null;
+      const shouldRequire = shouldRequireAll || (checkbox && checkbox.checked);
+      field.required = shouldRequire;
+    });
+
+    if (action === 'submit') {
+      const selectedCount = form.querySelectorAll('.rowSel:checked').length;
+      if (selectedCount === 0) {
+        e.preventDefault();
+        alert('Pilih minimal satu siswa untuk diajukan.');
+      }
+    }
   });
 })();
 </script>

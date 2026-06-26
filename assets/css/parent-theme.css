@@ -1,0 +1,362 @@
+/* ======================================================================
+ * Bintang Mandiri — Parent Portal Theme
+ * Loaded AFTER design-system.css, scoped to .parent-shell / .parent-topbar
+ * / .p-bottom-nav / .auth-* so the rest of the app (admin/guru) is
+ * untouched. Brand palette derived from the school logo: royal blue ring,
+ * sunshine yellow disc, orange "growth steps" pyramid.
+ * ====================================================================== */
+
+:root{
+  --bm-blue-50:  #eaf3ff;
+  --bm-blue-100: #d3e8ff;
+  --bm-blue-300: #6fb1ff;
+  --bm-blue-500: #1f7fef;
+  --bm-blue-600: #1568d8;
+  --bm-blue-700: #0f53ac;
+  --bm-blue-800: #0c4488;
+
+  --bm-yellow-300: #ffe680;
+  --bm-yellow-400: #ffd400;
+  --bm-yellow-500: #f7c600;
+
+  --bm-orange-400: #ff9d2e;
+  --bm-orange-500: #ff8a00;
+  --bm-orange-600: #f17600;
+
+  --bm-ink: #142844;
+  --bm-muted: #5b7090;
+  --bm-bg: #f3f7fd;
+  --bm-card: #ffffff;
+  --bm-border: #e3ecfa;
+
+  --bm-success: #16a34a;
+  --bm-success-bg: #e7faf0;
+  --bm-warn: #b45309;
+  --bm-warn-bg: #fff6e0;
+  --bm-danger: #d92d20;
+  --bm-danger-bg: #fdeceb;
+
+  --bm-radius-lg: 20px;
+  --bm-radius-md: 14px;
+  --bm-radius-sm: 10px;
+  --bm-shadow: 0 10px 26px -10px rgba(15,83,172,.22);
+  --bm-shadow-sm: 0 2px 8px -2px rgba(15,83,172,.14);
+}
+
+/* ----------------------------------------------------------------------
+ * Shell + background
+ * -------------------------------------------------------------------- */
+body:has(.parent-shell){
+  background: var(--bm-bg);
+}
+.parent-shell{
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 0 var(--sp-4) calc(96px + env(safe-area-inset-bottom,0px));
+  min-height: 100vh;
+  background: var(--bm-bg);
+  font-family: inherit;
+}
+
+/* ----------------------------------------------------------------------
+ * Top bar — brand gradient + yellow accent rule + soft logo badge
+ * -------------------------------------------------------------------- */
+.parent-topbar{
+  position: sticky; top: 0; z-index: 40;
+  display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+  padding: calc(var(--sp-3) + env(safe-area-inset-top,0px)) var(--sp-4) var(--sp-3);
+  margin: 0 calc(var(--sp-4) * -1) var(--sp-4);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(255,212,0,.22), transparent 55%),
+    linear-gradient(135deg, var(--bm-blue-500), var(--bm-blue-700) 75%);
+  color:#fff;
+  border-radius: 0 0 24px 24px;
+  box-shadow: var(--bm-shadow);
+}
+.parent-topbar::after{ display:none; }
+.parent-topbar .who{ display:flex; flex-direction:column; line-height:1.2; gap:1px; }
+.parent-topbar .who small{ opacity:.85; font-size:.7rem; font-weight:500; letter-spacing:.01em; }
+.parent-topbar .who strong{ font-size: 1.05rem; font-weight:800; letter-spacing:-.01em; }
+.parent-topbar .badge{ background: rgba(255,255,255,.2); color:#fff; }
+.parent-topbar .btn{ color:#fff; border-color: rgba(255,255,255,.45); }
+.parent-topbar .btn-ghost{ background: rgba(255,255,255,.15); backdrop-filter: blur(4px); }
+.parent-topbar .btn-ghost:hover{ background: rgba(255,255,255,.28); }
+
+/* school crest badge, auto-injected before "who" via layout markup */
+.parent-topbar .crest,
+.p-side-nav .brand .crest{
+  width:40px; height:40px; border-radius:50%; flex:0 0 auto;
+  background:
+    radial-gradient(circle at 50% 45%, var(--bm-yellow-400) 55%, var(--bm-orange-500) 100%);
+  border: 2px solid rgba(255,255,255,.85);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  overflow:hidden;
+}
+.parent-topbar .crest svg,
+.p-side-nav .brand .crest svg{
+  width:18px; height:18px; color:#fff; stroke-width:1.9; flex-shrink:0;
+}
+
+/* ----------------------------------------------------------------------
+ * Cards — softer, friendlier, slightly elevated
+ * -------------------------------------------------------------------- */
+.p-card{
+  background: var(--bm-card);
+  border: 1px solid var(--bm-border);
+  border-radius: var(--bm-radius-lg);
+  padding: 1.1rem 1.1rem 1.15rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--bm-shadow-sm);
+}
+.p-card h3{
+  margin: 0 0 .6rem; font-size: 1rem; font-weight: 800; color: var(--bm-ink);
+  display:flex; align-items:center; gap:.4rem;
+}
+.p-card .muted{ color: var(--bm-muted); font-size:.8rem; }
+
+/* ----------------------------------------------------------------------
+ * Stat grid (attendance etc.)
+ * -------------------------------------------------------------------- */
+.p-stat-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap:.55rem; }
+.p-stat{
+  text-align:center; padding:.7rem .25rem; border-radius: var(--bm-radius-sm);
+  background: var(--bm-blue-50); border:1px solid var(--bm-border);
+}
+.p-stat .num{ font-weight:800; font-size:1.25rem; line-height:1; font-feature-settings:"tnum"; }
+.p-stat .lab{ font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color: var(--bm-muted); margin-top:.25rem; font-weight:700; }
+.p-stat.h{ background: var(--bm-success-bg); } .p-stat.h .num{ color: var(--bm-success); }
+.p-stat.i{ background: var(--bm-warn-bg); }    .p-stat.i .num{ color: var(--bm-warn); }
+.p-stat.s{ background: var(--bm-blue-50); }    .p-stat.s .num{ color: var(--bm-blue-600); }
+.p-stat.a{ background: var(--bm-danger-bg); }  .p-stat.a .num{ color: var(--bm-danger); }
+
+/* ----------------------------------------------------------------------
+ * Pills
+ * -------------------------------------------------------------------- */
+.pill{
+  display:inline-flex; align-items:center; gap:.3rem;
+  padding:.2rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700;
+  background: var(--bm-blue-50); color: var(--bm-blue-700);
+}
+.pill.ok{ background: var(--bm-success-bg); color: var(--bm-success); }
+.pill.no{ background: var(--bm-danger-bg); color: var(--bm-danger); }
+.pill.warn{ background: var(--bm-warn-bg); color: var(--bm-warn); }
+
+/* ----------------------------------------------------------------------
+ * Year selector (rapor / nilai / catatan / kehadiran history)
+ * -------------------------------------------------------------------- */
+.p-year-tabs{ display:flex; gap:.45rem; flex-wrap:wrap; }
+.p-year-tabs .ytab{
+  padding:.4rem .85rem; border-radius:999px; font-size:.78rem; font-weight:700;
+  background: var(--bm-blue-50); color: var(--bm-blue-700); text-decoration:none;
+  border:1px solid var(--bm-border);
+}
+.p-year-tabs .ytab.is-active{
+  background: linear-gradient(135deg, var(--bm-blue-500), var(--bm-blue-700));
+  color:#fff; border-color: transparent; box-shadow: var(--bm-shadow-sm);
+}
+
+/* ----------------------------------------------------------------------
+ * Period tabs (semester / PTS-PAS)
+ * -------------------------------------------------------------------- */
+.p-period-tabs{ display:flex; gap:.45rem; flex-wrap:wrap; margin: .25rem 0 .8rem; }
+.p-period-tabs .tab{
+  flex:1 1 0; min-width: 96px; text-align:center;
+  padding:.55rem .3rem; border-radius: var(--bm-radius-sm); font-size:.78rem; font-weight:700;
+  border:1px solid var(--bm-border); background:#fff; color: var(--bm-ink);
+  text-decoration:none; display:flex; flex-direction:column; gap:.18rem;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.p-period-tabs .tab small{ font-weight:600; opacity:.7; }
+.p-period-tabs .tab.is-active{
+  background: linear-gradient(135deg, var(--bm-blue-500), var(--bm-blue-700));
+  color:#fff; border-color: transparent; box-shadow: var(--bm-shadow-sm);
+  transform: translateY(-1px);
+}
+.p-period-tabs .tab.is-locked{ opacity:.6; }
+
+/* ----------------------------------------------------------------------
+ * Lists
+ * -------------------------------------------------------------------- */
+.p-list{ list-style:none; padding:0; margin:0; }
+.p-list li{
+  display:flex; align-items:center; justify-content:space-between; gap:.5rem;
+  padding:.65rem 0; border-bottom: 1px solid var(--bm-border); font-size:.9rem;
+}
+.p-list li:last-child{ border-bottom: 0; }
+.p-list .grade-num{ font-weight: 800; font-feature-settings: "tnum"; }
+.p-list .grade-num.warn{ color: var(--bm-warn); }
+.p-list .grade-num.bad{ color: var(--bm-danger); }
+.p-list .grade-num.ok{ color: var(--bm-success); }
+
+/* ----------------------------------------------------------------------
+ * Bottom nav — modern floating "app" tab bar
+ * -------------------------------------------------------------------- */
+.p-bottom-nav{
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(10px + env(safe-area-inset-bottom,0px));
+  width: calc(100% - 24px); max-width: 510px; z-index: 50;
+  background: rgba(255,255,255,.9);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border: 1px solid rgba(15,83,172,.08);
+  border-radius: 22px;
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 6px;
+  box-shadow: 0 14px 30px -8px rgba(15,83,172,.28);
+}
+.p-bottom-nav a{
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:8px 2px; text-decoration:none; color: var(--bm-muted);
+  font-size:.64rem; font-weight:700; border-radius:16px;
+  transition: color .15s ease, background .15s ease;
+}
+.p-bottom-nav a.is-active{
+  color: #fff;
+  background: linear-gradient(135deg, var(--bm-blue-500), var(--bm-blue-700));
+  box-shadow: 0 6px 14px -4px rgba(15,83,172,.45);
+}
+.p-bottom-nav a svg{ width: 19px; height: 19px; stroke-width: 1.9; flex-shrink:0; }
+
+/* ----------------------------------------------------------------------
+ * Empty / banner states
+ * -------------------------------------------------------------------- */
+.p-empty{ text-align:center; padding: 30px 12px; color: var(--bm-muted); }
+.p-empty .icon{ font-size: 40px; margin-bottom: 8px; }
+
+.p-locked-banner{
+  background: var(--bm-warn-bg); color:#7c4a08; border:1px solid #ffe6ad;
+  padding:.65rem .8rem; border-radius: var(--bm-radius-sm); font-size:.82rem; margin-bottom: .8rem;
+  font-weight:600;
+}
+.p-published-banner{
+  background: var(--bm-success-bg); color:#0f6b32; border:1px solid #bbf0d2;
+  padding:.65rem .8rem; border-radius: var(--bm-radius-sm); font-size:.82rem; margin-bottom: .8rem;
+  font-weight:700;
+}
+
+.p-grade-row{ display:flex; align-items:center; gap:.5rem; }
+.p-grade-row .nm{ flex:1; min-width:0; }
+.p-grade-row .nm .t{ font-weight:700; font-size:.9rem; line-height:1.25; color: var(--bm-ink); }
+.p-grade-row .nm .s{ font-size:.72rem; color: var(--bm-muted); }
+.p-grade-row .nums{ display:flex; gap:.3rem; }
+.p-grade-row .nums span{
+  min-width:40px; text-align:center; padding:.2rem .4rem; border-radius:8px;
+  background: var(--bm-yellow-300); color:#5b3d00; font-size:.8rem; font-weight:800;
+}
+
+/* ----------------------------------------------------------------------
+ * Link cards (home quick links)
+ * -------------------------------------------------------------------- */
+.p-link-card{
+  display:flex; align-items:center; gap:.8rem; text-decoration:none; color:inherit;
+  padding:.85rem .9rem; border-radius: var(--bm-radius-md); border:1px solid var(--bm-border);
+  background:#fff; margin-bottom:.55rem; box-shadow: var(--bm-shadow-sm);
+  transition: transform .12s ease;
+}
+.p-link-card:active{ transform: scale(.98); }
+.p-link-card .ico{
+  width:42px; height:42px; border-radius:13px; flex:0 0 auto;
+  background: linear-gradient(135deg, var(--bm-blue-100), var(--bm-blue-50));
+  display:flex; align-items:center; justify-content:center;
+}
+.p-link-card .ico svg{ width:21px; height:21px; color: var(--bm-blue-700); }
+.p-link-card .tt{ flex:1; min-width:0; }
+.p-link-card .tt .a{ font-weight:800; font-size:.92rem; color: var(--bm-ink); }
+.p-link-card .tt .b{ font-size:.74rem; color: var(--bm-muted); }
+.p-link-card .arr{ color: var(--bm-blue-400); font-size:1.2rem; }
+
+/* ----------------------------------------------------------------------
+ * Avatar / hero header used on Beranda
+ * -------------------------------------------------------------------- */
+.p-avatar{
+  width:56px; height:56px; border-radius:50%; flex:0 0 auto;
+  background: linear-gradient(135deg, var(--bm-orange-400), var(--bm-blue-600));
+  color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:800; box-shadow: var(--bm-shadow-sm);
+}
+
+/* ----------------------------------------------------------------------
+ * Auth (login) screen — brand splash
+ * -------------------------------------------------------------------- */
+body:has(.auth-wrap.bm){
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255,212,0,.25), transparent 55%),
+    radial-gradient(120% 90% at 0% 100%, rgba(255,138,0,.18), transparent 55%),
+    linear-gradient(160deg, var(--bm-blue-700), var(--bm-blue-500));
+  min-height: 100vh;
+}
+.auth-wrap.bm{ display:flex; align-items:center; justify-content:center; min-height:100vh; padding: 1.25rem; }
+.auth-wrap.bm .auth-card{
+  width: 100%; max-width: 380px; background:#fff; border-radius: 24px;
+  padding: 2rem 1.6rem; box-shadow: 0 30px 60px -20px rgba(0,0,0,.45);
+}
+.auth-wrap.bm .auth-logo{
+  width:64px; height:64px; margin: 0 auto 1rem; border-radius:50%;
+  background: radial-gradient(circle at 50% 45%, var(--bm-yellow-400) 55%, var(--bm-orange-500) 100%);
+  display:flex; align-items:center; justify-content:center; font-size:28px;
+  box-shadow: 0 8px 20px -6px rgba(255,138,0,.5);
+}
+.auth-wrap.bm h2{ text-align:center; color: var(--bm-ink); font-weight:800; }
+.auth-wrap.bm .text-muted{ text-align:center; }
+.auth-wrap.bm .btn-primary{
+  background: linear-gradient(135deg, var(--bm-blue-500), var(--bm-blue-700)); border:none;
+}
+
+/* ======================================================================
+ * Responsive: tablet & desktop — turn the single mobile column into an
+ * app-shell with a persistent side nav, while mobile keeps the native
+ * bottom tab-bar "app" feel.
+ * ====================================================================== */
+@media (min-width: 720px){
+  .parent-shell{
+    max-width: 980px;
+    padding: 1.25rem 1.5rem 2.5rem 188px; /* room for fixed side nav */
+    min-height: 100vh;
+  }
+  .parent-topbar{
+    position: static;
+    margin: 0 0 1.25rem;
+    border-radius: 20px;
+  }
+  .p-bottom-nav{ display:none; }
+
+  .p-stat-grid{ gap:.75rem; }
+
+  /* Side nav, built purely from the existing bottom-nav markup */
+  .p-side-nav{
+    position: fixed; top: 24px; left: 24px; bottom: 24px; width: 150px;
+    background: linear-gradient(165deg, var(--bm-blue-700), var(--bm-blue-500));
+    border-radius: 22px; padding: 1.1rem .7rem; z-index: 40;
+    box-shadow: var(--bm-shadow);
+    display:flex; flex-direction:column; gap:.25rem;
+  }
+  .p-side-nav .brand{
+    color:#fff; font-weight:800; font-size:.82rem; text-align:center; margin-bottom:1rem;
+    display:flex; flex-direction:column; align-items:center; gap:.4rem;
+  }
+  .p-side-nav .brand .crest{
+    width:40px; height:40px; border-radius:50%;
+    background: radial-gradient(circle at 50% 45%, var(--bm-yellow-400) 55%, var(--bm-orange-500) 100%);
+    border: 2px solid rgba(255,255,255,.8);
+  }
+  .p-side-nav a{
+    display:flex; align-items:center; gap:.55rem; color: rgba(255,255,255,.78);
+    text-decoration:none; font-size:.82rem; font-weight:700;
+    padding:.6rem .7rem; border-radius:12px;
+  }
+  .p-side-nav a svg{ width:19px; height:19px; flex:0 0 auto; }
+  .p-side-nav a.is-active{ background: rgba(255,255,255,.16); color:#fff; }
+  .p-side-nav a:hover{ background: rgba(255,255,255,.1); color:#fff; }
+}
+
+@media (min-width: 980px){
+  /* Two-column content grid on wide desktop screens for cards. */
+  .parent-shell{ max-width: 1080px; }
+  .p-grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items:start; }
+}
+
+@media print{
+  .parent-topbar, .p-bottom-nav, .p-side-nav, .p-period-tabs, .p-year-tabs, .no-print{ display:none !important; }
+  .parent-shell{ max-width: none; padding: 0; background:#fff; }
+}

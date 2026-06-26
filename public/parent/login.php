@@ -16,12 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?><!doctype html><html lang="id"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1568d8">
 <title>Login Orang Tua · <?= esc(cfg()['app_name']) ?></title>
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
-</head><body><div class="auth-wrap"><div class="auth-card">
-  <div class="auth-logo">👨‍👩‍👧</div>
-  <h2>Login Orang Tua</h2>
-  <p class="text-muted mb-4">Gunakan NISN anak. Default password = tanggal lahir <strong>ddmmyyyy</strong>.</p>
+<link rel="stylesheet" href="<?= esc(url('../assets/css/parent-theme.css')) ?>">
+</head><body><div class="auth-wrap bm"><div class="auth-card">
+  <div class="auth-logo">⭐</div>
+  <h2>Portal Orang Tua</h2>
+  <p class="text-muted mb-4"><?= esc(cfg()['app_name']) ?> · Gunakan NISN anak. Default password = tanggal lahir <strong>ddmmyyyy</strong>.</p>
   <?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>
   <form method="post">
     <?= csrf_field() ?>

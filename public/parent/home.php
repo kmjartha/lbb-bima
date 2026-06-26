@@ -37,7 +37,7 @@ include __DIR__ . '/_layout.php';
 
 <div class="p-card">
   <div style="display:flex; align-items:center; gap:.75rem;">
-    <div style="width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#a855f7); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700;">
+    <div class="p-avatar">
       <?= esc(mb_strtoupper(mb_substr($student['nama'],0,1))) ?>
     </div>
     <div style="flex:1;">

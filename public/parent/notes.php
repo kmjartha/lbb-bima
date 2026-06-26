@@ -14,29 +14,49 @@ $sc      = active_scope();
 $sem  = in_array($_GET['sem'] ?? '', ['ganjil','genap'], true) ? $_GET['sem'] : $sc['semester'];
 $pk   = in_array($_GET['pk']  ?? '', ['PTS','PAS'], true)      ? $_GET['pk']  : $sc['period'];
 
-$reportYearId = parent_effective_year_id((int)$student['id'], (int)$sc['year_id']);
+$availableYears = parent_available_years((int)$student['id']);
+$requestedYearId = isset($_GET['year_id']) ? (int)$_GET['year_id'] : null;
+$reportYearId = parent_resolve_year_id((int)$student['id'], $requestedYearId, (int)$sc['year_id']);
+
 $rombel = parent_rombel_for_year((int)$student['id'], $reportYearId);
 $publishMatrix = parent_publish_matrix((int)$student['id'], $reportYearId);
 $published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, $reportYearId) : false;
+$yearLabel = '';
+foreach ($availableYears as $y) { if ((int)$y['id'] === $reportYearId) { $yearLabel = (string)$y['label']; break; } }
+if ($yearLabel === '') $yearLabel = $sc['year'];
 
 $wali = $rombel ? rombel_wali_user((int)$rombel['id']) : null;
 
-audit('parent_view_notes', 'student:' . $student['id'], ['sem'=>$sem,'pk'=>$pk]);
+audit('parent_view_notes', 'student:' . $student['id'], ['sem'=>$sem,'pk'=>$pk,'year_id'=>$reportYearId]);
 
 $page_title  = 'Catatan';
 $current_nav = 'profil'; // shares the "Profil" slot in the bottom nav (no separate icon)
 include __DIR__ . '/_layout.php';
 ?>
 
+<?php if (count($availableYears) > 1): ?>
 <div class="p-card no-print">
-  <h3>Catatan &amp; Karakter</h3>
+  <h3>Tahun Ajaran</h3>
+  <div class="p-year-tabs">
+    <?php foreach ($availableYears as $y): $isCur = (int)$y['id'] === $reportYearId; ?>
+      <a class="ytab <?= $isCur ? 'is-active' : '' ?>"
+         href="<?= esc(url('parent/notes.php?year_id='.(int)$y['id'].'&sem='.$sem.'&pk='.$pk)) ?>">
+        <?= esc($y['label']) ?><?= !empty($y['is_active']) ? ' · Aktif' : '' ?>
+      </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<div class="p-card no-print">
+  <h3>Catatan &amp; Karakter <span class="muted" style="font-weight:500;">· TA <?= esc($yearLabel) ?></span></h3>
   <div class="p-period-tabs">
     <?php foreach (['ganjil','genap'] as $s): foreach (['PTS','PAS'] as $k):
       $active = ($s === $sem && $k === $pk);
       $ok = $publishMatrix[$s][$k] ?? false;
     ?>
       <a class="tab <?= $active ? 'is-active' : '' ?> <?= $ok ? '' : 'is-locked' ?>"
-         href="<?= esc(url('parent/notes.php?sem='.$s.'&pk='.$k)) ?>">
+         href="<?= esc(url('parent/notes.php?year_id='.$reportYearId.'&sem='.$s.'&pk='.$k)) ?>">
         <span><?= esc(ucfirst($s)) ?> · <?= esc($k) ?></span>
         <small><?= $ok ? '✓' : '🔒' ?></small>
       </a>
@@ -45,10 +65,10 @@ include __DIR__ . '/_layout.php';
 </div>
 
 <?php if (!$rombel): ?>
-  <div class="p-card"><div class="p-empty"><div class="icon">🏫</div><div>Belum terdaftar di rombel.</div></div></div>
+  <div class="p-card"><div class="p-empty"><div class="icon">🏫</div><div>Belum terdaftar di rombel pada TA <?= esc($yearLabel) ?>.</div></div></div>
 <?php elseif (!$published): ?>
   <div class="p-card">
-    <div class="p-locked-banner">Catatan untuk <?= esc(ucfirst($sem)) ?> · <?= esc($pk) ?> belum dipublikasi.</div>
+    <div class="p-locked-banner">Catatan untuk <?= esc(ucfirst($sem)) ?> · <?= esc($pk) ?> TA <?= esc($yearLabel) ?> belum dipublikasi.</div>
   </div>
 <?php else:
   $note = parent_wali_note((int)$student['id'], (int)$rombel['id'], $sem, $pk);

@@ -12,16 +12,24 @@ $student = parent_student($p);
 $sc      = active_scope();
 
 $sem = in_array($_GET['sem'] ?? '', ['ganjil','genap'], true) ? $_GET['sem'] : $sc['semester'];
-$rombel = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
+
+$availableYears = parent_available_years((int)$student['id']);
+$requestedYearId = isset($_GET['year_id']) ? (int)$_GET['year_id'] : null;
+$yearId = parent_resolve_year_id((int)$student['id'], $requestedYearId, (int)$sc['year_id']);
+$yearLabel = '';
+foreach ($availableYears as $y) { if ((int)$y['id'] === $yearId) { $yearLabel = (string)$y['label']; break; } }
+if ($yearLabel === '') $yearLabel = $sc['year'];
+
+$rombel = parent_rombel_for_year((int)$student['id'], $yearId);
 
 $summary = $rombel
-  ? parent_attendance_summary((int)$student['id'], (int)$rombel['id'], $sem, (int)$sc['year_id'])
+  ? parent_attendance_summary((int)$student['id'], (int)$rombel['id'], $sem, $yearId)
   : ['h'=>0,'i'=>0,'s'=>0,'a'=>0,'total'=>0];
 $log = $rombel
-  ? parent_attendance_log((int)$student['id'], (int)$rombel['id'], $sem, (int)$sc['year_id'], 60)
+  ? parent_attendance_log((int)$student['id'], (int)$rombel['id'], $sem, $yearId, 60)
   : [];
 
-audit('parent_view_attendance', 'student:' . $student['id'], ['sem'=>$sem]);
+audit('parent_view_attendance', 'student:' . $student['id'], ['sem'=>$sem,'year_id'=>$yearId]);
 
 $labels = ['H'=>'Hadir','I'=>'Izin','S'=>'Sakit','A'=>'Alpa'];
 $cls    = ['H'=>'ok','I'=>'warn','S'=>'pill','A'=>'no'];
@@ -31,11 +39,25 @@ $current_nav = 'kehadiran';
 include __DIR__ . '/_layout.php';
 ?>
 
+<?php if (count($availableYears) > 1): ?>
+<div class="p-card no-print">
+  <h3>Tahun Ajaran</h3>
+  <div class="p-year-tabs">
+    <?php foreach ($availableYears as $y): $isCur = (int)$y['id'] === $yearId; ?>
+      <a class="ytab <?= $isCur ? 'is-active' : '' ?>"
+         href="<?= esc(url('parent/attendance.php?year_id='.(int)$y['id'].'&sem='.$sem)) ?>">
+        <?= esc($y['label']) ?><?= !empty($y['is_active']) ? ' · Aktif' : '' ?>
+      </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+
 <div class="p-card">
   <div class="p-period-tabs">
     <?php foreach (['ganjil','genap'] as $s): ?>
-      <a class="tab <?= $s === $sem ? 'is-active' : '' ?>" href="<?= esc(url('parent/attendance.php?sem='.$s)) ?>">
-        <span>Semester <?= esc(ucfirst($s)) ?></span><small>TA <?= esc($sc['year']) ?></small>
+      <a class="tab <?= $s === $sem ? 'is-active' : '' ?>" href="<?= esc(url('parent/attendance.php?year_id='.$yearId.'&sem='.$s)) ?>">
+        <span>Semester <?= esc(ucfirst($s)) ?></span><small>TA <?= esc($yearLabel) ?></small>
       </a>
     <?php endforeach; ?>
   </div>

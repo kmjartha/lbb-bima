@@ -8,6 +8,43 @@ $u = require_view('academic_years'); // Administrator only per spec
 $pdo = db();
 $action = $_GET['action'] ?? 'list';
 $err = null;
+$editYearId = int_or_null($_GET['edit'] ?? null);
+$editYear = null;
+$editDates = [];
+
+function normalize_jenjang($value): string
+{
+    $v = trim((string)($value ?? ''));
+    return in_array($v, ['TK', 'SD', 'SMP', 'SMA'], true) ? $v : 'TK';
+}
+
+function ensure_jenjang_enum_support(PDO $pdo): void
+{
+    $tables = [
+        'students' => 'NOT NULL',
+        'rombel' => 'NOT NULL',
+        'character_aspects' => "NOT NULL DEFAULT 'SD'",
+        'electives' => 'NOT NULL',
+        'kkm_settings' => 'NOT NULL',
+        'report_templates' => 'NOT NULL',
+        'report_signatures' => 'NOT NULL',
+        'subject_jenjang_map' => 'NOT NULL',
+    ];
+
+    foreach ($tables as $table => $definition) {
+        $stmt = $pdo->query("SHOW COLUMNS FROM `$table` LIKE 'jenjang'");
+        $col = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        if (!$col) {
+            continue;
+        }
+
+        if (stripos($col['Type'], "enum('TK'") !== false) {
+            continue;
+        }
+
+        $pdo->exec("ALTER TABLE `$table` MODIFY COLUMN `jenjang` ENUM('TK','SD','SMP','SMA') $definition");
+    }
+}
 
 // ---------- POST handlers ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         throw new RuntimeException('Semester Genap: tanggal mulai harus sebelum atau sama dengan tanggal selesai.');
     }
 
+    ensure_jenjang_enum_support($pdo);
     $pdo->beginTransaction();
 
     // 1) create the new year + semester state rows
@@ -109,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $s->execute();
             $ins = $pdo->prepare("INSERT IGNORE INTO subject_jenjang_map (subject_id, jenjang) VALUES (:s,:j)");
             foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
-                $ins->execute(['s' => $subjMap[(int)$r['subject_id']], 'j' => $r['jenjang']]);
+                $ins->execute(['s' => $subjMap[(int)$r['subject_id']], 'j' => normalize_jenjang($r['jenjang'] ?? null)]);
             }
         }
 
@@ -126,7 +164,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ins = $pdo->prepare("INSERT INTO students ($colList) VALUES ($placeList)");
         foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $params = ['academic_year_id' => $newId];
-            foreach ($cols as $c) { $params[$c] = $r[$c]; }
+            foreach ($cols as $c) {
+                $params[$c] = ($c === 'jenjang') ? normalize_jenjang($r[$c] ?? null) : $r[$c];
+            }
             $ins->execute($params);
             $stuMap[(int)$r['id']] = (int)$pdo->lastInsertId();
         }
@@ -142,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $ins->execute([
                 'y' => $newId,
-                'j' => $r['jenjang'],
+                'j' => normalize_jenjang($r['jenjang'] ?? null),
                 't' => $r['tingkat'],
                 'n' => $r['nama'],
                 'w' => $r['wali_id'],          // users.id — global, do not remap
@@ -281,6 +321,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
+        if ($op === 'edit_dates') {
+            require_administrator();
+            $yearId = (int)($_POST['year_id'] ?? 0);
+            $ganjilStart = req_str($_POST, 'ganjil_start', 10);
+            $ganjilEnd   = req_str($_POST, 'ganjil_end', 10);
+            $genapStart  = req_str($_POST, 'genap_start', 10);
+            $genapEnd    = req_str($_POST, 'genap_end', 10);
+
+            $validateDate = function (string $value, string $label): string {
+                $d = DateTime::createFromFormat('Y-m-d', $value);
+                if (!$d || $d->format('Y-m-d') !== $value) {
+                    throw new RuntimeException("$label harus format YYYY-MM-DD.");
+                }
+                return $value;
+            };
+
+            $ganjilStart = $validateDate($ganjilStart, 'Semester Ganjil mulai');
+            $ganjilEnd   = $validateDate($ganjilEnd,   'Semester Ganjil selesai');
+            $genapStart  = $validateDate($genapStart,  'Semester Genap mulai');
+            $genapEnd    = $validateDate($genapEnd,    'Semester Genap selesai');
+
+            if ($ganjilStart > $ganjilEnd) {
+                throw new RuntimeException('Semester Ganjil: tanggal mulai harus sebelum atau sama dengan tanggal selesai.');
+            }
+            if ($genapStart > $genapEnd) {
+                throw new RuntimeException('Semester Genap: tanggal mulai harus sebelum atau sama dengan tanggal selesai.');
+            }
+
+            $pdo->beginTransaction();
+            $check = $pdo->prepare("SELECT 1 FROM semesters_state WHERE academic_year_id = :y AND semester = :s");
+            $update = $pdo->prepare("UPDATE semesters_state SET start_date = :sd, end_date = :ed WHERE academic_year_id = :y AND semester = :s");
+            $insert = $pdo->prepare("INSERT INTO semesters_state (academic_year_id, semester, start_date, end_date) VALUES (:y, :s, :sd, :ed)");
+
+            foreach ([
+                ['semester' => 'ganjil', 'start' => $ganjilStart, 'end' => $ganjilEnd],
+                ['semester' => 'genap',  'start' => $genapStart,  'end' => $genapEnd],
+            ] as $row) {
+                $check->execute(['y' => $yearId, 's' => $row['semester']]);
+                if ((int)$check->fetchColumn() === 1) {
+                    $update->execute(['y' => $yearId, 's' => $row['semester'], 'sd' => $row['start'], 'ed' => $row['end']]);
+                } else {
+                    $insert->execute(['y' => $yearId, 's' => $row['semester'], 'sd' => $row['start'], 'ed' => $row['end']]);
+                }
+            }
+
+            $pdo->commit();
+            audit('edit_dates', 'academic_year:' . $yearId);
+            flash('success', 'Tanggal semester berhasil diperbarui.');
+            redirect('admin/academic_years.php');
+        }
+
         if ($op === 'set_active') {
             require_administrator();
             $id = (int)($_POST['id'] ?? 0);
@@ -341,6 +432,22 @@ $years = $pdo->query(
      FROM academic_years y ORDER BY label DESC"
 )->fetchAll();
 
+if ($editYearId) {
+    $stmt = $pdo->prepare("SELECT id, label FROM academic_years WHERE id = :id");
+    $stmt->execute(['id' => $editYearId]);
+    $editYear = $stmt->fetch();
+    if ($editYear) {
+        $stmt = $pdo->prepare("SELECT semester, start_date, end_date FROM semesters_state WHERE academic_year_id = :y ORDER BY FIELD(semester, 'ganjil', 'genap')");
+        $stmt->execute(['y' => $editYearId]);
+        foreach ($stmt->fetchAll() as $row) {
+            $editDates[$row['semester']] = [
+                'start' => (string)$row['start_date'],
+                'end'   => (string)$row['end_date'],
+            ];
+        }
+    }
+}
+
 $page_title = 'Tahun Ajaran';
 require __DIR__ . '/../../includes/header.php';
 ?>
@@ -370,6 +477,39 @@ require __DIR__ . '/../../includes/header.php';
         <label class="checkbox-row"><input type="checkbox" name="set_active" value="1"> Jadikan aktif</label>
       </div>
       <div class="field" style="flex: 0 0 auto"><button class="btn btn-primary" type="submit">Buat</button></div>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($u['role'] === 'administrator' && $editYear): ?>
+<div class="card mb-4">
+  <div class="card-header"><h3 class="card-title">Edit Tanggal Semester — <?= esc($editYear['label']) ?></h3></div>
+  <div class="card-body">
+    <form method="post" class="row" style="align-items:end; gap: .75rem">
+      <?= csrf_field() ?>
+      <input type="hidden" name="op" value="edit_dates">
+      <input type="hidden" name="year_id" value="<?= (int)$editYear['id'] ?>">
+      <div class="field" style="flex:1; min-width:220px">
+        <label class="label">Ganjil mulai</label>
+        <input class="input" type="date" name="ganjil_start" value="<?= esc($editDates['ganjil']['start'] ?? '') ?>" required>
+      </div>
+      <div class="field" style="flex:1; min-width:220px">
+        <label class="label">Ganjil selesai</label>
+        <input class="input" type="date" name="ganjil_end" value="<?= esc($editDates['ganjil']['end'] ?? '') ?>" required>
+      </div>
+      <div class="field" style="flex:1; min-width:220px">
+        <label class="label">Genap mulai</label>
+        <input class="input" type="date" name="genap_start" value="<?= esc($editDates['genap']['start'] ?? '') ?>" required>
+      </div>
+      <div class="field" style="flex:1; min-width:220px">
+        <label class="label">Genap selesai</label>
+        <input class="input" type="date" name="genap_end" value="<?= esc($editDates['genap']['end'] ?? '') ?>" required>
+      </div>
+      <div class="field" style="flex:0 0 auto">
+        <button class="btn btn-primary" type="submit">Simpan</button>
+        <a class="btn btn-ghost" href="<?= esc(url('admin/academic_years.php')) ?>">Batal</a>
+      </div>
     </form>
   </div>
 </div>
@@ -414,6 +554,7 @@ require __DIR__ . '/../../includes/header.php';
           <?php endforeach; ?>
           <td style="text-align:right">
             <?php if ($u['role'] === 'administrator'): ?>
+              <a class="btn btn-ghost btn-sm" href="<?= esc(url('admin/academic_years.php?edit=' . (int)$y['id'])) ?>">Edit Tanggal</a>
               <?php if (!$y['is_active']): ?>
               <form method="post" style="display:inline">
                 <?= csrf_field() ?><input type="hidden" name="op" value="set_active"><input type="hidden" name="id" value="<?= (int)$y['id'] ?>">

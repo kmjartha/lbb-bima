@@ -23,12 +23,20 @@ $sc      = active_scope();
 $sem = in_array($_GET['sem'] ?? '', ['ganjil','genap'], true) ? $_GET['sem'] : $sc['semester'];
 $pk  = in_array($_GET['pk']  ?? '', ['PTS','PAS'], true)      ? $_GET['pk']  : $sc['period'];
 
-$rombel    = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
-$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, (int)$sc['year_id']) : false;
+$requestedYearId = isset($_GET['year_id']) ? (int)$_GET['year_id'] : null;
+$yearId = parent_resolve_year_id((int)$student['id'], $requestedYearId, (int)$sc['year_id']);
+
+$rombel    = parent_rombel_for_year((int)$student['id'], $yearId);
+$published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, $yearId) : false;
 
 if (!$rombel || !$published) {
     http_response_code(403);
     die('Rapor untuk periode ini belum dipublikasi.');
+}
+
+$yearLabel = $sc['year'];
+foreach (parent_available_years((int)$student['id']) as $y) {
+    if ((int)$y['id'] === $yearId) { $yearLabel = (string)$y['label']; break; }
 }
 
 $pdo    = db();
@@ -36,7 +44,7 @@ $school = $pdo->query("SELECT * FROM school_profile WHERE id = 1")->fetch() ?: [
 $tpl    = report_template_for($rombel['jenjang']);
 $sigs   = report_signatures_for($rombel['jenjang'], (int)$rombel['id']);
 
-audit('parent_rapor_pdf_export', 'student:' . $student['id'], ['sem' => $sem, 'pk' => $pk]);
+audit('parent_rapor_pdf_export', 'student:' . $student['id'], ['sem' => $sem, 'pk' => $pk, 'year_id' => $yearId]);
 
 $bodyHtml = rapor_render_body([
     'student'     => $student,
@@ -44,7 +52,7 @@ $bodyHtml = rapor_render_body([
     'school'      => $school,
     'tpl'         => $tpl,
     'sigs'        => $sigs,
-    'scope'       => ['year' => $sc['year'], 'year_id' => $sc['year_id'], 'semester' => $sem, 'period' => $pk],
+    'scope'       => ['year' => $yearLabel, 'year_id' => $yearId, 'semester' => $sem, 'period' => $pk],
     'uploadsBase' => __DIR__ . '/..',
     'forPdf'      => true,
 ]);

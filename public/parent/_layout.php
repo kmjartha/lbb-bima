@@ -52,15 +52,47 @@ $studentMeta = $studentMetaParts ? implode(' · ', $studentMetaParts) : 'Data be
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1d4ed8">
+<meta name="theme-color" content="#1568d8">
 <title><?= esc($page_title) ?> · <?= esc(cfg()['app_name']) ?></title>
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
+<link rel="stylesheet" href="<?= esc(url('../assets/css/parent-theme.css')) ?>">
 </head>
 <body>
 <div class="parent-shell">
 
+  <?php
+    $bm_nav = [
+      ['key'=>'home',      'label'=>'Beranda',   'href'=>'parent/home.php',       'icon'=>'<path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/>'],
+      ['key'=>'nilai',     'label'=>'Nilai',     'href'=>'parent/grades.php',     'icon'=>'<path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M8 12h8M8 16h6"/>'],
+      ['key'=>'rapor',     'label'=>'Rapor',     'href'=>'parent/rapor.php',      'icon'=>'<path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/>'],
+      ['key'=>'kehadiran', 'label'=>'Hadir',     'href'=>'parent/attendance.php', 'icon'=>'<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/>'],
+      ['key'=>'profil',    'label'=>'Profil',    'href'=>'parent/profile.php',    'icon'=>'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'],
+    ];
+  ?>
+  <nav class="p-side-nav no-print" aria-label="Menu utama (desktop)">
+    <div class="brand">
+      <span class="crest" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>
+        </svg>
+      </span>
+      <span><?= esc(cfg()['app_name']) ?></span>
+    </div>
+    <?php foreach ($bm_nav as $n): $active = $current_nav === $n['key']; ?>
+      <a href="<?= esc(url($n['href'])) ?>" class="<?= $active ? 'is-active' : '' ?>">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><?= $n['icon'] ?></svg>
+        <span><?= esc($n['label']) ?></span>
+      </a>
+    <?php endforeach; ?>
+  </nav>
+
   <div class="parent-topbar">
-    <div class="who">
+    <span class="crest" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>
+      </svg>
+    </span>
+    <div class="who" style="flex:1">
       <small>Halo, Orang Tua</small>
       <strong><?= esc($studentName) ?></strong>
       <small><?= esc($studentMeta) ?> · <?= esc($sc_label) ?></small>

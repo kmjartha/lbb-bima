@@ -104,6 +104,61 @@ function rombel_wali_user(int $rombelId): ?array
     return ($r && $r['id']) ? $r : null;
 }
 
+/**
+ * All academic years the student has ever been enrolled in (has a rombel
+ * membership for), newest first. Used to let parents browse rapor history
+ * across previous tahun ajaran — not just the currently active one.
+ * Always includes the student's "home" academic_year_id even if, for some
+ * reason, no rombel_members row exists for it yet.
+ */
+function parent_available_years(int $studentId): array
+{
+    if ($studentId <= 0) return [];
+
+    $st = db()->prepare(
+        "SELECT DISTINCT ay.id, ay.label, ay.is_active
+           FROM rombel_members rm
+           JOIN rombel r       ON r.id = rm.rombel_id AND r.deleted_at IS NULL
+           JOIN academic_years ay ON ay.id = r.academic_year_id
+          WHERE rm.student_id = :s
+          ORDER BY ay.label DESC"
+    );
+    $st->execute(['s' => $studentId]);
+    $years = $st->fetchAll();
+
+    // Safety net: make sure the student's own academic_year_id is present
+    // even if a rombel_members row is missing, so the page never ends up
+    // with zero selectable years for a real student.
+    $home = db()->prepare("SELECT academic_year_id FROM students WHERE id=:i AND deleted_at IS NULL LIMIT 1");
+    $home->execute(['i' => $studentId]);
+    $homeYearId = (int)($home->fetchColumn() ?: 0);
+    if ($homeYearId > 0 && !in_array($homeYearId, array_column($years, 'id'), true)) {
+        $row = db()->prepare("SELECT id, label, is_active FROM academic_years WHERE id=:i");
+        $row->execute(['i' => $homeYearId]);
+        $r = $row->fetch();
+        if ($r) $years[] = $r;
+    }
+
+    usort($years, fn($a, $b) => strcmp((string)$b['label'], (string)$a['label']));
+    return $years;
+}
+
+/**
+ * Validate a requested year_id against the years the student actually has
+ * history for; falls back to the effective year when invalid/absent.
+ */
+function parent_resolve_year_id(int $studentId, ?int $requestedYearId, int $fallbackYearId): int
+{
+    if ($requestedYearId === null || $requestedYearId <= 0) {
+        return parent_effective_year_id($studentId, $fallbackYearId);
+    }
+    $years = parent_available_years($studentId);
+    foreach ($years as $y) {
+        if ((int)$y['id'] === $requestedYearId) return $requestedYearId;
+    }
+    return parent_effective_year_id($studentId, $fallbackYearId);
+}
+
 function parent_effective_year_id(int $studentId, int $preferredYearId): int
 {
     $candidates = [];

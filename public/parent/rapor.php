@@ -19,12 +19,18 @@ $sc      = active_scope();
 $sem  = in_array($_GET['sem'] ?? '', ['ganjil','genap'], true) ? $_GET['sem'] : $sc['semester'];
 $pk   = in_array($_GET['pk']  ?? '', ['PTS','PAS'], true)      ? $_GET['pk']  : $sc['period'];
 
-$reportYearId = parent_effective_year_id((int)$student['id'], (int)$sc['year_id']);
+$availableYears = parent_available_years((int)$student['id']);
+$requestedYearId = isset($_GET['year_id']) ? (int)$_GET['year_id'] : null;
+$reportYearId = parent_resolve_year_id((int)$student['id'], $requestedYearId, (int)$sc['year_id']);
+
 $rombel = parent_rombel_for_year((int)$student['id'], $reportYearId);
 $publishMatrix = parent_publish_matrix((int)$student['id'], $reportYearId);
 $published = $rombel ? rapor_is_published((int)$rombel['id'], (int)$student['id'], $sem, $pk, $reportYearId) : false;
+$yearLabel = '';
+foreach ($availableYears as $y) { if ((int)$y['id'] === $reportYearId) { $yearLabel = (string)$y['label']; break; } }
+if ($yearLabel === '') $yearLabel = $sc['year'];
 
-audit('parent_view_rapor', 'student:' . $student['id'], ['sem'=>$sem,'pk'=>$pk,'ok'=>$published?1:0]);
+audit('parent_view_rapor', 'student:' . $student['id'], ['sem'=>$sem,'pk'=>$pk,'year_id'=>$reportYearId,'ok'=>$published?1:0]);
 
 $page_title  = 'Rapor';
 $current_nav = 'rapor';
@@ -36,15 +42,29 @@ $tpl    = $rombel ? report_template_for($rombel['jenjang']) : null;
 $sigs   = $rombel ? report_signatures_for($rombel['jenjang'], (int)$rombel['id']) : [];
 ?>
 
+<?php if (count($availableYears) > 1): ?>
 <div class="p-card no-print">
-  <h3>Pilih Periode</h3>
+  <h3>Tahun Ajaran</h3>
+  <div class="p-year-tabs">
+    <?php foreach ($availableYears as $y): $isCur = (int)$y['id'] === $reportYearId; ?>
+      <a class="ytab <?= $isCur ? 'is-active' : '' ?>"
+         href="<?= esc(url('parent/rapor.php?year_id='.(int)$y['id'].'&sem='.$sem.'&pk='.$pk)) ?>">
+        <?= esc($y['label']) ?><?= !empty($y['is_active']) ? ' · Aktif' : '' ?>
+      </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<div class="p-card no-print">
+  <h3>Pilih Periode <span class="muted" style="font-weight:500;">· TA <?= esc($yearLabel) ?></span></h3>
   <div class="p-period-tabs">
     <?php foreach (['ganjil','genap'] as $s): foreach (['PTS','PAS'] as $k):
       $active = ($s === $sem && $k === $pk);
       $ok = $publishMatrix[$s][$k] ?? false;
     ?>
       <a class="tab <?= $active ? 'is-active' : '' ?> <?= $ok ? '' : 'is-locked' ?>"
-         href="<?= esc(url('parent/rapor.php?sem='.$s.'&pk='.$k)) ?>">
+         href="<?= esc(url('parent/rapor.php?year_id='.$reportYearId.'&sem='.$s.'&pk='.$k)) ?>">
         <span><?= esc(ucfirst($s)) ?> · <?= esc($k) ?></span>
         <small><?= $ok ? '✓ tersedia' : '🔒 belum' ?></small>
       </a>
@@ -53,16 +73,16 @@ $sigs   = $rombel ? report_signatures_for($rombel['jenjang'], (int)$rombel['id']
   <?php if ($published): ?>
     <div style="display:flex; gap:8px">
       <button class="btn btn-primary" onclick="window.print()" style="flex:1">🖨️ Print</button>
-      <a class="btn btn-secondary" href="<?= esc(url('parent/rapor_pdf.php?sem='.$sem.'&pk='.$pk)) ?>" style="flex:1; text-align:center">⬇️ Download PDF</a>
+      <a class="btn btn-secondary" href="<?= esc(url('parent/rapor_pdf.php?year_id='.$reportYearId.'&sem='.$sem.'&pk='.$pk)) ?>" style="flex:1; text-align:center">⬇️ Download PDF</a>
     </div>
   <?php endif; ?>
 </div>
 
 <?php if (!$rombel): ?>
-  <div class="p-card"><div class="p-empty"><div class="icon">🏫</div><div><strong>Belum terdaftar di rombel.</strong></div><div class="muted">Silakan hubungi sekolah.</div></div></div>
+  <div class="p-card"><div class="p-empty"><div class="icon">🏫</div><div><strong>Belum terdaftar di rombel pada TA <?= esc($yearLabel) ?>.</strong></div><div class="muted">Silakan hubungi sekolah.</div></div></div>
 <?php elseif (!$published): ?>
   <div class="p-card">
-    <div class="p-locked-banner">Rapor <strong><?= esc(ucfirst($sem)) ?> · <?= esc($pk) ?></strong> belum dipublikasi oleh Kepala Sekolah.</div>
+    <div class="p-locked-banner">Rapor <strong><?= esc(ucfirst($sem)) ?> · <?= esc($pk) ?></strong> TA <?= esc($yearLabel) ?> belum dipublikasi oleh Kepala Sekolah.</div>
     <div class="p-empty">
       <div class="icon">⏳</div>
       <div>Mohon menunggu hingga proses verifikasi selesai.</div>
@@ -70,7 +90,7 @@ $sigs   = $rombel ? report_signatures_for($rombel['jenjang'], (int)$rombel['id']
   </div>
 <?php else: ?>
 
-<div class="p-published-banner no-print">✓ Rapor <strong><?= esc(ucfirst($sem)) ?> · <?= esc($pk) ?></strong> resmi dipublikasi.</div>
+<div class="p-published-banner no-print">✓ Rapor <strong><?= esc(ucfirst($sem)) ?> · <?= esc($pk) ?></strong> TA <?= esc($yearLabel) ?> resmi dipublikasi.</div>
 
 <div class="print-area">
   <?= rapor_render_body([
@@ -79,7 +99,7 @@ $sigs   = $rombel ? report_signatures_for($rombel['jenjang'], (int)$rombel['id']
         'school'      => $school,
         'tpl'         => $tpl,
         'sigs'        => $sigs,
-        'scope'       => ['year' => $sc['year'], 'year_id' => $reportYearId, 'semester' => $sem, 'period' => $pk],
+        'scope'       => ['year' => $yearLabel, 'year_id' => $reportYearId, 'semester' => $sem, 'period' => $pk],
         'uploadsBase' => __DIR__ . '/..',
         'forPdf'      => false,
       ]) ?>
