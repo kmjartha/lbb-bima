@@ -292,17 +292,46 @@ function rapor_layout_resolve(?array $tpl): array
     return ['order' => $order, 'hidden' => $hidden];
 }
 
-function report_signatures_for(string $jenjang): array
+function report_signatures_for(string $jenjang, ?int $rombelId = null): array
 {
     $yearId = active_scope()['year_id'];
-    $st = db()->prepare("SELECT * FROM report_signatures WHERE academic_year_id = :y AND jenjang = :j");
+    $pdo = db();
+    $st = $pdo->prepare("SELECT * FROM report_signatures WHERE academic_year_id = :y AND jenjang = :j");
     $st->execute(['y' => $yearId, 'j' => $jenjang]);
     $rows = $st->fetchAll();
+
+    $waliData = null;
+    if ($rombelId !== null) {
+        $st2 = $pdo->prepare(
+            "SELECT u.nama, u.ttd_path
+             FROM rombel r
+             JOIN users u ON u.id = r.wali_id
+             WHERE r.id = :rid AND r.academic_year_id = :y AND u.deleted_at IS NULL
+             LIMIT 1"
+        );
+        $st2->execute(['rid' => $rombelId, 'y' => $yearId]);
+        $waliData = $st2->fetch() ?: null;
+    }
+
     $out = [];
     foreach (['wali','kepsek','direktur','parent'] as $slot) {
         $found = null;
-        foreach ($rows as $r) if ($r['slot'] === $slot) { $found = $r; break; }
+        foreach ($rows as $r) {
+            if ($r['slot'] === $slot) {
+                $found = $r;
+                break;
+            }
+        }
         $out[$slot] = $found ?: ['slot' => $slot, 'jenjang' => $jenjang, 'nama' => null, 'jabatan' => null, 'ttd_path' => null];
+
+        if ($slot === 'wali' && $waliData) {
+            if (!empty($waliData['nama'])) {
+                $out['wali']['nama'] = $waliData['nama'];
+            }
+            if (!empty($waliData['ttd_path'])) {
+                $out['wali']['ttd_path'] = $waliData['ttd_path'];
+            }
+        }
     }
     return $out;
 }

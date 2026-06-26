@@ -45,7 +45,7 @@ $tpl    = $rombel ? report_template_for($rombel['jenjang']) : null;
 $resolved = rapor_layout_resolve($tpl);
 $layout   = $resolved['order'];
 $hiddenSet = $resolved['hidden'];
-$sigs   = $rombel ? report_signatures_for($rombel['jenjang']) : [];
+$sigs   = $rombel ? report_signatures_for($rombel['jenjang'], $rid) : [];
 
 $page_title = 'Student Report';
 require __DIR__ . '/../includes/header.php';
