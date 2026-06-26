@@ -383,7 +383,7 @@ small, .text-sm { font-size: var(--fs-12); }
 }
 .rapor-subhead strong { color: #0f172a; font-weight: 600; }
 
-.rapor-section { margin: 16px 0; break-inside: avoid; page-break-inside: avoid; }
+.rapor-section { margin: 24px 0 16px; break-inside: avoid; page-break-inside: avoid; }
 .rapor-section:first-child { margin-top: 0; }
 .rapor-section h3 {
   margin: 0 0 8px;
@@ -418,12 +418,28 @@ small, .text-sm { font-size: var(--fs-12); }
 .t-print tfoot td { background: #f1f5f9; font-weight: 600; color: #0f172a; }
 .t-print tr { break-inside: avoid; page-break-inside: avoid; }
 
+/* Each category label is now repeated on every row instead of a single
+   rowspan'd cell (Dompdf 2.x ignores page-break-inside on table row
+   groups, so a rowspan torn by a page break left the continuation rows
+   unlabeled — see includes/rapor_pdf_css.php for the full explanation).
+   Real browsers do honor break-inside on tbody, so this still helps here
+   as a bonus, keeping the whole group together when there's room. */
+.character-eval-table tbody.category-group { break-inside: avoid; page-break-inside: avoid; }
+
 .character-eval-table td.category-cell {
   background: #eef6ff;
-  font-weight: 700;
   vertical-align: middle;
   text-align: left;
   padding: 12px 10px;
+}
+.character-eval-table td.category-cell-first {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+.character-eval-table td.category-cell:not(.category-cell-first) {
+  font-weight: 400;
+  color: #94a3b8;
+  font-size: 11px;
 }
 .character-eval-table td.scale-cell {
   text-align: center;

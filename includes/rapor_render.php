@@ -185,13 +185,11 @@ function rapor_render_body(array $args): string
                       <th class="scale-heading"><span class="scale-label">Proficient</span></th>
                     </tr>
                   </thead>
-                  <tbody>
                   <?php foreach ($grouped as $cat => $items): $total = count($items); ?>
+                  <tbody class="category-group">
                     <?php foreach ($items as $index => $ce): $scale = $ce['scale'] ?? ''; ?>
                     <tr>
-                      <?php if ($index === 0): ?>
-                        <td class="category-cell" rowspan="<?= $total ?>"><?= esc($cat) ?></td>
-                      <?php endif; ?>
+                      <td class="category-cell<?= $index === 0 ? ' category-cell-first' : '' ?>"><?= esc($cat) ?></td>
                       <td><?= esc(trim(($ce['aspek_nama'] ?? '') . (!empty($ce['remark']) ? ' — ' . $ce['remark'] : ''))) ?></td>
                       <td class="scale-cell"><?= $scale === 'NI' ? '&#10003;' : '' ?></td>
                       <td class="scale-cell"><?= $scale === 'SI' ? '&#10003;' : '' ?></td>
@@ -199,8 +197,8 @@ function rapor_render_body(array $args): string
                       <td class="scale-cell"><?= $scale === 'PR' ? '&#10003;' : '' ?></td>
                     </tr>
                     <?php endforeach; ?>
-                  <?php endforeach; ?>
                   </tbody>
+                  <?php endforeach; ?>
                 </table>
                 <?php endif; ?>
               </div>

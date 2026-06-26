@@ -82,28 +82,47 @@ use Dompdf\Options;
 // actually call tempnam() here, the same call Dompdf will make, and bail
 // out with a clear message if it fails instead of letting Dompdf crash
 // deep inside font subsetting.
-$cacheDir = __DIR__ . '/../storage/cache/dompdf';
-if (!is_dir($cacheDir)) {
-    @mkdir($cacheDir, 0775, true);
+$cacheDir = '';
+$triedDirs = [];
+$attemptDirs = [
+    __DIR__ . '/../storage/cache/dompdf',
+    __DIR__ . '/../storage/cache',
+    __DIR__ . '/../storage',
+    ini_get('upload_tmp_dir') ?: '',
+    sys_get_temp_dir(),
+    '/tmp',
+];
+foreach ($attemptDirs as $attemptDir) {
+    if ($attemptDir === '') {
+        continue;
+    }
+    $dir = rtrim($attemptDir, DIRECTORY_SEPARATOR);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    if (!is_dir($dir) || !is_writable($dir)) {
+        $triedDirs[] = $dir;
+        continue;
+    }
+    $probe = @tempnam($dir, 'probe_');
+    if ($probe !== false) {
+        @unlink($probe);
+        $cacheDir = $dir;
+        break;
+    }
+    $triedDirs[] = $dir;
 }
-$probe = is_dir($cacheDir) ? @tempnam($cacheDir, 'probe_') : false;
-if ($probe === false) {
-    // storage/cache/dompdf isn't usable — fall back to the system temp dir.
-    $cacheDir = sys_get_temp_dir();
-    $probe = @tempnam($cacheDir, 'probe_');
-}
-if ($probe === false) {
+if ($cacheDir === '') {
     http_response_code(500);
     die(
         "Tidak dapat membuat PDF: server tidak bisa menulis file sementara.\n" .
-        "Folder yang dicoba: {$cacheDir}\n" .
+        "Folder yang dicoba: " . ($triedDirs ? implode($triedDirs, ', ') : '(tidak ada)') . "\n" .
         "Kemungkinan sebab: izin folder (chmod), atau setting 'open_basedir' di php.ini " .
         "yang membatasi PHP hanya boleh menulis ke folder tertentu.\n" .
         "Solusi: pastikan 'storage/cache' writable (chmod -R 775 storage/cache), " .
         "dan pastikan folder project ini termasuk dalam open_basedir di php.ini Anda."
     );
 }
-@unlink($probe);
 
 $options = new Options();
 $options->setIsRemoteEnabled(false);     // no remote URL fetching — images are local filesystem paths

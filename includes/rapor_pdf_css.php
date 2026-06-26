@@ -43,7 +43,8 @@ body {
 .rapor-subhead { text-align: right; margin: 8px 0 14px; font-size: 10.5px; color: #475569; }
 .rapor-subhead strong { color: #0f172a; }
 
-.rapor-section { margin: 11px 0; }
+.rapor-section { margin: 20px 0 14px; }
+.rapor-section:first-child { margin-top: 0; }
 .rapor-section h3 {
   margin: 0 0 8px;
   font-size: 10px;
@@ -67,8 +68,41 @@ table.t-print th { background: #f8fafc; font-weight: bold; color: #334155; }
 .character-eval-table th.category-heading { width: 16%; }
 .character-eval-table th.aspect-heading { width: 48%; }
 .character-eval-table th.scale-heading { width: 9%; text-align: center; font-size: 9px; }
-.character-eval-table td.category-cell { background: #eef6ff; font-weight: bold; }
+.character-eval-table td.category-cell {
+  background: #eef6ff;
+  vertical-align: middle;
+  text-align: left;
+  padding: 12px 10px;
+}
+/* Every row repeats its category text (rather than one rowspan'd cell on
+   the first row of the group). Dompdf 2.x splits tables purely row by
+   row and never consults page-break-inside for table row-groups or
+   cells (confirmed in vendor/dompdf/dompdf/src/FrameReflower/Table.php,
+   "simply setting page-break-inside: avoid won't work" — _in_table
+   suppresses that whole check). A rowspan cell that gets torn apart by a
+   row-level break has no way to redraw itself on the next page, which is
+   exactly the bug this replaces. The first row of a group is styled like
+   a heading; repeats below it are muted so the block still reads as one
+   group when nothing breaks, but the label is always correct either way. */
+.character-eval-table td.category-cell-first {
+  font-weight: bold;
+  color: #1e3a8a;
+}
+.character-eval-table td.category-cell:not(.category-cell-first) {
+  font-weight: normal;
+  color: #94a3b8;
+  font-size: 9px;
+}
 .character-eval-table td.scale-cell { text-align: center; font-size: 12px; }
+
+/* tbody.category-group + page-break-inside below has NO effect in Dompdf
+   (see comment above) — table row-groups in Dompdf 2.x don't honor it.
+   It's kept only because it's free and harmless, and helps real browsers
+   (Chrome/Firefox print preview do support break-inside on tbody) keep a
+   short category from splitting when there's room. The PDF path's actual
+   correctness comes entirely from the repeated per-row label above. */
+table.t-print tr { page-break-inside: avoid; }
+.character-eval-table tbody.category-group { page-break-inside: avoid; }
 
 .rapor-empty-note { font-size: 10.5px; color: #6b7280; }
 .rapor-cat-row { background: #eef2ff; font-weight: bold; }
