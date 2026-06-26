@@ -19,7 +19,17 @@ $__title  = $page_title ?? 'Dashboard';
 
 // Determine current path for sidebar active state
 $__here = $_SERVER['PHP_SELF'] ?? '';
-function nav_active(string $needle): string { global $__here; return str_contains($__here, $needle) ? 'is-active' : ''; }
+function nav_active(string $needle): string {
+  global $__here;
+  $hereBase = basename($__here);
+  if (str_contains($needle, '|')) {
+    foreach (explode('|', $needle) as $n) {
+      if ($hereBase === trim($n)) return 'is-active';
+    }
+    return '';
+  }
+  return $hereBase === $needle ? 'is-active' : '';
+}
 
 $__role = $__user['role'] ?? '';
 

@@ -110,9 +110,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
-            $pdo->prepare("UPDATE students SET deleted_at = NOW() WHERE id = :id AND academic_year_id = :y")->execute(['id'=>$id, 'y'=>$yearId]);
+            $pdo->prepare("UPDATE students SET deleted_at = NOW(), is_active = 0 WHERE id = :id AND academic_year_id = :y")->execute(['id'=>$id, 'y'=>$yearId]);
             audit('delete', 'student:' . $id);
             flash('success', 'Siswa dinonaktifkan.');
+            redirect('admin/students.php');
+        }
+
+        if ($op === 'activate') {
+            $id = (int)($_POST['id'] ?? 0);
+            $pdo->prepare("UPDATE students SET deleted_at = NULL, is_active = 1 WHERE id = :id AND academic_year_id = :y")->execute(['id'=>$id, 'y'=>$yearId]);
+            audit('activate', 'student:' . $id);
+            flash('success', 'Siswa diaktifkan kembali.');
+            redirect('admin/students.php');
+        }
+
+        if ($op === 'destroy') {
+            $id = (int)($_POST['id'] ?? 0);
+            $pdo->prepare("DELETE FROM students WHERE id = :id AND academic_year_id = :y")->execute(['id'=>$id, 'y'=>$yearId]);
+            audit('delete', 'student:' . $id);
+            flash('success', 'Siswa dihapus permanen.');
             redirect('admin/students.php');
         }
 
@@ -138,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           }
           $in = implode(',', $idPlaceholders);
           $params['y'] = $yearId;
-          $sql = "UPDATE students SET " . implode(',', $sets) . " WHERE academic_year_id = :y AND id IN ($in)";
+          $sql = "UPDATE students SET " . implode(',', $sets) . " WHERE academic_year_id = :y AND deleted_at IS NULL AND id IN ($in)";
           $stmt = $pdo->prepare($sql);
           $stmt->execute($params);
           audit('batch_promote', 'students:' . count($ids), ['new_jenjang'=>$newJenjang,'new_tingkat'=>$newTingkat]);
@@ -152,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ----- DATA -----
-$where = ['s.deleted_at IS NULL', 's.academic_year_id = :y'];
+$where = ['s.academic_year_id = :y'];
 $params = ['y' => $yearId];
 if ($jf) { $where[] = 's.jenjang = :j'; $params['j'] = $jf; }
 if ($q !== '') {
@@ -169,7 +185,7 @@ $stmt = $pdo->prepare("SELECT COUNT(DISTINCT s.id) FROM students s $wsql");
 $stmt->execute($params);
 $total = (int)$stmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT DISTINCT s.* FROM students s $wsql ORDER BY s.jenjang, s.tingkat, s.nama LIMIT $per OFFSET " . (($page-1)*$per));
+$stmt = $pdo->prepare("SELECT DISTINCT s.* FROM students s $wsql ORDER BY s.deleted_at IS NOT NULL, s.jenjang, s.tingkat, s.nama LIMIT $per OFFSET " . (($page-1)*$per));
 $stmt->execute($params);
 $rows = $stmt->fetchAll();
 
@@ -299,24 +315,40 @@ require __DIR__ . '/../../includes/header.php';
       <table class="t">
         <thead><tr>
           <th><input type="checkbox" onclick="document.querySelectorAll('.row-chk').forEach(c=>{c.checked=this.checked; c.dispatchEvent(new Event('change'))})"></th>
-          <th>NISN</th><th>NIS</th><th>Nama</th><th>Jenjang/Tingkat</th><th>JK</th><th></th>
+          <th>NISN</th><th>NIS</th><th>Nama</th><th>Status</th><th>Jenjang/Tingkat</th><th>JK</th><th></th>
         </tr></thead>
         <tbody>
         <?php if (!$rows): ?><tr><td colspan="7"><div class="empty">Belum ada data.</div></td></tr><?php endif; ?>
         <?php foreach ($rows as $r): ?>
           <tr>
-            <td><input type="checkbox" class="row-chk" form="batchForm" name="ids[]" value="<?= (int)$r['id'] ?>"></td>
+            <td>
+              <?php if ($r['deleted_at'] === null): ?>
+                <input type="checkbox" class="row-chk" form="batchForm" name="ids[]" value="<?= (int)$r['id'] ?>">
+              <?php endif; ?>
+            </td>
             <td><?= esc($r['nisn']) ?></td>
             <td><?= esc($r['nis']) ?></td>
             <td><strong><?= esc($r['nama']) ?></strong></td>
+            <td><?= $r['deleted_at'] === null ? '<span class="badge badge-success">Aktif</span>' : '<span class="badge">Nonaktif</span>' ?></td>
             <td><?= esc($r['jenjang']) ?> · <?= (int)$r['tingkat'] ?></td>
             <td><?= esc($r['jk']) ?></td>
             <td style="text-align:right; white-space:nowrap">
-              <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $jf ? '&jenjang=' . $jf : '' ?>">Edit</a>
-              <form method="post" style="display:inline" data-confirm="Nonaktifkan siswa <?= esc($r['nama']) ?>?">
-                <?= csrf_field() ?><input type="hidden" name="op" value="delete"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <button class="btn btn-danger btn-sm" type="submit">Nonaktif</button>
-              </form>
+              <?php if ($r['deleted_at'] === null): ?>
+                <a class="btn btn-secondary btn-sm" href="?edit=<?= (int)$r['id'] ?><?= $jf ? '&jenjang=' . $jf : '' ?>">Edit</a>
+                <form method="post" style="display:inline" data-confirm="Nonaktifkan siswa <?= esc($r['nama']) ?>?">
+                  <?= csrf_field() ?><input type="hidden" name="op" value="delete"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                  <button class="btn btn-danger btn-sm" type="submit">Nonaktif</button>
+                </form>
+              <?php else: ?>
+                <form method="post" style="display:inline" data-confirm="Aktifkan siswa <?= esc($r['nama']) ?>?">
+                  <?= csrf_field() ?><input type="hidden" name="op" value="activate"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                  <button class="btn btn-primary btn-sm" type="submit">Aktifkan</button>
+                </form>
+                <form method="post" style="display:inline" data-confirm="Hapus siswa <?= esc($r['nama']) ?> secara permanen?">
+                  <?= csrf_field() ?><input type="hidden" name="op" value="destroy"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                  <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                </form>
+              <?php endif; ?>
             </td>
           </tr>
         <?php endforeach; ?>
