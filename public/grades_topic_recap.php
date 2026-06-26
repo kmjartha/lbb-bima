@@ -40,7 +40,7 @@ if ($rid) {
     if (!$sid && $subjects) $sid = (int)$subjects[0]['id'];
     if ($sid) {
         assert_can_grade_subject($user, $rid, $sid);
-        $members = rombel_members($rid);
+        $members = rombel_members_for_subject($rid, $sid, $sc['semester']);
         $rec     = recap_topics($rid, $sid, $sc['semester']);
         if (!$isTK) $subjectKkm = subject_kkm_for($sid, (int)$rombel['tingkat']);
 

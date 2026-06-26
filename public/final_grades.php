@@ -39,7 +39,7 @@ if ($rid) {
     
     if ($sid) {
         assert_can_grade_subject($user, $rid, $sid);
-        $members  = rombel_members($rid);
+        $members  = rombel_members_for_subject($rid, $sid, $sc['semester']);
         $existing = final_grades_for($rid, $sid, $sc['semester'], $sc['period']);
 
         // Persiapkan data Bintang & Deskripsi khusus TK

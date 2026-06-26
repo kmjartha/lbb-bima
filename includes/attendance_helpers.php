@@ -106,6 +106,52 @@ function rombel_members(int $rombelId): array
     return $st->fetchAll();
 }
 
+/**
+ * Members of a rombel yang boleh dinilai untuk subject tertentu.
+ *
+ * Jika subject adalah shadow subject dari elective_class (elective_class_id IS NOT NULL),
+ * maka hanya siswa yang sudah di-assign ke elective_class tersebut pada semester aktif
+ * yang dikembalikan — bukan semua siswa di rombel.
+ *
+ * Untuk subject biasa (non-elective), fungsi ini identik dengan rombel_members().
+ */
+function rombel_members_for_subject(int $rombelId, int $subjectId, string $semester): array
+{
+    $pdo = db();
+
+    // Cek apakah subject ini adalah shadow subject dari elective_class
+    $st = $pdo->prepare(
+        "SELECT elective_class_id FROM subjects WHERE id = :s AND deleted_at IS NULL"
+    );
+    $st->execute(['s' => $subjectId]);
+    $row = $st->fetch();
+
+    if (!$row) {
+        return [];
+    }
+
+    $electiveClassId = $row['elective_class_id'] !== null ? (int)$row['elective_class_id'] : null;
+
+    if ($electiveClassId === null) {
+        // Subject biasa — kembalikan semua siswa di rombel
+        return rombel_members($rombelId);
+    }
+
+    // Elective subject — hanya siswa yang di-assign ke opsi ini di semester ini
+    $st = $pdo->prepare(
+        "SELECT s.id, s.nisn, s.nama, s.jk
+         FROM elective_assignments ea
+         JOIN students s ON s.id = ea.student_id
+         JOIN rombel_members rm ON rm.student_id = s.id AND rm.rombel_id = :r
+         WHERE ea.elective_class_id = :ec
+           AND ea.semester = :sem
+           AND s.deleted_at IS NULL
+         ORDER BY s.nama"
+    );
+    $st->execute(['r' => $rombelId, 'ec' => $electiveClassId, 'sem' => $semester]);
+    return $st->fetchAll();
+}
+
 /** Fetch attendance for one rombel-date keyed by student_id. */
 function attendance_for(int $rombelId, string $date): array
 {

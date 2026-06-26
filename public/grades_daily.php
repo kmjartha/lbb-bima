@@ -50,7 +50,7 @@ if ($rid) {
                 $tid = null; $topic = null;
             }
         }
-        $members  = rombel_members($rid);
+        $members  = rombel_members_for_subject($rid, $sid, $sc['semester']);
         $att      = attendance_for($rid, $tanggal);
         if ($tid) $existing = grades_for_topic_date($rid, $sid, $tid, $sc['semester'], $bucket, $tanggal);
     }
