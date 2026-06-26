@@ -25,7 +25,7 @@ if ($rid) {
     $members = rombel_members($rid);
     $evals   = general_evals_for($rid, $sc['semester'], $sc['period']);
 }
-$readonly = $rombel ? wali_readonly($user) : true;
+$readonly = $rombel ? wali_readonly($user, 'general_eval') : true;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel) {
     try {

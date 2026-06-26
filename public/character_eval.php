@@ -29,7 +29,7 @@ if ($rid) {
     $existing = character_evals_for($rid, $sc['semester'], $sc['period']);
 }
 
-$readonly = $rombel ? wali_readonly($user) : true;
+$readonly = $rombel ? wali_readonly($user, 'character_eval') : true;
 $scales   = character_scales();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel) {
