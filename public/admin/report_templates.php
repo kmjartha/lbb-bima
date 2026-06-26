@@ -18,13 +18,13 @@ $pdo = db();
 $err = null;
 
 $jenjang = strtoupper((string)($_GET['j'] ?? 'SD'));
-if (!in_array($jenjang, ['SD','SMP','SMA'], true)) $jenjang = 'SD';
+if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) $jenjang = 'SD';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
         $jenjang = strtoupper(req_str($_POST, 'jenjang', 4));
-        if (!in_array($jenjang, ['SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
+        if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
         $op = (string)($_POST['op'] ?? '');
         $tpl = report_template_for($jenjang);
 
@@ -109,7 +109,7 @@ require __DIR__ . '/../../includes/header.php';
   <div class="card-header">
     <h3 class="card-title">Template Rapor — <?= esc($jenjang) ?></h3>
     <div class="row" style="gap:6px">
-      <?php foreach (['SD','SMP','SMA'] as $j): ?>
+      <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
         <a class="btn btn-sm <?= $j===$jenjang?'btn-primary':'btn-secondary' ?>" href="?j=<?= $j ?>"><?= $j ?></a>
       <?php endforeach; ?>
     </div>

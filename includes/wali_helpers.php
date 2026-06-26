@@ -20,23 +20,11 @@ function character_scales(): array
     ];
 }
 
-/** Predikat ekskul (A–D + label). */
-function ekskul_predikats(): array
-{
-    return [
-        'A' => 'Sangat Baik',
-        'B' => 'Baik',
-        'C' => 'Cukup',
-        'D' => 'Kurang',
-    ];
-}
-
 /**
- * Rombel yang bisa diakses untuk halaman wali (catatan/karakter/general/ekskul).
+ * Rombel yang bisa diakses untuk halaman wali (catatan/karakter/general).
  * - administrator/admin: semua rombel di tahun aktif
  * - kepsek: rombel di jenjang miliknya
- * - guru: hanya rombel yang ia jadi wali kelas-nya (untuk Catatan Wali / Char Eval / General).
- *         Untuk Ekskul, koordinator akan diizinkan terpisah (lihat halaman ekskul).
+ * - guru: hanya rombel yang ia jadi wali kelas-nya.
  */
 function accessible_wali_rombel(array $user): array
 {
@@ -98,39 +86,6 @@ function wali_readonly(array $user, string $feature = 'wali_notes'): bool
     return scope_is_locked();
 }
 
-/** Fetch wali_notes row for (rombel, student, semester, period). Returns array|null. */
-function wali_note_get(int $rombelId, int $studentId, string $sem, string $period): ?array
-{
-    $st = db()->prepare(
-        "SELECT * FROM wali_notes
-         WHERE rombel_id=:r AND student_id=:st AND semester=:sem AND period_kind=:p"
-    );
-    $st->execute(['r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period]);
-    $row = $st->fetch();
-    return $row ?: null;
-}
-
-/** Upsert wali_notes. */
-function wali_note_upsert(int $rombelId, int $studentId, string $sem, string $period, ?string $catatan): void
-{
-    $pdo = db();
-    $exists = $pdo->prepare(
-        "SELECT id FROM wali_notes
-         WHERE rombel_id=:r AND student_id=:st AND semester=:sem AND period_kind=:p"
-    );
-    $exists->execute(['r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period]);
-    $id = (int)($exists->fetchColumn() ?: 0);
-    if ($id) {
-        $pdo->prepare("UPDATE wali_notes SET catatan=:c WHERE id=:i")
-            ->execute(['c'=>$catatan,'i'=>$id]);
-    } else {
-        $pdo->prepare(
-            "INSERT INTO wali_notes (rombel_id, student_id, semester, period_kind, catatan)
-             VALUES (:r,:st,:sem,:p,:c)"
-        )->execute(['r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period,'c'=>$catatan]);
-    }
-}
-
 /** General-evaluation upsert. */
 function general_eval_upsert(int $rombelId, int $studentId, string $sem, string $period, ?string $narasi): void
 {
@@ -162,19 +117,6 @@ function general_evals_for(int $rombelId, string $sem, string $period): array
     $st->execute(['r'=>$rombelId,'sem'=>$sem,'p'=>$period]);
     $out = [];
     foreach ($st->fetchAll() as $row) $out[(int)$row['student_id']] = $row['narasi'];
-    return $out;
-}
-
-/** Map wali_notes rows -> [student_id => catatan]. */
-function wali_notes_for(int $rombelId, string $sem, string $period): array
-{
-    $st = db()->prepare(
-        "SELECT student_id, catatan FROM wali_notes
-         WHERE rombel_id=:r AND semester=:sem AND period_kind=:p"
-    );
-    $st->execute(['r'=>$rombelId,'sem'=>$sem,'p'=>$period]);
-    $out = [];
-    foreach ($st->fetchAll() as $row) $out[(int)$row['student_id']] = $row['catatan'];
     return $out;
 }
 
@@ -236,44 +178,3 @@ function character_eval_upsert(int $rombelId, int $studentId, int $aspectId, str
     }
 }
 
-/** Ekskul grades for (ekskul_id, semester, year) keyed by student_id. */
-function ekskul_grades_for(int $ekskulId, string $sem, int $yearId): array
-{
-    $st = db()->prepare(
-        "SELECT * FROM extracurricular_grades
-         WHERE extracurricular_id=:e AND semester=:sem AND academic_year_id=:y"
-    );
-    $st->execute(['e'=>$ekskulId,'sem'=>$sem,'y'=>$yearId]);
-    $out = [];
-    foreach ($st->fetchAll() as $row) $out[(int)$row['student_id']] = $row;
-    return $out;
-}
-
-function ekskul_grade_upsert(int $ekskulId, int $studentId, string $sem, int $yearId, ?string $predikat, ?string $catatan): void
-{
-    $pdo = db();
-    $exists = $pdo->prepare(
-        "SELECT id FROM extracurricular_grades
-         WHERE extracurricular_id=:e AND student_id=:st AND semester=:sem AND academic_year_id=:y"
-    );
-    $exists->execute(['e'=>$ekskulId,'st'=>$studentId,'sem'=>$sem,'y'=>$yearId]);
-    $id = (int)($exists->fetchColumn() ?: 0);
-    if ($id) {
-        $pdo->prepare("UPDATE extracurricular_grades SET predikat=:pr, catatan=:c WHERE id=:i")
-            ->execute(['pr'=>$predikat,'c'=>$catatan,'i'=>$id]);
-    } else {
-        $pdo->prepare(
-            "INSERT INTO extracurricular_grades
-               (extracurricular_id, student_id, semester, academic_year_id, predikat, catatan)
-             VALUES (:e,:st,:sem,:y,:pr,:c)"
-        )->execute(['e'=>$ekskulId,'st'=>$studentId,'sem'=>$sem,'y'=>$yearId,'pr'=>$predikat,'c'=>$catatan]);
-    }
-}
-
-function ekskul_grade_delete(int $ekskulId, int $studentId, string $sem, int $yearId): void
-{
-    db()->prepare(
-        "DELETE FROM extracurricular_grades
-         WHERE extracurricular_id=:e AND student_id=:st AND semester=:sem AND academic_year_id=:y"
-    )->execute(['e'=>$ekskulId,'st'=>$studentId,'sem'=>$sem,'y'=>$yearId]);
-}

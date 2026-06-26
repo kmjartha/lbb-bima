@@ -39,7 +39,6 @@ function _permission_matrix(): array
         'students'          => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'users'             => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']], // admin can't see administrator credentials (enforced in users.php)
         'character_aspects' => ['view' => ['administrator','kepsek'],             'edit' => ['administrator','kepsek']],
-        'extracurriculars'  => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'report_templates'  => ['view' => ['administrator'],                          'edit' => ['administrator']],
         'audit_log'         => ['view' => ['administrator'],                          'edit' => ['administrator']],
         'profile'           => ['view' => ['administrator','admin','kepsek','guru'],    'edit' => ['administrator','admin','kepsek','guru']],
@@ -63,10 +62,8 @@ function _permission_matrix(): array
         'final_grades_review'=>['view' => ['administrator','kepsek'],                'edit' => ['administrator','kepsek']],
 
         // ---------- Catatan & Karakter (Wali only + Administrator) ----------
-        'wali_notes'        => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']], // guru must be wali (checked separately)
         'character_eval'    => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
         'general_eval'      => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
-        'extracurricular_grades' => ['view' => ['administrator','admin','guru'],     'edit' => ['administrator','guru']],
 
         // ---------- Rapor & Leger ----------
         'leger'             => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
@@ -81,7 +78,7 @@ function _wali_only_features(): array
 {
     return [
         'attendance', 'attendance_recap',
-        'wali_notes', 'character_eval', 'general_eval',
+        'character_eval', 'general_eval',
         'leger', 'rapor',
         'elective_assignment',
     ];

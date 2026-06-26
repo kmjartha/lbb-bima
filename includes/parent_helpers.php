@@ -292,16 +292,6 @@ function parent_grades_overall_avg(array $rows): ?float
 }
 
 /**
- * Wali note for the student in the active (semester, period). Only shown when
- * the period is published.
- */
-function parent_wali_note(int $studentId, int $rombelId, string $semester, string $period): ?string
-{
-    $rows = wali_notes_for($rombelId, $semester, $period);
-    return $rows[$studentId] ?? null;
-}
-
-/**
  * Change parent password. Throws on validation failure. Clears must_change_pw.
  */
 function parent_change_password(int $parentAuthId, string $newPw): void

@@ -257,20 +257,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ins->execute(['y'=>$newId,'n'=>$r['nama'],'k'=>$r['kategori']]);
         }
 
-        // ---- extracurriculars ----
-        $s = $pdo->prepare("SELECT nama, pembina, jadwal, deskripsi, is_active
-                            FROM extracurriculars WHERE academic_year_id = :y");
-        $s->execute(['y' => $copy_from]);
-        $ins = $pdo->prepare("INSERT INTO extracurriculars
-            (academic_year_id, nama, pembina, jadwal, deskripsi, is_active)
-            VALUES (:y,:n,:p,:j,:d,:a)");
-        foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) {
-            $ins->execute([
-                'y'=>$newId,'n'=>$r['nama'],'p'=>$r['pembina'],
-                'j'=>$r['jadwal'],'d'=>$r['deskripsi'],'a'=>$r['is_active'],
-            ]);
-        }
-
         // ---- report_templates + report_signatures ----
         $s = $pdo->prepare("SELECT jenjang, layout_json, header_img, footer_img
                             FROM report_templates WHERE academic_year_id = :y");
@@ -298,9 +284,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // NOTE: assessment data (attendance, grades_daily, grade_descriptions,
-        // final_grades, character_evaluations, general_evaluations,
-        // extracurricular_grades, achievements, wali_notes) is intentionally
-        // NOT copied — those are produced fresh in the new tahun ajaran.
+        // final_grades, character_evaluations, general_evaluations, achievements)
+        // is intentionally NOT copied — those are produced fresh in the new tahun ajaran.
     }
 
     if ($set_active) {

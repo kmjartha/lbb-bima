@@ -71,7 +71,6 @@ include __DIR__ . '/_layout.php';
     <div class="p-locked-banner">Catatan untuk <?= esc(ucfirst($sem)) ?> · <?= esc($pk) ?> TA <?= esc($yearLabel) ?> belum dipublikasi.</div>
   </div>
 <?php else:
-  $note = parent_wali_note((int)$student['id'], (int)$rombel['id'], $sem, $pk);
   $charEvals = character_evals_for_student((int)$rombel['id'], (int)$student['id'], $sem, $pk, $rombel['jenjang'] ?? null);
   $generalRow = general_evals_for((int)$rombel['id'], $sem, $pk);
   $narasi = $generalRow[(int)$student['id']] ?? null;
@@ -82,11 +81,7 @@ include __DIR__ . '/_layout.php';
     <?php if ($wali): ?>
       <div class="muted" style="margin-bottom:.5rem">Dari: <strong><?= esc($wali['nama']) ?></strong></div>
     <?php endif; ?>
-    <?php if ($note): ?>
-      <div style="background:#fffbeb; border-left:3px solid #f59e0b; padding:.75rem; border-radius:6px; white-space:pre-wrap; font-size:.9rem;"><?= esc($note) ?></div>
-    <?php else: ?>
-      <div class="muted" style="font-size:.85rem">Tidak ada catatan khusus.</div>
-    <?php endif; ?>
+    <div class="muted" style="font-size:.85rem">Tidak ada catatan khusus.</div>
   </div>
 
   <?php if ($narasi): ?>

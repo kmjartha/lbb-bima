@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Jun 26, 2026 at 08:07 AM
+-- Generation Time: Jun 26, 2026 at 01:26 PM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.2.4
 
@@ -246,7 +246,15 @@ INSERT INTO `attendance` (`id`, `rombel_id`, `student_id`, `tanggal`, `status`, 
 (252, 17, 143, '2026-06-26', 'H', NULL, 1, '2026-06-26 03:44:57'),
 (253, 17, 154, '2026-06-26', 'H', NULL, 1, '2026-06-26 03:44:57'),
 (254, 17, 155, '2026-06-26', 'H', NULL, 1, '2026-06-26 03:44:57'),
-(255, 17, 141, '2026-06-26', 'H', NULL, 1, '2026-06-26 03:44:57');
+(255, 17, 141, '2026-06-26', 'H', NULL, 1, '2026-06-26 03:44:57'),
+(256, 20, 259, '2026-06-26', 'H', NULL, 1, '2026-06-26 11:11:06'),
+(257, 20, 56, '2026-06-26', 'I', NULL, 1, '2026-06-26 11:11:06'),
+(258, 20, 259, '2026-06-25', 'H', NULL, 1, '2026-06-26 11:11:11'),
+(259, 20, 56, '2026-06-25', 'H', NULL, 1, '2026-06-26 11:11:11'),
+(260, 20, 259, '2026-06-24', 'H', NULL, 1, '2026-06-26 11:11:17'),
+(261, 20, 56, '2026-06-24', 'H', NULL, 1, '2026-06-26 11:11:17'),
+(262, 20, 259, '2026-06-23', 'I', NULL, 1, '2026-06-26 11:11:22'),
+(263, 20, 56, '2026-06-23', 'H', NULL, 1, '2026-06-26 11:11:22');
 
 -- --------------------------------------------------------
 
@@ -695,7 +703,71 @@ INSERT INTO `audit_log` (`id`, `user_id`, `user_label`, `action`, `target`, `met
 (901, 1, 'Administrator', 'create', 'academic_year:2027/2028', '{\"copy_from\":null,\"deep_copy\":false}', '::1', '2026-06-26 05:33:10'),
 (902, 1, 'Administrator', 'delete', 'academic_year:26', NULL, '::1', '2026-06-26 05:33:26'),
 (903, NULL, 'Arxazuan Hadinata', 'parent_view_home', 'student:131', NULL, '::1', '2026-06-26 05:49:28'),
-(904, NULL, 'Arxazuan Hadinata', 'parent_view_home', 'student:131', NULL, '::1', '2026-06-26 05:49:29');
+(904, NULL, 'Arxazuan Hadinata', 'parent_view_home', 'student:131', NULL, '::1', '2026-06-26 05:49:29'),
+(905, 1, 'Administrator', 'create', 'academic_year:2027/2028', '{\"copy_from\":20,\"deep_copy\":true}', '::1', '2026-06-26 06:12:27'),
+(906, 1, 'Administrator', 'delete', 'academic_year:35', NULL, '::1', '2026-06-26 06:12:34'),
+(907, NULL, 'Arxazuan Hadinata', 'parent_view_rapor', 'student:131', '{\"sem\":\"ganjil\",\"pk\":\"PTS\",\"year_id\":20,\"ok\":1}', '::1', '2026-06-26 06:13:14'),
+(908, NULL, 'Arxazuan Hadinata', 'parent_rapor_pdf_export', 'student:131', '{\"sem\":\"ganjil\",\"pk\":\"PTS\",\"year_id\":20}', '::1', '2026-06-26 06:13:19'),
+(909, 1, 'Administrator', 'create', 'academic_year:2027/2028', '{\"copy_from\":20,\"deep_copy\":true}', '::1', '2026-06-26 06:16:12'),
+(910, 1, 'Administrator', 'delete', 'academic_year:36', NULL, '::1', '2026-06-26 06:16:18'),
+(911, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:23:10'),
+(912, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:35:27'),
+(913, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:39:15'),
+(914, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:39:16'),
+(915, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:39:17'),
+(916, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:39:19'),
+(917, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:45:44'),
+(918, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:46:07'),
+(919, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:47:25'),
+(920, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:49:21');
+INSERT INTO `audit_log` (`id`, `user_id`, `user_label`, `action`, `target`, `meta_json`, `ip`, `created_at`) VALUES
+(921, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:53:09'),
+(922, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 06:53:38'),
+(923, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:01:30'),
+(924, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:02:02'),
+(925, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:29:31'),
+(926, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:30:12'),
+(927, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:34:15'),
+(928, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:40:22'),
+(929, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:47:09'),
+(930, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:52:47'),
+(931, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:57:38'),
+(932, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 07:58:01'),
+(933, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 08:06:42'),
+(934, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 08:06:53'),
+(935, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 08:08:25'),
+(936, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 08:08:49'),
+(937, 1, 'Administrator', 'rapor_pdf_export', 'student:131', '{\"rombel_id\":17,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 08:10:27'),
+(938, 1, 'Administrator', 'save', 'student:56', NULL, '::1', '2026-06-26 11:06:21'),
+(939, 1, 'Administrator', 'add_members', 'rombel:20', '{\"n\":1}', '::1', '2026-06-26 11:06:44'),
+(940, 1, 'Administrator', 'save', 'subject:953', NULL, '::1', '2026-06-26 11:07:35'),
+(941, 1, 'Administrator', 'save', 'aspect:105', NULL, '::1', '2026-06-26 11:07:48'),
+(942, 1, 'Administrator', 'save', 'aspect:106', NULL, '::1', '2026-06-26 11:07:52'),
+(943, 1, 'Administrator', 'save', 'aspect:107', NULL, '::1', '2026-06-26 11:07:58'),
+(944, 1, 'Administrator', 'save', 'aspect:108', NULL, '::1', '2026-06-26 11:08:04'),
+(945, 1, 'Administrator', 'save', 'aspect:109', NULL, '::1', '2026-06-26 11:08:12'),
+(946, 1, 'Administrator', 'save', 'aspect:110', NULL, '::1', '2026-06-26 11:08:18'),
+(947, 1, 'Administrator', 'save', 'aspect:111', NULL, '::1', '2026-06-26 11:08:22'),
+(948, 1, 'Administrator', 'delete', 'rombel:15', NULL, '::1', '2026-06-26 11:08:51'),
+(949, 1, 'Administrator', 'delete', 'rombel:14', NULL, '::1', '2026-06-26 11:08:57'),
+(950, 1, 'Administrator', 'delete', 'rombel:16', NULL, '::1', '2026-06-26 11:09:02'),
+(951, 1, 'Administrator', 'assign_teacher', 'rombel:20/subject:953', '{\"t\":34,\"sem\":null}', '::1', '2026-06-26 11:09:20'),
+(952, 1, 'Administrator', 'save', 'topic:30', NULL, '::1', '2026-06-26 11:09:37'),
+(953, 1, 'Administrator', 'save_attendance', 'rombel:20', '{\"date\":\"2026-06-26\",\"n\":2}', '::1', '2026-06-26 11:11:06'),
+(954, 1, 'Administrator', 'save_attendance', 'rombel:20', '{\"date\":\"2026-06-25\",\"n\":2}', '::1', '2026-06-26 11:11:11'),
+(955, 1, 'Administrator', 'save_attendance', 'rombel:20', '{\"date\":\"2026-06-24\",\"n\":2}', '::1', '2026-06-26 11:11:17'),
+(956, 1, 'Administrator', 'save_attendance', 'rombel:20', '{\"date\":\"2026-06-23\",\"n\":2}', '::1', '2026-06-26 11:11:22'),
+(957, 1, 'Administrator', 'save_grades_daily', 'rombel:20/subj:953/topic:30', '{\"date\":\"2026-06-26\",\"bucket\":\"tengah_ganjil\",\"n\":1}', '::1', '2026-06-26 11:11:59'),
+(958, 1, 'Administrator', 'save_grades_daily', 'rombel:20/subj:953/topic:30', '{\"date\":\"2026-06-25\",\"bucket\":\"tengah_ganjil\",\"n\":2}', '::1', '2026-06-26 11:12:05'),
+(959, 1, 'Administrator', 'save_grades_daily', 'rombel:20/subj:953/topic:30', '{\"date\":\"2026-06-24\",\"bucket\":\"tengah_ganjil\",\"n\":2}', '::1', '2026-06-26 11:12:14'),
+(960, 1, 'Administrator', 'save_grades_daily', 'rombel:20/subj:953/topic:30', '{\"date\":\"2026-06-23\",\"bucket\":\"tengah_ganjil\",\"n\":1}', '::1', '2026-06-26 11:12:20'),
+(961, 1, 'Administrator', 'submit_final_grades', 'rombel:20/subj:953', '{\"sem\":\"ganjil\",\"period\":\"PTS\",\"n\":2}', '::1', '2026-06-26 11:13:51'),
+(962, 1, 'Administrator', 'review_approve_final_grades', NULL, '{\"n\":2,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 11:13:59'),
+(963, 1, 'Administrator', 'review_publish_final_grades', NULL, '{\"n\":2,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 11:14:05'),
+(964, 1, 'Administrator', 'review_unpublish_final_grades', NULL, '{\"n\":2,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 11:14:24'),
+(965, 37, 'Christo Victory, S.S', 'login', 'user:37', NULL, '::1', '2026-06-26 11:16:04'),
+(966, 1, 'Administrator', 'review_revise_final_grades', NULL, '{\"n\":2,\"sem\":\"ganjil\",\"period\":\"PTS\"}', '::1', '2026-06-26 11:16:37'),
+(967, 1, 'Administrator', 'submit_final_grades', 'rombel:20/subj:953', '{\"sem\":\"ganjil\",\"period\":\"PTS\",\"n\":2}', '::1', '2026-06-26 11:17:36');
 
 -- --------------------------------------------------------
 
@@ -736,7 +808,14 @@ INSERT INTO `character_aspects` (`id`, `academic_year_id`, `jenjang`, `nama`, `k
 (38, 20, 'SD', 'Student returns the borrowed things after use', 'Manner'),
 (39, 20, 'SD', 'Student obeys rules and regulations', 'Obedience'),
 (40, 20, 'SD', 'Student is willing to take an advice from teacher and learn from it', 'Obedience'),
-(41, 20, 'SD', 'Student is confident to share an opinion to others in a good way', 'Focus and Confidence');
+(41, 20, 'SD', 'Student is confident to share an opinion to others in a good way', 'Focus and Confidence'),
+(105, 20, 'TK', 'Testing 1', 'Spiritual and morality'),
+(106, 20, 'TK', 'Testing 2', 'Discipline'),
+(107, 20, 'TK', 'Testing 3', 'Manner'),
+(108, 20, 'TK', 'Testing 4', 'Obedience'),
+(109, 20, 'TK', 'Testing 5', 'Focus and Confidence'),
+(110, 20, 'TK', 'Testing 6', 'spiritual'),
+(111, 20, 'TK', 'Testing 7', 'sosial');
 
 -- --------------------------------------------------------
 
@@ -1049,7 +1128,9 @@ INSERT INTO `final_grades` (`id`, `rombel_id`, `subject_id`, `student_id`, `seme
 (48, 17, 191, 164, 'ganjil', 'PTS', 90.00, 90.00, 90.00, NULL, 'draft', NULL, NULL, NULL, '2026-06-26 05:01:28', '2026-06-26 05:01:28', NULL),
 (49, 17, 192, 128, 'ganjil', 'PTS', 85.00, 85.00, 85.00, NULL, 'draft', NULL, NULL, NULL, '2026-06-26 05:01:37', '2026-06-26 05:01:37', NULL),
 (50, 17, 192, 136, 'ganjil', 'PTS', 78.00, 87.00, 78.00, NULL, 'draft', NULL, NULL, NULL, '2026-06-26 05:01:37', '2026-06-26 05:01:37', NULL),
-(51, 17, 190, 131, 'ganjil', 'PTS', 90.00, 90.00, 90.00, 'Komentar adalah ulasan, tanggapan, atau kritik yang diberikan terhadap suatu topik, berita, atau kejadian yang bertujuan untuk menerangkan, menjelaskan.', 'published', NULL, 1, '2026-06-26 13:11:08', '2026-06-26 05:10:25', '2026-06-26 05:11:08', NULL);
+(51, 17, 190, 131, 'ganjil', 'PTS', 90.00, 90.00, 90.00, 'Komentar adalah ulasan, tanggapan, atau kritik yang diberikan terhadap suatu topik, berita, atau kejadian yang bertujuan untuk menerangkan, menjelaskan.', 'published', NULL, 1, '2026-06-26 13:11:08', '2026-06-26 05:10:25', '2026-06-26 05:11:08', NULL),
+(52, 20, 953, 259, 'ganjil', 'PTS', 2.67, NULL, NULL, 'sdfdsf', 'submitted', NULL, 1, '2026-06-26 19:16:37', '2026-06-26 11:12:56', '2026-06-26 11:17:36', NULL),
+(53, 20, 953, 56, 'ganjil', 'PTS', 3.00, NULL, NULL, 'sdfsdfsf mn', 'submitted', NULL, 1, '2026-06-26 19:16:37', '2026-06-26 11:12:56', '2026-06-26 11:17:36', NULL);
 
 -- --------------------------------------------------------
 
@@ -1188,7 +1269,13 @@ INSERT INTO `grades_daily` (`id`, `rombel_id`, `subject_id`, `topic_id`, `studen
 (189, 17, 191, 28, 146, 'ganjil', 'tengah_ganjil', '2026-06-26', 90.00, 90.00, 90.00, NULL, NULL, 37, '2026-06-26 04:21:42', '2026-06-26 04:21:42'),
 (190, 17, 191, 28, 156, 'ganjil', 'tengah_ganjil', '2026-06-26', 90.00, 90.00, 90.00, NULL, NULL, 37, '2026-06-26 04:21:42', '2026-06-26 04:21:42'),
 (191, 17, 191, 28, 164, 'ganjil', 'tengah_ganjil', '2026-06-26', 90.00, 90.00, 90.00, NULL, NULL, 37, '2026-06-26 04:21:42', '2026-06-26 04:21:42'),
-(192, 17, 190, 29, 131, 'ganjil', 'tengah_ganjil', '2026-06-26', 90.00, 90.00, 90.00, NULL, NULL, 1, '2026-06-26 05:10:13', '2026-06-26 05:10:13');
+(192, 17, 190, 29, 131, 'ganjil', 'tengah_ganjil', '2026-06-26', 90.00, 90.00, 90.00, NULL, NULL, 1, '2026-06-26 05:10:13', '2026-06-26 05:10:13'),
+(193, 20, 953, 30, 259, 'ganjil', 'tengah_ganjil', '2026-06-26', NULL, NULL, NULL, 3, NULL, 1, '2026-06-26 11:11:59', '2026-06-26 11:11:59'),
+(194, 20, 953, 30, 259, 'ganjil', 'tengah_ganjil', '2026-06-25', NULL, NULL, NULL, 2, NULL, 1, '2026-06-26 11:12:05', '2026-06-26 11:12:05'),
+(195, 20, 953, 30, 56, 'ganjil', 'tengah_ganjil', '2026-06-25', NULL, NULL, NULL, 4, NULL, 1, '2026-06-26 11:12:05', '2026-06-26 11:12:05'),
+(196, 20, 953, 30, 259, 'ganjil', 'tengah_ganjil', '2026-06-24', NULL, NULL, NULL, 3, NULL, 1, '2026-06-26 11:12:14', '2026-06-26 11:12:14'),
+(197, 20, 953, 30, 56, 'ganjil', 'tengah_ganjil', '2026-06-24', NULL, NULL, NULL, 2, NULL, 1, '2026-06-26 11:12:14', '2026-06-26 11:12:14'),
+(198, 20, 953, 30, 56, 'ganjil', 'tengah_ganjil', '2026-06-23', NULL, NULL, NULL, 3, NULL, 1, '2026-06-26 11:12:20', '2026-06-26 11:12:20');
 
 -- --------------------------------------------------------
 
@@ -1314,7 +1401,7 @@ CREATE TABLE `report_templates` (
 --
 
 INSERT INTO `report_templates` (`id`, `academic_year_id`, `jenjang`, `layout_json`, `layout_hidden_json`, `header_img`, `footer_img`) VALUES
-(11, 20, '', NULL, NULL, NULL, NULL),
+(11, 20, 'TK', NULL, NULL, NULL, NULL),
 (12, 20, 'SD', NULL, NULL, NULL, NULL),
 (13, 20, 'SMA', NULL, NULL, NULL, NULL),
 (14, 20, 'SMP', NULL, NULL, NULL, NULL);
@@ -1343,9 +1430,9 @@ CREATE TABLE `rombel` (
 --
 
 INSERT INTO `rombel` (`id`, `academic_year_id`, `jenjang`, `tingkat`, `nama`, `wali_id`, `kapasitas`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(14, 20, '', 0, 'PG', NULL, 40, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(15, 20, '', 1, 'TK A', NULL, 40, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(16, 20, '', 2, 'TK B', NULL, 40, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
+(14, 20, 'TK', 0, 'PG', NULL, 40, '2026-06-21 22:50:00', '2026-06-26 11:08:57', '2026-06-26 19:08:57'),
+(15, 20, 'TK', 1, 'TK A', NULL, 40, '2026-06-21 22:50:00', '2026-06-26 11:08:51', '2026-06-26 19:08:51'),
+(16, 20, 'TK', 2, 'TK B', NULL, 40, '2026-06-21 22:50:00', '2026-06-26 11:09:02', '2026-06-26 19:09:02'),
 (17, 20, 'SD', 1, 'Kelas 1', 39, 40, '2026-06-21 22:54:13', '2026-06-23 23:09:10', NULL),
 (18, 20, 'SMP', 7, 'Kelas 7', 39, 40, '2026-06-21 23:05:02', '2026-06-22 04:51:43', NULL),
 (19, 20, 'SMA', 10, 'Kelas 10', 41, 40, '2026-06-21 23:10:21', '2026-06-22 04:51:48', NULL),
@@ -1506,6 +1593,7 @@ INSERT INTO `rombel_members` (`rombel_id`, `student_id`, `joined_at`) VALUES
 (19, 256, '2026-06-21 23:10:21'),
 (19, 257, '2026-06-21 23:10:21'),
 (19, 258, '2026-06-21 23:10:21'),
+(20, 56, '2026-06-26 11:06:44'),
 (20, 259, '2026-06-23 00:54:37');
 
 -- --------------------------------------------------------
@@ -1534,7 +1622,8 @@ INSERT INTO `rombel_subject_teachers` (`id`, `rombel_id`, `subject_id`, `teacher
 (18, 17, 66, 34, NULL, '2026-06-23 23:08:03'),
 (19, 17, 192, 34, NULL, '2026-06-26 03:43:49'),
 (20, 17, 190, 43, NULL, '2026-06-26 03:54:28'),
-(21, 17, 191, 32, NULL, '2026-06-26 03:54:43');
+(21, 17, 191, 32, NULL, '2026-06-26 03:54:43'),
+(30, 20, 953, 34, NULL, '2026-06-26 11:09:20');
 
 -- --------------------------------------------------------
 
@@ -1625,90 +1714,90 @@ CREATE TABLE `students` (
 --
 
 INSERT INTO `students` (`id`, `academic_year_id`, `nisn`, `nis`, `nama`, `jenjang`, `tingkat`, `jk`, `tempat_lahir`, `tgl_lahir`, `alamat`, `nama_ayah`, `nama_ibu`, `pekerjaan_ayah`, `pekerjaan_ibu`, `telp_ortu`, `foto_path`, `is_active`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(35, 20, 'PAUD000001', 'P000001', 'Nettadevi Zamdea Yawan', '', 0, 'P', 'Mangupura', '2023-04-10', 'Jl. Danau Batur V Perdana Graha Residence No 5 Lingk.Taman Griya Jimbaran', 'Ade Prima Mardiana', '081344961315', NULL, NULL, '081326404865', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(36, 20, 'PAUD000002', 'P000002', 'Ni Kadek Belda Danira Putri Widari', '', 0, 'P', 'Mangupura', '2022-12-21', 'Jl. Tegal Sari Gg Tegal Mas No 3 Jimbaran', 'Ni Komang Sri Martini', '081238109460', NULL, NULL, '081237240825', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(37, 20, 'PAUD000003', 'P000003', 'Made Araya Wimana Jinatriya', '', 0, 'L', 'Mangupura', '2023-01-16', 'Jl. Raya Mandiri - 53, Lingk. Taman Griya Jimbaran', 'Luh Tiwika Praba, S.Pd., M.Pd.', '081916232672', NULL, NULL, '081805439479', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(38, 20, 'PAUD000004', 'P000004', 'Putu Keina Roxanne Priantana', '', 0, 'P', 'Mangupura', '2022-12-22', 'Tempekan Giri Sari Pecatu Dusun.Tempekan Giri Sari Pecatu', 'Ni Made Yuniati', '085737001369', NULL, NULL, '081573938903', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(39, 20, 'PAUD000005', 'P000005', 'I Made Arkana Adiguna', '', 0, 'L', 'Mangupura', '2022-07-20', 'Jalan Taman Giri Gg Kamboja no 4, BR Mumbul Dusun. BR Mumbul Benoa', 'Kadek Andita Dwi Pratiwi', '081337802052', NULL, NULL, '081339888091', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(40, 20, 'PAUD000006', 'P000006', 'Made Prananda Wijaya Karang', '', 0, 'L', 'Buleleng', '2023-02-12', 'Jln.Raya Kampus Unud.Perumahan Graha Anyar .Blok.VI.No.11', 'I Gusti Ayu Ketut Wina Hariani', '085792584404', NULL, NULL, '082144172668', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(41, 20, 'PAUD000007', 'P000007', 'Made Sean Arya Sanjaya', '', 0, 'L', 'Denpasar', '2022-11-24', 'Br. Kangin, Desa Pecatu, Kec. Kuta Selatan,Kab. Badung', 'I Gst Agung A Densi Wulandari', '082147387243', NULL, NULL, '087835058616', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(42, 20, 'PAUD000008', 'P000008', 'Ni Kadek Zea Kanaya Pravita Bhuana', '', 0, 'P', 'Mangupura', '2022-10-10', 'Br. Tengah Pecatu Dusun. Br Tengah Pecatu', 'Anak Agung Istri Putri Ekaristyanti Dalem', '082236277567', NULL, NULL, '082132610014', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(43, 20, 'PAUD000009', 'P000009', 'I Kadek Nakula Radhiva Abiwara', '', 0, 'L', 'Denpasar', '2023-01-13', 'Jalan Karang Mas, Lingk. Pantai Sari Jimbaran', 'Luh Ayu Ari Santika Dewi, S.Sos.', '085739210090', NULL, NULL, '08980789808', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(44, 20, 'PAUD000010', 'P000010', 'I Komang Sadewa Radhiva Abiandra', '', 0, 'L', 'Denpasar', '2023-01-13', 'Jalan Karang Mas, Lingk. Pantai Sari Jimbaran', 'Luh Ayu Ari Santika Dewi, S.Sos.', '085739210090', NULL, NULL, '08980789808', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(45, 20, 'PAUD000011', 'P000011', 'Ni Made Keina Nattaya Jyoti', '', 0, 'P', 'Denpasar', '2023-02-15', 'Jl. Kor Jimbaran C, Blok A12 Perumahan Easterland Jimbaran', 'Ni Wayan Desi Aryaningsih', '081999906015', NULL, NULL, '081916050616', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
+(35, 20, 'PAUD000001', 'P000001', 'Nettadevi Zamdea Yawan', 'TK', 0, 'P', 'Mangupura', '2023-04-10', 'Jl. Danau Batur V Perdana Graha Residence No 5 Lingk.Taman Griya Jimbaran', 'Ade Prima Mardiana', '081344961315', NULL, NULL, '081326404865', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(36, 20, 'PAUD000002', 'P000002', 'Ni Kadek Belda Danira Putri Widari', 'TK', 0, 'P', 'Mangupura', '2022-12-21', 'Jl. Tegal Sari Gg Tegal Mas No 3 Jimbaran', 'Ni Komang Sri Martini', '081238109460', NULL, NULL, '081237240825', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(37, 20, 'PAUD000003', 'P000003', 'Made Araya Wimana Jinatriya', 'TK', 0, 'L', 'Mangupura', '2023-01-16', 'Jl. Raya Mandiri - 53, Lingk. Taman Griya Jimbaran', 'Luh Tiwika Praba, S.Pd., M.Pd.', '081916232672', NULL, NULL, '081805439479', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(38, 20, 'PAUD000004', 'P000004', 'Putu Keina Roxanne Priantana', 'TK', 0, 'P', 'Mangupura', '2022-12-22', 'Tempekan Giri Sari Pecatu Dusun.Tempekan Giri Sari Pecatu', 'Ni Made Yuniati', '085737001369', NULL, NULL, '081573938903', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(39, 20, 'PAUD000005', 'P000005', 'I Made Arkana Adiguna', 'TK', 0, 'L', 'Mangupura', '2022-07-20', 'Jalan Taman Giri Gg Kamboja no 4, BR Mumbul Dusun. BR Mumbul Benoa', 'Kadek Andita Dwi Pratiwi', '081337802052', NULL, NULL, '081339888091', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(40, 20, 'PAUD000006', 'P000006', 'Made Prananda Wijaya Karang', 'TK', 0, 'L', 'Buleleng', '2023-02-12', 'Jln.Raya Kampus Unud.Perumahan Graha Anyar .Blok.VI.No.11', 'I Gusti Ayu Ketut Wina Hariani', '085792584404', NULL, NULL, '082144172668', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(41, 20, 'PAUD000007', 'P000007', 'Made Sean Arya Sanjaya', 'TK', 0, 'L', 'Denpasar', '2022-11-24', 'Br. Kangin, Desa Pecatu, Kec. Kuta Selatan,Kab. Badung', 'I Gst Agung A Densi Wulandari', '082147387243', NULL, NULL, '087835058616', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(42, 20, 'PAUD000008', 'P000008', 'Ni Kadek Zea Kanaya Pravita Bhuana', 'TK', 0, 'P', 'Mangupura', '2022-10-10', 'Br. Tengah Pecatu Dusun. Br Tengah Pecatu', 'Anak Agung Istri Putri Ekaristyanti Dalem', '082236277567', NULL, NULL, '082132610014', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(43, 20, 'PAUD000009', 'P000009', 'I Kadek Nakula Radhiva Abiwara', 'TK', 0, 'L', 'Denpasar', '2023-01-13', 'Jalan Karang Mas, Lingk. Pantai Sari Jimbaran', 'Luh Ayu Ari Santika Dewi, S.Sos.', '085739210090', NULL, NULL, '08980789808', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(44, 20, 'PAUD000010', 'P000010', 'I Komang Sadewa Radhiva Abiandra', 'TK', 0, 'L', 'Denpasar', '2023-01-13', 'Jalan Karang Mas, Lingk. Pantai Sari Jimbaran', 'Luh Ayu Ari Santika Dewi, S.Sos.', '085739210090', NULL, NULL, '08980789808', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(45, 20, 'PAUD000011', 'P000011', 'Ni Made Keina Nattaya Jyoti', 'TK', 0, 'P', 'Denpasar', '2023-02-15', 'Jl. Kor Jimbaran C, Blok A12 Perumahan Easterland Jimbaran', 'Ni Wayan Desi Aryaningsih', '081999906015', NULL, NULL, '081916050616', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
 (46, 20, '0000000012', '0000012', 'Gede Keenrakai Bameswara Sanjaya', 'SMA', 10, 'L', 'Badung', '2022-12-20', 'Jalan Bambang Kembar No. 1 Pecatu', 'Ni Luh Ria Dhyanti Dewi', '087883590866', NULL, NULL, '085737402710', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 01:57:51', NULL),
-(47, 20, 'PAUD000013', 'P000013', 'Josephine Elloise Victoria Tjoo', '', 0, 'P', 'Mangupura', '2023-03-18', 'Jl. Mandiri IV no. 8 Lingk. Taman Griya Jimbaran', 'Della Agnes Victoria', '-', NULL, NULL, '081217778620', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(48, 20, 'PAUD000014', 'P000014', 'I Gede Egnan Narantha Alvarendra', '', 0, 'L', 'Denpasar', '2022-08-28', 'Perum Bualu Indah, Jaln Flamboyan 4 Blok A84 Nusa Dua', 'Ni Putu Meidyani', '082247988587', NULL, NULL, '085777119854', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(49, 20, 'PAUD000015', 'P000015', 'Ni Putu Ryuka Kinandya', '', 0, 'P', 'Mangupura', '2022-11-18', 'Jl. Pratama No.93 Nusa Dua Dusun. Lingk Peken Benoa', 'Ni Nyoman Tri Rahayu Kusuma Dewi', '081915602302', NULL, NULL, '081936165164', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(50, 20, 'PAUD000016', 'P000016', 'Ni Putu Yuina Dewi Vantama', '', 0, 'P', 'Mangupura', '2023-07-30', 'Jln. Taman Ambengan, Gang Mangga, No. 4TM', 'Sandra Vasquien', '0881037171444', NULL, NULL, '0881037437484', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(51, 20, 'PAUD000017', 'P000017', 'I Wayan Abichandra Arsa Lingga', '', 0, 'L', 'Denpasar', '2022-10-22', 'Jalan Pengeracikan Gang Tambiak No.1', 'Ni Made Ardiani', '8.1320325965E10', NULL, NULL, '8.1282596453E10', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(52, 20, 'PAUD000018', 'P000018', 'Putu Ava Janitra', '', 0, 'P', 'Badung', '2022-09-06', 'Jl. Sanggar Alit No.5 Lingk. Perarudan Dusun. Lingk Perarudan Jimbaran.', 'Evy Clara Yoseph', '8.1353529162E10', NULL, NULL, '8.1338793473E10', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(53, 20, 'PAUD000019', 'A000019', 'I Putu Arsya Prabaswara Dwipayana', '', 1, 'L', 'Mangupura', '2022-03-08', 'Lingk. Puri Nusa Dua Gg Viii/63 Ys Benoa', 'I Putu Angga Dwipayana, S.Tr.Par', 'Ni Luh Gede Anggraeni Puspa Dewi, A.Md.Keb', NULL, NULL, '085738303526', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(54, 20, 'PAUD000020', 'A000020', 'Putu Desna Arsyanendra Rahjasa', '', 1, 'L', 'Mangupura', '2021-07-20', 'Lingkungan Balekembar, Benoa', 'PT.Surya Laksana Rahjasa, S.Tar.Par', 'Queency Esmeralda', NULL, NULL, '081339302364', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(55, 20, 'PAUD000021', 'A000021', 'Gede Bara Prabangkara Putra Bumi', '', 1, 'L', 'Klungkung', '2021-08-15', 'Dusun Getakan Desa Getakan, Kec. Banjarangkan Kab. Klungkung', 'Nyoman Bayu Bumi Ratnata', 'Desak Made Wiwid Jeniari', NULL, NULL, '087862282551', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(56, 20, 'PAUD000022', 'A000022', 'Emmaus Snow Bullen', '', 1, 'L', 'Kettering Inggris', '2021-08-31', 'Perdana Giri Cluster, Jl. Perdana 1 No.2, Benoa 80361', 'Matthew David Bullen', 'Devie Pangalila', NULL, NULL, '088211290011', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(57, 20, 'PAUD000023', 'A000023', 'Ni Komang Isyana Namirayasa Putri', '', 1, 'P', 'Denpasar', '2021-10-05', 'Jln. By Pass Ngurah Rai Perum Harvestland No. C9 Kuta', 'I Gede Wireyasa, Se', 'Ni Wayan Geminiyawati, Se', NULL, NULL, '\'-', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(58, 20, 'PAUD000024', 'A000024', 'Kadek Bian Sinatra Putra', '', 1, 'L', 'Denpasar', '2021-11-16', 'Jl. Sunset Road/LBC', 'I Komang Ivan Swarnadwipa,S.T', 'Dicka Puspita Ayu, S.E.', NULL, NULL, '087761649797', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(59, 20, 'PAUD000025', 'A000025', 'Ni Komang Areum Maudya Puwi', '', 1, 'P', 'Denpasar', '2021-09-29', 'Perum Beranda Garden Jl.Palm VIII No.7', 'Putu Wirtawan', 'Ni Kadek Ariasih', NULL, NULL, '081904294750', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(60, 20, 'PAUD000026', 'A000026', 'I Komang Aurelio Radhika Wiguna', '', 1, 'L', 'Denpasar', '2022-06-25', 'Jl. Lutut No.99 Siligita Nusa Dua', 'Agus Sastra Wiguna, S.Kom', 'Made Widya Dharma Santi, SE', NULL, NULL, '085333929814', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(61, 20, 'PAUD000027', 'A000027', 'Pande Kadek Dion Saktyawan', '', 1, 'L', 'Denpasar', '2022-06-07', 'Jl Giri Kencana No 6e Lingkungan Mekarsari Simpangan Jimbaran', 'Pande Made Sutawan', 'Ni Wayan Pani Astuti', NULL, NULL, '087861386266', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(62, 20, 'PAUD000028', 'A000028', 'Delson Dalbert Lin', '', 1, 'L', 'Mangupura', '2022-06-09', 'Jalan Teges Gede II No 6', 'Sanny', 'Sandri', NULL, NULL, '081238306868', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(63, 20, 'PAUD000029', 'A000029', 'I Wayan Mahesa Natha Gautama', '', 1, 'L', 'Denpasar', '2021-09-27', 'Jl. Karang Mas, LINK.PANTAI SARI JIMBARAN DUSUN. Lingk Pantai Sari Jimbaran', 'I Wayan Bagus Citra Wedana', 'Luh Ayu Ari Santika Dewi, S.Sos.', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(64, 20, 'PAUD000030', 'A000030', 'Putu Ayuka Drisana Gantari Sulaksana', '', 1, 'P', 'Mangupura', '2021-09-17', 'Jalan Taman Giri Nusa Dua', 'I Wayan Gede Arya Sulaksana', 'Ni Made Ayu Aprilia', NULL, NULL, '085737605300', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(65, 20, 'PAUD000031', 'A000031', 'Rachel Maureen Jovita', '', 1, 'P', 'Pontianak', '2022-06-13', 'Jln. Uluwatu 2 Perumahan Jasmine Mensye no 9', 'Hendrawan Hasjim', 'Isti Cholisah', NULL, NULL, '082215566667', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(66, 20, 'PAUD000032', 'A000032', 'Putu Sinta Ganitri Irandani', '', 1, 'P', 'Mangupura', '2022-04-02', 'BR Dinas Suluban Pecatu Dusun. BR Dinas Suluban Pecatu', 'Kadek Ady Irawan', 'Desak Dwi Ardani', NULL, NULL, '085737054055', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(67, 20, 'PAUD000033', 'A000033', 'I Made Arya Ranaka Shankara', '', 1, 'L', 'Mangupura', '2021-08-28', 'Jl Uluwatu No.5. Lingk. Ubung Dusun. Lingk Ubung Jimbaran', 'I Made Arya Wira Maha Putra.S.H', 'Ni Nyoman Mega Silvia Wijana.S.M', NULL, NULL, '081339690868', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(68, 20, 'PAUD000034', 'A000034', 'Made Natta Praditya Putra', '', 1, 'L', 'Denpasar', '2022-04-21', 'Perum Bumi Jimbaran Asri Jl Kampus Udayana no 22', 'I Putu Martha Kresna Raditya', 'Made Ayu mas Prima Mandasari', NULL, NULL, '082144544448', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(69, 20, 'PAUD000035', 'A000035', 'I Gusti Putu Davindra Agung Prameswara', '', 1, 'L', 'Denpasar', '2021-11-08', 'Perumahan Puri Gading Jl. Elang B6 no 15 , Jimbaran , Kuta Selatan , Badung.Bali', 'I Gusti Putu Yuda Pariartha', 'Putu Lenny Swari Agustini', NULL, NULL, '081529424421', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(70, 20, 'PAUD000036', 'A000036', 'Ni Kadek Anindira Putri Prasani', '', 1, 'P', 'Denpasar', '2022-02-12', 'Jl. Nuansa Utama XXIII/18 A, Lingk. Taman Griya Dusun. Link Taman Griya Jimbaran', 'I Gede Abi Praboga', 'Luh Putu Sania Diandra Sari', NULL, NULL, '082145181264', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(71, 20, 'PAUD000037', 'A000037', 'I Gede Alexander Jordan Saputra', '', 1, 'L', 'Mangupura', '2020-11-05', 'Jl. Pura Kulat Pecatu', 'I Putu Edy Saputra', 'Yuliani Levelline Presisca', NULL, NULL, '081529342445', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(72, 20, 'PAUD000038', 'A000038', 'Vania Almira Zhang', '', 1, 'P', 'Mangupura', '2022-04-05', 'Perumahan Bhumi Jimbaran Asri. Jalan Kampus Udayana 2 No 13', 'Thian Bun', 'Vivi Wulandari', NULL, NULL, '081378655515', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(73, 20, 'PAUD000039', 'A000039', 'Ni Nyoman Luna Ashadanti Putra', '', 1, 'P', 'Denpasar', '2022-03-29', 'Jalan Taman Ambengan No 11 A', 'I Ketut Yossy Mandara Putra', 'Ni Nyoman Kristiana Dewi', NULL, NULL, '089621071120', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(74, 20, 'PAUD000040', 'A000040', 'Luh Gita Puspa Karang', '', 1, 'P', 'Buleleng', '2021-08-02', 'Jln.Raya Kampus Unud.Perumahan Graha Anyar .Blok.VI.No.11', 'Nyoman Sudiartawan', 'I Gusti Ayu Ketut Wina Hariani', NULL, NULL, '085792584404', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(75, 20, 'PAUD000041', 'A000041', 'Ni Komang Nadha Gistara Dananjaya', '', 1, 'P', 'Denpasar', '2021-09-12', 'Jl. Bukit Hijau No 18 Lingk. Mekar Sari Simpangan', 'I Wayan Dedik Saputra', 'Ni Komang Deni', NULL, NULL, '081237307777', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(76, 20, 'PAUD000042', 'A000042', 'Putu Darren Laksamana Putra Pratama', '', 1, 'L', 'Karangasem', '2021-06-24', 'Jalan Teras Bukit Il No 11A Goa Gong Jimbaran Kuta Selatan Badung Bali', 'I Gede Hary Pratama', 'Ni Kadek Dwi Purnami', NULL, NULL, '085792196681', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(77, 20, 'PAUD000043', 'A000043', 'I Wayan Nadendra Arya Wiguna', '', 1, 'L', 'Denpasar', '2021-12-14', 'Jln Kampus Udayana No. 11B Jimbaran', 'I Wayan Suka Bayu Adnyana', 'Ari Purwanti', NULL, NULL, '082247010787', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(78, 20, 'PAUD000044', 'A000044', 'I Kadek Varendra Battra Adiwiguna', '', 1, 'L', 'Mangupura', '2021-11-17', 'Jln. Pratama No. 93 Lingkungan Peken Benoa Nusa Dua', 'Kadek Battra Adiputra', 'Ni Kadek Artanti', NULL, NULL, '081236332156', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(79, 20, 'PAUD000045', 'A000045', 'Anak Agung Bagus Mahesa Artha Wicaksana', '', 1, 'L', 'Mangupura', '2021-09-17', 'Jalan Uluwatu II, Gang Tambak Sari No.10 Jimbaran', 'Anak Agung Ngurah Juliadi', 'Ni Made Lisna Cahya Lestari, A,Md', NULL, NULL, '085792040273', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(80, 20, 'PAUD000046', 'A000046', 'I Putu Agastya Chandra Radeva', '', 1, 'L', 'Mangupura', '2021-08-15', 'Jl. Uluwatu Gg. Bukit Hijau 99, Lingk. Jerokuta, Jimbaran.', 'I Putu Tedy, S.T.', 'Luh Gde Hari Martha Pratiwi, S.E.', NULL, NULL, '085792799227', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(81, 20, 'PAUD000047', 'A000047', 'Ni Nyoman Bulan Queensha Hasana Santika', '', 1, 'P', 'Denpasar', '2022-06-24', 'Jalan Labuhan Sait Banjar Dinas Labuhan Sait No39X Pecatu', 'I Made Santika,Se', 'Ni Made Yusmini,Se.,M.Si', NULL, NULL, '081299996478', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(82, 20, 'PAUD000048', 'A000048', 'I Gusti Putu Agung Prawara Wijaksa', '', 1, 'L', 'Denpasar', '2022-07-08', 'Jln Kubung Batu Raya No 18, TMN Griya Jimbaran', 'I Gusti Putu Agung Widyagoca', 'Ni Putu Putri Ayu Wijayanthi, S.Kom, MM', NULL, NULL, '087715670082', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(83, 20, 'PAUD000049', 'A000049', 'Luna Adreena Yousef', '', 1, 'P', 'Jakarta', '2021-11-09', 'Jl. Taman Ambengan IV Perumahan De Casa Blok A no. 4 Jimbaran', 'Yousef Nael Abdulraheem Mahmoud', 'Anggia Prasanti', NULL, NULL, '081283007345', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(84, 20, 'PAUD000050', 'A000050', 'Grey Benjamin', '', 1, 'L', 'Sleman', '2021-03-26', 'Jalan Nuansa Utama X No.9 Perumahan Kori Nuansa Taman Griya Jimbaran', 'Reggy Samantha', 'Prisilia Monalisa Rompies', NULL, NULL, '085228018133', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(85, 20, 'PAUD000051', 'A000051', 'Niken Arum Hayuningtias', '', 1, 'P', 'Mangupura', '2021-02-19', 'Jalan petanahan sari no 3', 'Marishal Dwi Aristiwan', 'Putu Candra Purnama Sari', NULL, NULL, '081918600101', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(86, 20, '3208534735', 'B000052', 'Mackenzie Charlotte Glover', '', 2, 'P', 'Batang', '2020-12-22', 'Jl Taman Giri Perum Samatha', 'Darren Lee Glover', 'Efa Lusiana', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(87, 20, '3206767130', 'B000053', 'Jio Santoso', '', 2, 'L', 'Mangupura', '2020-12-01', 'Jl. Danau Tamblingan Xiv No.28 Lingk.Taman Griya', 'Ricky Santoso', 'Pebbi Lieyanti Salim', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(88, 20, '3217722591', 'B000054', 'Anak Agung Raviendra Putra Yodha', '', 2, 'L', 'Mangupura', '2021-05-17', 'Jl. By Pass Ngr.Rai No.61 Lingk.Pengenderan Kedonganan Dusun. Lingk Pengenderan', 'A.A.Putu Purna Aditya Putra', 'Ni Kadek Desy Mahadewi', NULL, NULL, '087860675290', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(89, 20, '3200879246', 'B000055', 'Angel Sky Ubbama Romli', '', 2, 'P', 'Mangupura', '2020-09-02', 'Jl. Pura Dalem Gaing Mas Lingk Tegal', 'Moh. Romli', 'Yulia Mutiara Sukma, S.Pd', NULL, NULL, '082282989167', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(90, 20, '3215728328', 'B000056', 'Azzalea Roseli Ningrum', '', 2, 'P', 'Denpasar', '2021-04-20', 'Kuta Permai Iii No 19', 'Andrew', 'Amelia Diah Ningrum', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(91, 20, '3214259946', 'B000057', 'Azzka Noah Ningrum', '', 2, 'L', 'Denpasar', '2021-04-20', 'Kuta Permai Iii No 19', 'Andrew', 'Amelia Diah Ningrum', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(92, 20, '3212278387', 'B000058', 'I Gede Gandiwa Mashutama', '', 2, 'L', 'Denpasar', '2021-05-05', 'Jl. Pantai Sari No.13c Lingk. Menega Jimbaran Dusun. Lingk Menega Jimbaran', 'I Wayan Julyan Satria Megano', 'Ni Wayan Fitriani', NULL, NULL, '089696060794', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(93, 20, '3210036578', 'B000059', 'I Gede Riganzyo Sagaraswin Perdana', '', 2, 'L', 'Denpasar', '2021-01-11', 'Jalan Mrajapati No 10x Jimbaran', 'I Gede Agus Hendra Perdana Putra', 'Ni Wayan Nari Widiadih, A.Md', NULL, NULL, '081337306001', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(94, 20, '3201873237', 'B000060', 'I Made Luky Darmavian Putra', '', 2, 'L', 'Denpasar', '2020-09-06', 'Kampus Unud Tmn . Ambengan 11 A, Lingk Perarudan', 'I Ketut Yossy Mandara Putra', 'Ni Nyoman Kristiana Dewi', NULL, NULL, '089621071120', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(95, 20, '3210290172', 'B000061', 'I Putu Bryan Kennard Anggara', '', 2, 'L', 'Mangupura', '2021-03-05', 'Jl.Mrajapati No.10x Lingk.Pesalakan', 'I Komang Agus Hari Anggara', 'Ni Komang Riska Manika Damayanti', NULL, NULL, '082147938014', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(96, 20, '3208348005', 'B000062', 'I Wayan Bryan Danendra Putra Mahardika', '', 2, 'L', 'Mangupura', '2020-12-09', 'Lingk. Perarudan Jimbaran Dusun. Lingk Perarudan Jimbaran', 'I Nyoman Yoga Putra Mahardika', 'Ni Komang Sri Martini', NULL, NULL, '081238109460', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(97, 20, '3211722661', 'B000063', 'Ni Komang Olivia Ananda Putri Widiyana', '', 2, 'P', 'Denpasar', '2021-06-10', 'Banjar Dauh Pasar, Pergung-Mendoyo-Jembrana', 'I Nyoman Tri Widiyana', 'Wiwin Widayanti', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(98, 20, '3207629391', 'B000064', 'Ni Made Damara Ayu Nawangwulan', '', 2, 'P', 'Mangupura', '2020-09-14', 'Jl Uluwatu No 21, Lingk .Pesalakan Dusun. Lingk Pesalakan Jimbaran', 'I Gede Eka Edwin Saputra, S.E', 'Putu Diah Indrawati Bendesa, Sh., Mh', NULL, NULL, '085737405229', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(99, 20, '3214776946', 'B000065', 'Nyoman Alisha Mas Ayu Gayatri', '', 2, 'P', 'Singaraja', '2021-06-14', 'Jl. Taman Giri Perum. Griya Nugraha Blok C.Ix No.20 Lingk. Mumbul Dusun. Link Mumbul Bedoa', 'I Putu Mas Darmawan', 'Ni Nyoman Suasih', NULL, NULL, '081339146257', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(100, 20, '3216850076', 'B000066', 'Putu Kania Lakshita Jinatriya', '', 2, 'P', 'Mangupura', '2021-04-02', 'Jl. Raya Mandiri- 53. Lingk Taman Griya Jimbaran Dusun. Lingk Taman Griya Jimbaran', 'Drg. I Putu Risca Pramana Yudha', 'Luh Tiwika Praba, S.Pd.,M.Pd', NULL, NULL, '081916232672', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(101, 20, '3214819586', 'B000067', 'Sky Fernando', '', 2, 'L', 'Mangupura', '2021-01-15', 'Jl.Nuansa Utama Xviii, Perum Griya Sari Permata Ii', 'Sandi', 'Marina Okta Viana', NULL, NULL, '082359587828', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(102, 20, '3216532636', 'B000068', 'Ni Putu Nadine Kalyani Putri', '', 2, 'P', 'Denpasar', '2021-01-23', 'Tempekan Selonding, Br.Kangin Pecatu Dusun. Br Kangin Pecatu', 'I Made Septia Suprayana', 'Ni Wayan Triariyani Giri, S.E.', NULL, NULL, '087860569543', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(103, 20, '3211457789', 'B000069', 'Kalea Chayra Ramadhani', '', 2, 'P', 'Tangerang Selatan', '2021-05-08', 'Jl. Kartika Iii No.101-G Kpad', 'Ikbal Adiguna Perdana Wibowo', 'Tesza Badina Korompis', NULL, NULL, '081228666872', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(104, 20, 'PAUD000070', 'B000070', 'Made Rezvan Adhitama', '', 2, 'L', 'Denpasar', '2021-04-17', 'Jln Pratama Gg Mertajati No 1 Nusa Dua', 'I Made Sudarsana, St.', 'Ni Luh Ayu Sundari', NULL, NULL, '081353022716', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(105, 20, 'PAUD000071', 'B000071', 'Putu Wiguna Jayantara', '', 2, 'L', 'Denpasar', '2020-04-14', 'BR. Kangin Dusun. BR Kangin Pecatu', 'I Wayan Jayantara', 'Luh Dewi Adnyani', NULL, NULL, '085739063830', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(106, 20, 'PAUD000072', 'B000072', 'Putu Arthur Radeva Putra', '', 2, 'L', 'Lombok Utara', '2020-11-25', 'Perumahan Mandala Griya, Jalan Maya Loka Block X No. 1 Benoa, Kuta Selatan', 'Putu Muliana', 'Nuning Wardani', NULL, NULL, '082147858227', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(107, 20, '3202588618', 'B000073', 'Giovano Tohjaya', '', 2, 'L', 'Denpasar', '2020-11-22', 'Jalan Pulau Buton no. 26 Dauhwaru Jembrana', 'Septhian Geraldy Tohjaya', 'Jesika Ginotodihardjo', NULL, NULL, '082247810777', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(108, 20, 'PAUD000074', 'B000074', 'Ni Putu Aileen Putri Prasani', '', 2, 'P', 'Denpasar', '2020-11-28', 'Jl. Nuansa Utama XXIII/18 A, Lingk Taman Rama', 'I Gede Abi Praboga', 'Luh Putu Sania Diandra Sari', NULL, NULL, '082145181264', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(109, 20, 'PAUD000075', 'B000075', 'Ni Putu Dahayu Gantari Yuki', '', 2, 'P', 'Denpasar', '2021-03-08', 'Jalan sempati no 21 tuban', 'I Made Rizky Ryan Kasada', 'Ni Putu Herma Yulianti', NULL, NULL, '087860880602', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(110, 20, '3211851406', 'B000076', 'I Gede Agus Birendra Adinata', '', 2, 'L', 'Mangupura', '2021-01-11', 'Jl Maya Loka, Perum Mandala Griya Blok 1 No 14, Lingkungan Terora, Benoa', 'I Komang Gede Sumaryana, Se', 'Kadek Yunita Dewi', NULL, NULL, '085253072494', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(111, 20, 'PAUD000077', 'B000077', 'Anslira Dwitama Weltris', '', 2, 'L', 'Denpasar', '2020-12-11', 'Jl. Celagi Basur gg Kamboja 1 no 120 jimbaran', 'Novan Eko Sudarsono', 'A.A Citra Dewi, A.Md', NULL, NULL, '085333730323', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(112, 20, 'PAUD000078', 'B000078', 'Made Alia Mita Maharani', '', 2, 'P', 'Denpasar', '2020-12-22', 'Jalan Pasraman Unud Blok E No. 38, Jimbaran, Bali', 'I Gede Anom Sastrawan, S.Par.,M.Par', 'Ni Putu Anik Prabawati, S.IP.,M.A.P.', NULL, NULL, '08113969898', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(113, 20, 'PAUD000079', 'B000079', 'Genevieve Shasya Permata Wijaya', '', 2, 'P', 'Denpasar', '2021-03-26', 'Jln Nuansa Utama XXI No 23 A Taman Griya Jimbaran', 'Yohanes Pandhu Wijaya', 'Vincensia Beatrick Permatasari', NULL, NULL, '087838475553', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(114, 20, 'PAUD000080', 'B000080', 'Lewin Havertz Yeo', '', 2, 'L', 'Tanjung Pinang', '2020-08-12', 'Jl. Blong Poh Gang Plamboyan, Jimbaran', 'Eko Kurniawan', 'Meta', NULL, NULL, '087893391636', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(115, 20, 'PAUD000081', 'B000081', 'I Komang Pradita Bayu Mahendra', '', 2, 'L', 'Tabanan', '2020-04-09', 'Jalan Taman Sari Gang Dahlia No 2 Lingkungan Kelan Abian, Tuban', 'I Putu Adhi Kerta Mahendra', 'Luh Gede Dwi Fernayanti', NULL, NULL, '08970207372', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(116, 20, 'PAUD000082', 'B000082', 'Kadek Derrel Hyuga Hardana', '', 2, 'L', 'Mangupura', '2020-11-11', 'Jl.Puri Nusa Dua Gg Viii No 63xx Lingk Bualu Benoa', 'Kadek Dwi Cahyadi Sukma', 'Ni Putu Dessy Meilanie', NULL, NULL, '085829492073', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(117, 20, 'PAUD000083', 'B000083', 'I Gede Made Agastya Rama Dharmaputra', '', 2, 'L', 'Mangupura', '2021-01-24', 'Jl.Nuansa Utama XVIII Perum Geria Sari Permata 2 KAV. D 6', 'I Gede Putu Agus Edy Saputra', 'Luh Putu Sriwidiasih', NULL, NULL, '081239228796', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
-(118, 20, 'PAUD000084', 'B000084', 'Kadek Briantya Devandra', '', 2, 'L', 'Mangupura', '2021-07-09', 'Br. Dinas Karang Boma Pecatu', 'I Made Suarsana', 'Ni Luh Putu Chandra Dewi, S.E.,M.M', NULL, NULL, '081933300660', NULL, 1, '2026-06-21 22:50:00', '2026-06-21 22:50:00', NULL),
+(47, 20, 'PAUD000013', 'P000013', 'Josephine Elloise Victoria Tjoo', 'TK', 0, 'P', 'Mangupura', '2023-03-18', 'Jl. Mandiri IV no. 8 Lingk. Taman Griya Jimbaran', 'Della Agnes Victoria', '-', NULL, NULL, '081217778620', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(48, 20, 'PAUD000014', 'P000014', 'I Gede Egnan Narantha Alvarendra', 'TK', 0, 'L', 'Denpasar', '2022-08-28', 'Perum Bualu Indah, Jaln Flamboyan 4 Blok A84 Nusa Dua', 'Ni Putu Meidyani', '082247988587', NULL, NULL, '085777119854', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(49, 20, 'PAUD000015', 'P000015', 'Ni Putu Ryuka Kinandya', 'TK', 0, 'P', 'Mangupura', '2022-11-18', 'Jl. Pratama No.93 Nusa Dua Dusun. Lingk Peken Benoa', 'Ni Nyoman Tri Rahayu Kusuma Dewi', '081915602302', NULL, NULL, '081936165164', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(50, 20, 'PAUD000016', 'P000016', 'Ni Putu Yuina Dewi Vantama', 'TK', 0, 'P', 'Mangupura', '2023-07-30', 'Jln. Taman Ambengan, Gang Mangga, No. 4TM', 'Sandra Vasquien', '0881037171444', NULL, NULL, '0881037437484', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(51, 20, 'PAUD000017', 'P000017', 'I Wayan Abichandra Arsa Lingga', 'TK', 0, 'L', 'Denpasar', '2022-10-22', 'Jalan Pengeracikan Gang Tambiak No.1', 'Ni Made Ardiani', '8.1320325965E10', NULL, NULL, '8.1282596453E10', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(52, 20, 'PAUD000018', 'P000018', 'Putu Ava Janitra', 'TK', 0, 'P', 'Badung', '2022-09-06', 'Jl. Sanggar Alit No.5 Lingk. Perarudan Dusun. Lingk Perarudan Jimbaran.', 'Evy Clara Yoseph', '8.1353529162E10', NULL, NULL, '8.1338793473E10', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(53, 20, 'PAUD000019', 'A000019', 'I Putu Arsya Prabaswara Dwipayana', 'TK', 1, 'L', 'Mangupura', '2022-03-08', 'Lingk. Puri Nusa Dua Gg Viii/63 Ys Benoa', 'I Putu Angga Dwipayana, S.Tr.Par', 'Ni Luh Gede Anggraeni Puspa Dewi, A.Md.Keb', NULL, NULL, '085738303526', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(54, 20, 'PAUD000020', 'A000020', 'Putu Desna Arsyanendra Rahjasa', 'TK', 1, 'L', 'Mangupura', '2021-07-20', 'Lingkungan Balekembar, Benoa', 'PT.Surya Laksana Rahjasa, S.Tar.Par', 'Queency Esmeralda', NULL, NULL, '081339302364', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(55, 20, 'PAUD000021', 'A000021', 'Gede Bara Prabangkara Putra Bumi', 'TK', 1, 'L', 'Klungkung', '2021-08-15', 'Dusun Getakan Desa Getakan, Kec. Banjarangkan Kab. Klungkung', 'Nyoman Bayu Bumi Ratnata', 'Desak Made Wiwid Jeniari', NULL, NULL, '087862282551', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(56, 20, '0000000022', '0000022', 'Emma Snow Bullen', 'TK', 1, 'P', 'Kettering Inggris', '2021-08-31', 'Perdana Giri Cluster, Jl. Perdana 1 No.2, Benoa 80361', 'Matthew David Bullen', 'Devie Pangalila', NULL, NULL, '088211290011', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 11:06:21', NULL),
+(57, 20, 'PAUD000023', 'A000023', 'Ni Komang Isyana Namirayasa Putri', 'TK', 1, 'P', 'Denpasar', '2021-10-05', 'Jln. By Pass Ngurah Rai Perum Harvestland No. C9 Kuta', 'I Gede Wireyasa, Se', 'Ni Wayan Geminiyawati, Se', NULL, NULL, '\'-', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(58, 20, 'PAUD000024', 'A000024', 'Kadek Bian Sinatra Putra', 'TK', 1, 'L', 'Denpasar', '2021-11-16', 'Jl. Sunset Road/LBC', 'I Komang Ivan Swarnadwipa,S.T', 'Dicka Puspita Ayu, S.E.', NULL, NULL, '087761649797', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(59, 20, 'PAUD000025', 'A000025', 'Ni Komang Areum Maudya Puwi', 'TK', 1, 'P', 'Denpasar', '2021-09-29', 'Perum Beranda Garden Jl.Palm VIII No.7', 'Putu Wirtawan', 'Ni Kadek Ariasih', NULL, NULL, '081904294750', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(60, 20, 'PAUD000026', 'A000026', 'I Komang Aurelio Radhika Wiguna', 'TK', 1, 'L', 'Denpasar', '2022-06-25', 'Jl. Lutut No.99 Siligita Nusa Dua', 'Agus Sastra Wiguna, S.Kom', 'Made Widya Dharma Santi, SE', NULL, NULL, '085333929814', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(61, 20, 'PAUD000027', 'A000027', 'Pande Kadek Dion Saktyawan', 'TK', 1, 'L', 'Denpasar', '2022-06-07', 'Jl Giri Kencana No 6e Lingkungan Mekarsari Simpangan Jimbaran', 'Pande Made Sutawan', 'Ni Wayan Pani Astuti', NULL, NULL, '087861386266', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(62, 20, 'PAUD000028', 'A000028', 'Delson Dalbert Lin', 'TK', 1, 'L', 'Mangupura', '2022-06-09', 'Jalan Teges Gede II No 6', 'Sanny', 'Sandri', NULL, NULL, '081238306868', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(63, 20, 'PAUD000029', 'A000029', 'I Wayan Mahesa Natha Gautama', 'TK', 1, 'L', 'Denpasar', '2021-09-27', 'Jl. Karang Mas, LINK.PANTAI SARI JIMBARAN DUSUN. Lingk Pantai Sari Jimbaran', 'I Wayan Bagus Citra Wedana', 'Luh Ayu Ari Santika Dewi, S.Sos.', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(64, 20, 'PAUD000030', 'A000030', 'Putu Ayuka Drisana Gantari Sulaksana', 'TK', 1, 'P', 'Mangupura', '2021-09-17', 'Jalan Taman Giri Nusa Dua', 'I Wayan Gede Arya Sulaksana', 'Ni Made Ayu Aprilia', NULL, NULL, '085737605300', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(65, 20, 'PAUD000031', 'A000031', 'Rachel Maureen Jovita', 'TK', 1, 'P', 'Pontianak', '2022-06-13', 'Jln. Uluwatu 2 Perumahan Jasmine Mensye no 9', 'Hendrawan Hasjim', 'Isti Cholisah', NULL, NULL, '082215566667', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(66, 20, 'PAUD000032', 'A000032', 'Putu Sinta Ganitri Irandani', 'TK', 1, 'P', 'Mangupura', '2022-04-02', 'BR Dinas Suluban Pecatu Dusun. BR Dinas Suluban Pecatu', 'Kadek Ady Irawan', 'Desak Dwi Ardani', NULL, NULL, '085737054055', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(67, 20, 'PAUD000033', 'A000033', 'I Made Arya Ranaka Shankara', 'TK', 1, 'L', 'Mangupura', '2021-08-28', 'Jl Uluwatu No.5. Lingk. Ubung Dusun. Lingk Ubung Jimbaran', 'I Made Arya Wira Maha Putra.S.H', 'Ni Nyoman Mega Silvia Wijana.S.M', NULL, NULL, '081339690868', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(68, 20, 'PAUD000034', 'A000034', 'Made Natta Praditya Putra', 'TK', 1, 'L', 'Denpasar', '2022-04-21', 'Perum Bumi Jimbaran Asri Jl Kampus Udayana no 22', 'I Putu Martha Kresna Raditya', 'Made Ayu mas Prima Mandasari', NULL, NULL, '082144544448', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(69, 20, 'PAUD000035', 'A000035', 'I Gusti Putu Davindra Agung Prameswara', 'TK', 1, 'L', 'Denpasar', '2021-11-08', 'Perumahan Puri Gading Jl. Elang B6 no 15 , Jimbaran , Kuta Selatan , Badung.Bali', 'I Gusti Putu Yuda Pariartha', 'Putu Lenny Swari Agustini', NULL, NULL, '081529424421', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(70, 20, 'PAUD000036', 'A000036', 'Ni Kadek Anindira Putri Prasani', 'TK', 1, 'P', 'Denpasar', '2022-02-12', 'Jl. Nuansa Utama XXIII/18 A, Lingk. Taman Griya Dusun. Link Taman Griya Jimbaran', 'I Gede Abi Praboga', 'Luh Putu Sania Diandra Sari', NULL, NULL, '082145181264', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(71, 20, 'PAUD000037', 'A000037', 'I Gede Alexander Jordan Saputra', 'TK', 1, 'L', 'Mangupura', '2020-11-05', 'Jl. Pura Kulat Pecatu', 'I Putu Edy Saputra', 'Yuliani Levelline Presisca', NULL, NULL, '081529342445', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(72, 20, 'PAUD000038', 'A000038', 'Vania Almira Zhang', 'TK', 1, 'P', 'Mangupura', '2022-04-05', 'Perumahan Bhumi Jimbaran Asri. Jalan Kampus Udayana 2 No 13', 'Thian Bun', 'Vivi Wulandari', NULL, NULL, '081378655515', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(73, 20, 'PAUD000039', 'A000039', 'Ni Nyoman Luna Ashadanti Putra', 'TK', 1, 'P', 'Denpasar', '2022-03-29', 'Jalan Taman Ambengan No 11 A', 'I Ketut Yossy Mandara Putra', 'Ni Nyoman Kristiana Dewi', NULL, NULL, '089621071120', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(74, 20, 'PAUD000040', 'A000040', 'Luh Gita Puspa Karang', 'TK', 1, 'P', 'Buleleng', '2021-08-02', 'Jln.Raya Kampus Unud.Perumahan Graha Anyar .Blok.VI.No.11', 'Nyoman Sudiartawan', 'I Gusti Ayu Ketut Wina Hariani', NULL, NULL, '085792584404', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(75, 20, 'PAUD000041', 'A000041', 'Ni Komang Nadha Gistara Dananjaya', 'TK', 1, 'P', 'Denpasar', '2021-09-12', 'Jl. Bukit Hijau No 18 Lingk. Mekar Sari Simpangan', 'I Wayan Dedik Saputra', 'Ni Komang Deni', NULL, NULL, '081237307777', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(76, 20, 'PAUD000042', 'A000042', 'Putu Darren Laksamana Putra Pratama', 'TK', 1, 'L', 'Karangasem', '2021-06-24', 'Jalan Teras Bukit Il No 11A Goa Gong Jimbaran Kuta Selatan Badung Bali', 'I Gede Hary Pratama', 'Ni Kadek Dwi Purnami', NULL, NULL, '085792196681', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(77, 20, 'PAUD000043', 'A000043', 'I Wayan Nadendra Arya Wiguna', 'TK', 1, 'L', 'Denpasar', '2021-12-14', 'Jln Kampus Udayana No. 11B Jimbaran', 'I Wayan Suka Bayu Adnyana', 'Ari Purwanti', NULL, NULL, '082247010787', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(78, 20, 'PAUD000044', 'A000044', 'I Kadek Varendra Battra Adiwiguna', 'TK', 1, 'L', 'Mangupura', '2021-11-17', 'Jln. Pratama No. 93 Lingkungan Peken Benoa Nusa Dua', 'Kadek Battra Adiputra', 'Ni Kadek Artanti', NULL, NULL, '081236332156', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(79, 20, 'PAUD000045', 'A000045', 'Anak Agung Bagus Mahesa Artha Wicaksana', 'TK', 1, 'L', 'Mangupura', '2021-09-17', 'Jalan Uluwatu II, Gang Tambak Sari No.10 Jimbaran', 'Anak Agung Ngurah Juliadi', 'Ni Made Lisna Cahya Lestari, A,Md', NULL, NULL, '085792040273', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(80, 20, 'PAUD000046', 'A000046', 'I Putu Agastya Chandra Radeva', 'TK', 1, 'L', 'Mangupura', '2021-08-15', 'Jl. Uluwatu Gg. Bukit Hijau 99, Lingk. Jerokuta, Jimbaran.', 'I Putu Tedy, S.T.', 'Luh Gde Hari Martha Pratiwi, S.E.', NULL, NULL, '085792799227', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(81, 20, 'PAUD000047', 'A000047', 'Ni Nyoman Bulan Queensha Hasana Santika', 'TK', 1, 'P', 'Denpasar', '2022-06-24', 'Jalan Labuhan Sait Banjar Dinas Labuhan Sait No39X Pecatu', 'I Made Santika,Se', 'Ni Made Yusmini,Se.,M.Si', NULL, NULL, '081299996478', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(82, 20, 'PAUD000048', 'A000048', 'I Gusti Putu Agung Prawara Wijaksa', 'TK', 1, 'L', 'Denpasar', '2022-07-08', 'Jln Kubung Batu Raya No 18, TMN Griya Jimbaran', 'I Gusti Putu Agung Widyagoca', 'Ni Putu Putri Ayu Wijayanthi, S.Kom, MM', NULL, NULL, '087715670082', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(83, 20, 'PAUD000049', 'A000049', 'Luna Adreena Yousef', 'TK', 1, 'P', 'Jakarta', '2021-11-09', 'Jl. Taman Ambengan IV Perumahan De Casa Blok A no. 4 Jimbaran', 'Yousef Nael Abdulraheem Mahmoud', 'Anggia Prasanti', NULL, NULL, '081283007345', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(84, 20, 'PAUD000050', 'A000050', 'Grey Benjamin', 'TK', 1, 'L', 'Sleman', '2021-03-26', 'Jalan Nuansa Utama X No.9 Perumahan Kori Nuansa Taman Griya Jimbaran', 'Reggy Samantha', 'Prisilia Monalisa Rompies', NULL, NULL, '085228018133', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(85, 20, 'PAUD000051', 'A000051', 'Niken Arum Hayuningtias', 'TK', 1, 'P', 'Mangupura', '2021-02-19', 'Jalan petanahan sari no 3', 'Marishal Dwi Aristiwan', 'Putu Candra Purnama Sari', NULL, NULL, '081918600101', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(86, 20, '3208534735', 'B000052', 'Mackenzie Charlotte Glover', 'TK', 2, 'P', 'Batang', '2020-12-22', 'Jl Taman Giri Perum Samatha', 'Darren Lee Glover', 'Efa Lusiana', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(87, 20, '3206767130', 'B000053', 'Jio Santoso', 'TK', 2, 'L', 'Mangupura', '2020-12-01', 'Jl. Danau Tamblingan Xiv No.28 Lingk.Taman Griya', 'Ricky Santoso', 'Pebbi Lieyanti Salim', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(88, 20, '3217722591', 'B000054', 'Anak Agung Raviendra Putra Yodha', 'TK', 2, 'L', 'Mangupura', '2021-05-17', 'Jl. By Pass Ngr.Rai No.61 Lingk.Pengenderan Kedonganan Dusun. Lingk Pengenderan', 'A.A.Putu Purna Aditya Putra', 'Ni Kadek Desy Mahadewi', NULL, NULL, '087860675290', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(89, 20, '3200879246', 'B000055', 'Angel Sky Ubbama Romli', 'TK', 2, 'P', 'Mangupura', '2020-09-02', 'Jl. Pura Dalem Gaing Mas Lingk Tegal', 'Moh. Romli', 'Yulia Mutiara Sukma, S.Pd', NULL, NULL, '082282989167', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(90, 20, '3215728328', 'B000056', 'Azzalea Roseli Ningrum', 'TK', 2, 'P', 'Denpasar', '2021-04-20', 'Kuta Permai Iii No 19', 'Andrew', 'Amelia Diah Ningrum', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(91, 20, '3214259946', 'B000057', 'Azzka Noah Ningrum', 'TK', 2, 'L', 'Denpasar', '2021-04-20', 'Kuta Permai Iii No 19', 'Andrew', 'Amelia Diah Ningrum', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(92, 20, '3212278387', 'B000058', 'I Gede Gandiwa Mashutama', 'TK', 2, 'L', 'Denpasar', '2021-05-05', 'Jl. Pantai Sari No.13c Lingk. Menega Jimbaran Dusun. Lingk Menega Jimbaran', 'I Wayan Julyan Satria Megano', 'Ni Wayan Fitriani', NULL, NULL, '089696060794', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(93, 20, '3210036578', 'B000059', 'I Gede Riganzyo Sagaraswin Perdana', 'TK', 2, 'L', 'Denpasar', '2021-01-11', 'Jalan Mrajapati No 10x Jimbaran', 'I Gede Agus Hendra Perdana Putra', 'Ni Wayan Nari Widiadih, A.Md', NULL, NULL, '081337306001', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(94, 20, '3201873237', 'B000060', 'I Made Luky Darmavian Putra', 'TK', 2, 'L', 'Denpasar', '2020-09-06', 'Kampus Unud Tmn . Ambengan 11 A, Lingk Perarudan', 'I Ketut Yossy Mandara Putra', 'Ni Nyoman Kristiana Dewi', NULL, NULL, '089621071120', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(95, 20, '3210290172', 'B000061', 'I Putu Bryan Kennard Anggara', 'TK', 2, 'L', 'Mangupura', '2021-03-05', 'Jl.Mrajapati No.10x Lingk.Pesalakan', 'I Komang Agus Hari Anggara', 'Ni Komang Riska Manika Damayanti', NULL, NULL, '082147938014', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(96, 20, '3208348005', 'B000062', 'I Wayan Bryan Danendra Putra Mahardika', 'TK', 2, 'L', 'Mangupura', '2020-12-09', 'Lingk. Perarudan Jimbaran Dusun. Lingk Perarudan Jimbaran', 'I Nyoman Yoga Putra Mahardika', 'Ni Komang Sri Martini', NULL, NULL, '081238109460', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(97, 20, '3211722661', 'B000063', 'Ni Komang Olivia Ananda Putri Widiyana', 'TK', 2, 'P', 'Denpasar', '2021-06-10', 'Banjar Dauh Pasar, Pergung-Mendoyo-Jembrana', 'I Nyoman Tri Widiyana', 'Wiwin Widayanti', NULL, NULL, '-', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(98, 20, '3207629391', 'B000064', 'Ni Made Damara Ayu Nawangwulan', 'TK', 2, 'P', 'Mangupura', '2020-09-14', 'Jl Uluwatu No 21, Lingk .Pesalakan Dusun. Lingk Pesalakan Jimbaran', 'I Gede Eka Edwin Saputra, S.E', 'Putu Diah Indrawati Bendesa, Sh., Mh', NULL, NULL, '085737405229', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(99, 20, '3214776946', 'B000065', 'Nyoman Alisha Mas Ayu Gayatri', 'TK', 2, 'P', 'Singaraja', '2021-06-14', 'Jl. Taman Giri Perum. Griya Nugraha Blok C.Ix No.20 Lingk. Mumbul Dusun. Link Mumbul Bedoa', 'I Putu Mas Darmawan', 'Ni Nyoman Suasih', NULL, NULL, '081339146257', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(100, 20, '3216850076', 'B000066', 'Putu Kania Lakshita Jinatriya', 'TK', 2, 'P', 'Mangupura', '2021-04-02', 'Jl. Raya Mandiri- 53. Lingk Taman Griya Jimbaran Dusun. Lingk Taman Griya Jimbaran', 'Drg. I Putu Risca Pramana Yudha', 'Luh Tiwika Praba, S.Pd.,M.Pd', NULL, NULL, '081916232672', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(101, 20, '3214819586', 'B000067', 'Sky Fernando', 'TK', 2, 'L', 'Mangupura', '2021-01-15', 'Jl.Nuansa Utama Xviii, Perum Griya Sari Permata Ii', 'Sandi', 'Marina Okta Viana', NULL, NULL, '082359587828', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(102, 20, '3216532636', 'B000068', 'Ni Putu Nadine Kalyani Putri', 'TK', 2, 'P', 'Denpasar', '2021-01-23', 'Tempekan Selonding, Br.Kangin Pecatu Dusun. Br Kangin Pecatu', 'I Made Septia Suprayana', 'Ni Wayan Triariyani Giri, S.E.', NULL, NULL, '087860569543', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(103, 20, '3211457789', 'B000069', 'Kalea Chayra Ramadhani', 'TK', 2, 'P', 'Tangerang Selatan', '2021-05-08', 'Jl. Kartika Iii No.101-G Kpad', 'Ikbal Adiguna Perdana Wibowo', 'Tesza Badina Korompis', NULL, NULL, '081228666872', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(104, 20, 'PAUD000070', 'B000070', 'Made Rezvan Adhitama', 'TK', 2, 'L', 'Denpasar', '2021-04-17', 'Jln Pratama Gg Mertajati No 1 Nusa Dua', 'I Made Sudarsana, St.', 'Ni Luh Ayu Sundari', NULL, NULL, '081353022716', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(105, 20, 'PAUD000071', 'B000071', 'Putu Wiguna Jayantara', 'TK', 2, 'L', 'Denpasar', '2020-04-14', 'BR. Kangin Dusun. BR Kangin Pecatu', 'I Wayan Jayantara', 'Luh Dewi Adnyani', NULL, NULL, '085739063830', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(106, 20, 'PAUD000072', 'B000072', 'Putu Arthur Radeva Putra', 'TK', 2, 'L', 'Lombok Utara', '2020-11-25', 'Perumahan Mandala Griya, Jalan Maya Loka Block X No. 1 Benoa, Kuta Selatan', 'Putu Muliana', 'Nuning Wardani', NULL, NULL, '082147858227', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(107, 20, '3202588618', 'B000073', 'Giovano Tohjaya', 'TK', 2, 'L', 'Denpasar', '2020-11-22', 'Jalan Pulau Buton no. 26 Dauhwaru Jembrana', 'Septhian Geraldy Tohjaya', 'Jesika Ginotodihardjo', NULL, NULL, '082247810777', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(108, 20, 'PAUD000074', 'B000074', 'Ni Putu Aileen Putri Prasani', 'TK', 2, 'P', 'Denpasar', '2020-11-28', 'Jl. Nuansa Utama XXIII/18 A, Lingk Taman Rama', 'I Gede Abi Praboga', 'Luh Putu Sania Diandra Sari', NULL, NULL, '082145181264', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(109, 20, 'PAUD000075', 'B000075', 'Ni Putu Dahayu Gantari Yuki', 'TK', 2, 'P', 'Denpasar', '2021-03-08', 'Jalan sempati no 21 tuban', 'I Made Rizky Ryan Kasada', 'Ni Putu Herma Yulianti', NULL, NULL, '087860880602', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(110, 20, '3211851406', 'B000076', 'I Gede Agus Birendra Adinata', 'TK', 2, 'L', 'Mangupura', '2021-01-11', 'Jl Maya Loka, Perum Mandala Griya Blok 1 No 14, Lingkungan Terora, Benoa', 'I Komang Gede Sumaryana, Se', 'Kadek Yunita Dewi', NULL, NULL, '085253072494', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(111, 20, 'PAUD000077', 'B000077', 'Anslira Dwitama Weltris', 'TK', 2, 'L', 'Denpasar', '2020-12-11', 'Jl. Celagi Basur gg Kamboja 1 no 120 jimbaran', 'Novan Eko Sudarsono', 'A.A Citra Dewi, A.Md', NULL, NULL, '085333730323', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(112, 20, 'PAUD000078', 'B000078', 'Made Alia Mita Maharani', 'TK', 2, 'P', 'Denpasar', '2020-12-22', 'Jalan Pasraman Unud Blok E No. 38, Jimbaran, Bali', 'I Gede Anom Sastrawan, S.Par.,M.Par', 'Ni Putu Anik Prabawati, S.IP.,M.A.P.', NULL, NULL, '08113969898', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(113, 20, 'PAUD000079', 'B000079', 'Genevieve Shasya Permata Wijaya', 'TK', 2, 'P', 'Denpasar', '2021-03-26', 'Jln Nuansa Utama XXI No 23 A Taman Griya Jimbaran', 'Yohanes Pandhu Wijaya', 'Vincensia Beatrick Permatasari', NULL, NULL, '087838475553', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(114, 20, 'PAUD000080', 'B000080', 'Lewin Havertz Yeo', 'TK', 2, 'L', 'Tanjung Pinang', '2020-08-12', 'Jl. Blong Poh Gang Plamboyan, Jimbaran', 'Eko Kurniawan', 'Meta', NULL, NULL, '087893391636', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(115, 20, 'PAUD000081', 'B000081', 'I Komang Pradita Bayu Mahendra', 'TK', 2, 'L', 'Tabanan', '2020-04-09', 'Jalan Taman Sari Gang Dahlia No 2 Lingkungan Kelan Abian, Tuban', 'I Putu Adhi Kerta Mahendra', 'Luh Gede Dwi Fernayanti', NULL, NULL, '08970207372', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(116, 20, 'PAUD000082', 'B000082', 'Kadek Derrel Hyuga Hardana', 'TK', 2, 'L', 'Mangupura', '2020-11-11', 'Jl.Puri Nusa Dua Gg Viii No 63xx Lingk Bualu Benoa', 'Kadek Dwi Cahyadi Sukma', 'Ni Putu Dessy Meilanie', NULL, NULL, '085829492073', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(117, 20, 'PAUD000083', 'B000083', 'I Gede Made Agastya Rama Dharmaputra', 'TK', 2, 'L', 'Mangupura', '2021-01-24', 'Jl.Nuansa Utama XVIII Perum Geria Sari Permata 2 KAV. D 6', 'I Gede Putu Agus Edy Saputra', 'Luh Putu Sriwidiasih', NULL, NULL, '081239228796', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
+(118, 20, 'PAUD000084', 'B000084', 'Kadek Briantya Devandra', 'TK', 2, 'L', 'Mangupura', '2021-07-09', 'Br. Dinas Karang Boma Pecatu', 'I Made Suarsana', 'Ni Luh Putu Chandra Dewi, S.E.,M.M', NULL, NULL, '081933300660', NULL, 1, '2026-06-21 22:50:00', '2026-06-26 06:11:21', NULL),
 (119, 20, '3201820694', 'SD10001', 'I Kadek Narendra Nesa Adi Putra', 'SD', 1, 'L', 'Denpasar', '2020-02-02', 'Jl. By Pass Ngurah Rai 48 Kedonganan, Kuta, Badung.', 'I Wayan Darsana Adi Putra,S.Par.', 'Luh Simarani, S.I.Kom.', 'Wiraswasta', 'Wirausaha', '0895394527942 / 081337230486', NULL, 1, '2026-06-21 22:54:13', '2026-06-21 22:54:13', NULL),
 (120, 20, '3190898503', 'SD10002', 'Keenandra Arshaka Muhammad', 'SD', 2, 'L', 'Mangupura', '2019-08-25', 'Perum Slbb Jimbaran Lingk.Kalanganyar', 'Mochamad Akbar', 'Nurul Hikmah Wijayanti', 'Karyawan Swasta', 'Karyawan Swasta', '081999665453 / 0817273746', NULL, 1, '2026-06-21 22:54:13', '2026-06-26 02:09:43', NULL),
 (121, 20, '3204550004', 'SD10003', 'I Made Sakha Susastradi Astranegara', 'SD', 1, 'L', 'Denpasar', '2020-06-19', 'Perumahan Puri Mumbul Permai,Jalan Jepun 1 no b6 Jimbaran Kuta Selatan', 'I Putu Bagus Muliartha', 'Eka Candra Purnami', 'Karyawan Swasta', 'Karyawan Swasta', '083119604012 / 087805664307', NULL, 1, '2026-06-21 22:54:13', '2026-06-21 22:54:13', NULL),
@@ -1952,7 +2041,8 @@ INSERT INTO `subjects` (`id`, `academic_year_id`, `kode`, `nama`, `category_id`,
 (189, 20, 'SHS', 'SBTAA', 38, NULL, '2026-06-22 14:56:52', '2026-06-22 14:56:52', NULL),
 (190, 20, 'HIPSTER', 'Hipster', 38, 16, '2026-06-26 03:42:37', '2026-06-26 03:42:37', NULL),
 (191, 20, 'HACKER', 'Hacker', 38, 17, '2026-06-26 03:42:38', '2026-06-26 03:42:38', NULL),
-(192, 20, 'HUSTLER', 'Hustler', 38, 18, '2026-06-26 03:42:38', '2026-06-26 03:42:38', NULL);
+(192, 20, 'HUSTLER', 'Hustler', 38, 18, '2026-06-26 03:42:38', '2026-06-26 03:42:38', NULL),
+(953, 20, 'TST', 'Motorik', 37, NULL, '2026-06-26 11:07:35', '2026-06-26 11:07:35', NULL);
 
 -- --------------------------------------------------------
 
@@ -2285,7 +2375,8 @@ INSERT INTO `subject_jenjang_map` (`subject_id`, `jenjang`) VALUES
 (189, 'SD'),
 (190, 'SD'),
 (191, 'SD'),
-(192, 'SD');
+(192, 'SD'),
+(953, 'TK');
 
 -- --------------------------------------------------------
 
@@ -2372,7 +2463,8 @@ INSERT INTO `subject_topics` (`id`, `rombel_id`, `subject_id`, `semester`, `kode
 (26, 17, 192, 'ganjil', 'HST', 'Bab 1 - Pengenalan tentang Branding', 'sikap', 'tugas', 1.00, NULL, 1, '2026-06-26 03:44:30', '2026-06-26 03:44:30', NULL, '[\"sikap\",\"pengetahuan\",\"keterampilan\"]'),
 (27, 17, 192, 'ganjil', 'HST', 'Bab 2 - Personal branding', 'sikap', 'tugas', 1.00, NULL, 1, '2026-06-26 03:44:41', '2026-06-26 03:44:41', NULL, '[\"sikap\",\"pengetahuan\",\"keterampilan\"]'),
 (28, 17, 191, 'ganjil', 'HCK', 'Pen Test', 'sikap', 'tugas', 1.00, NULL, 37, '2026-06-26 03:55:45', '2026-06-26 03:55:45', NULL, '[\"sikap\",\"pengetahuan\",\"keterampilan\"]'),
-(29, 17, 190, 'ganjil', 'HPS', 'Bab 1 - UI Fundamental', 'sikap', 'tugas', 1.00, NULL, 48, '2026-06-26 04:22:53', '2026-06-26 04:22:53', NULL, '[\"sikap\",\"pengetahuan\",\"keterampilan\"]');
+(29, 17, 190, 'ganjil', 'HPS', 'Bab 1 - UI Fundamental', 'sikap', 'tugas', 1.00, NULL, 48, '2026-06-26 04:22:53', '2026-06-26 04:22:53', NULL, '[\"sikap\",\"pengetahuan\",\"keterampilan\"]'),
+(30, 20, 953, 'ganjil', 'TST', 'Motorik Halus', 'sikap', 'tugas', 1.00, NULL, 1, '2026-06-26 11:09:37', '2026-06-26 11:09:37', NULL, '[\"sikap\",\"pengetahuan\",\"keterampilan\"]');
 
 -- --------------------------------------------------------
 
@@ -2642,7 +2734,7 @@ INSERT INTO `users` (`id`, `niy`, `nama`, `email`, `ttd_path`, `password_hash`, 
 (34, '01560052023', 'Rani Larassati, S.Pd', NULL, NULL, '$2y$12$aCjAvW7JOGeEytT0K1nrnuencp17LN6J6MchmcDGpeb57fhwZMNxG', 'guru', NULL, 0, 1, 1, '2026-06-22 05:00:01', '2026-06-22 00:55:43', '2026-06-22 05:00:01', NULL),
 (35, '00240062013', 'Ellysabeth Wiji Witaningsih, S.Th', NULL, NULL, '$2y$12$rzFdAGnyMn.M9UY8tCbPnOqKPVBiEpAsay/oBLYA1s6h2bjc4txl6', 'guru', NULL, 0, 1, 1, '2026-06-22 05:06:53', '2026-06-22 00:55:43', '2026-06-22 05:06:53', NULL),
 (36, '01070052021', 'Merlyn Julita Erya Octavianus, S.Pd', NULL, NULL, '$2y$12$851XSqPC3.QHKmhZJTdE.ureeD8NAnp2MsA2lwrwfMDf2fvnKAQP2', 'guru', NULL, 0, 1, 1, '2026-06-22 05:20:17', '2026-06-22 00:55:43', '2026-06-22 05:20:17', NULL),
-(37, '01570062023', 'Christo Victory, S.S', NULL, NULL, '$2y$12$kJygg2x9ahl/0w5cqERwjOsMitfVlEWUPVC1CTa91R4/dZLzZXCnW', 'guru', NULL, 1, 1, 1, '2026-06-26 11:54:58', '2026-06-22 00:55:43', '2026-06-26 03:54:58', NULL),
+(37, '01570062023', 'Christo Victory, S.S', NULL, NULL, '$2y$12$kJygg2x9ahl/0w5cqERwjOsMitfVlEWUPVC1CTa91R4/dZLzZXCnW', 'guru', NULL, 1, 1, 1, '2026-06-26 19:16:04', '2026-06-22 00:55:43', '2026-06-26 11:16:04', NULL),
 (38, '00280072014', 'M. Arrie Kunilasari Elyna, S.Si', NULL, NULL, '$2y$12$MaItKB175Bvz08KdeUuXjex5ZMKAsxYKMx7n4HNsTXr/pv.iSw.wu', 'guru', NULL, 0, 1, 1, '2026-06-22 05:00:45', '2026-06-22 00:55:43', '2026-06-22 05:00:45', NULL),
 (39, '01920052025', 'Amadea Agnes Verina', NULL, NULL, '$2y$12$orXMtM8ivFjxOthP71WgjeeT7/tlTDdOd7.vZWl.y4RK3jPgCf1H2', 'guru', NULL, 1, 1, 1, '2026-06-26 12:23:36', '2026-06-22 00:55:43', '2026-06-26 04:23:36', NULL),
 (40, '01460052023', 'Erwin Kurniawan, S.Pd', NULL, NULL, '$2y$12$AY2arXpR74FGIv4x3yIwsux/wVavBn.oLRpSXiGAyFagwtIWNyslC', 'guru', NULL, 0, 1, 1, '2026-06-22 05:55:09', '2026-06-22 00:55:43', '2026-06-22 05:55:09', NULL),
@@ -3040,7 +3132,7 @@ ALTER TABLE `wali_notes`
 -- AUTO_INCREMENT for table `academic_years`
 --
 ALTER TABLE `academic_years`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `achievements`
@@ -3052,19 +3144,19 @@ ALTER TABLE `achievements`
 -- AUTO_INCREMENT for table `attendance`
 --
 ALTER TABLE `attendance`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=256;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=264;
 
 --
 -- AUTO_INCREMENT for table `audit_log`
 --
 ALTER TABLE `audit_log`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=905;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=968;
 
 --
 -- AUTO_INCREMENT for table `character_aspects`
 --
 ALTER TABLE `character_aspects`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=112;
 
 --
 -- AUTO_INCREMENT for table `character_evaluations`
@@ -3106,7 +3198,7 @@ ALTER TABLE `extracurricular_grades`
 -- AUTO_INCREMENT for table `final_grades`
 --
 ALTER TABLE `final_grades`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=54;
 
 --
 -- AUTO_INCREMENT for table `general_evaluations`
@@ -3118,7 +3210,7 @@ ALTER TABLE `general_evaluations`
 -- AUTO_INCREMENT for table `grades_daily`
 --
 ALTER TABLE `grades_daily`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=193;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=199;
 
 --
 -- AUTO_INCREMENT for table `grade_descriptions`
@@ -3130,7 +3222,7 @@ ALTER TABLE `grade_descriptions`
 -- AUTO_INCREMENT for table `kkm_settings`
 --
 ALTER TABLE `kkm_settings`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=82;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=98;
 
 --
 -- AUTO_INCREMENT for table `parents_auth`
@@ -3154,49 +3246,49 @@ ALTER TABLE `report_signatures`
 -- AUTO_INCREMENT for table `report_templates`
 --
 ALTER TABLE `report_templates`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT for table `rombel`
 --
 ALTER TABLE `rombel`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT for table `rombel_subject_teachers`
 --
 ALTER TABLE `rombel_subject_teachers`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT for table `semesters_state`
 --
 ALTER TABLE `semesters_state`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=79;
 
 --
 -- AUTO_INCREMENT for table `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=260;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=708;
 
 --
 -- AUTO_INCREMENT for table `subjects`
 --
 ALTER TABLE `subjects`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=801;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=954;
 
 --
 -- AUTO_INCREMENT for table `subject_categories`
 --
 ALTER TABLE `subject_categories`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=91;
 
 --
 -- AUTO_INCREMENT for table `subject_topics`
 --
 ALTER TABLE `subject_topics`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT for table `teachers`

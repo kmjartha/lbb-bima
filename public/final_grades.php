@@ -426,12 +426,8 @@ $fgStatuses = fg_statuses();
                     <textarea class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000" rows="2"
                               style="width: 100%; resize: vertical;"
                               placeholder="Wajib diisi"
-<<<<<<< HEAD
                               data-note-field data-row-id="<?= $msid ?>"
                               <?= $disabledAttr ?>><?= esc((string)$vCa) ?></textarea>
-=======
-                              <?= $disabledAttr ?> required><?= esc((string)$vCa) ?></textarea>
->>>>>>> e6124cb (fixing error penempatan mapel pilihan)
                 </td>
                 <td style="text-align:center;">
                     <?php if (!empty($cur['image_path'])): ?>
@@ -450,13 +446,9 @@ $fgStatuses = fg_statuses();
                   <?php else: ?><span class="text-muted">—</span><?php endif; ?>
                 </td>
                 <td><input class="input input-sm" name="ca[<?= $msid ?>]" maxlength="1000"
-<<<<<<< HEAD
                            value="<?= esc((string)$vCa) ?>" placeholder="Wajib diisi"
                            data-note-field data-row-id="<?= $msid ?>"
                            <?= $disabledAttr ?>></td>
-=======
-                           value="<?= esc((string)$vCa) ?>" placeholder="Wajib diisi" <?= $disabledAttr ?> required></td>
->>>>>>> e6124cb (fixing error penempatan mapel pilihan)
               <?php endif; ?>
 
               <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
@@ -468,11 +460,7 @@ $fgStatuses = fg_statuses();
 
       <?php if (!$ro): ?>
         <div class="between mt-4">
-<<<<<<< HEAD
-          <span class="text-sm text-muted">Catatan guru wajib diisi untuk siswa yang akan disimpan atau diajukan. Saat mengajukan, hanya baris yang dicentang yang diwajibkan melengkapi catatan. "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
-=======
-          <span class="text-sm text-muted">Catatan guru wajib diisi untuk setiap siswa yang disimpan atau diajukan. Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek". "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
->>>>>>> e6124cb (fixing error penempatan mapel pilihan)
+          <span class="text-sm text-muted">Catatan guru wajib diisi untuk siswa yang akan disimpan atau diajukan. Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek" — hanya baris yang dicentang yang diwajibkan melengkapi catatan. "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
           <div class="row" style="gap:.5rem">
             <button class="btn btn-secondary" type="submit" name="op" value="save">💾 Simpan Draft</button>
             <button class="btn btn-primary"   type="submit" name="op" value="submit">📤 Ajukan ke Kepsek</button>

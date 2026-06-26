@@ -106,8 +106,6 @@ require __DIR__ . '/../includes/header.php';
   $subjGroups  = subjects_grouped_for_rombel($rid, $sc['semester']);
   $charEvals   = character_evals_for_student($rid, (int)$student['id'], $sc['semester'], $sc['period']);
   $generalRow  = general_evals_for($rid, $sc['semester'], $sc['period']);
-  $waliRow     = wali_notes_for($rid, $sc['semester'], $sc['period']);
-  $ekskul      = ekskul_grades_for_student((int)$student['id'], $sc['semester'], $sc['year_id']);
   $att         = attendance_summary_for_rombel($rid, $sc['semester'], $sc['year_id']);
   $myAtt       = $att[(int)$student['id']] ?? ['h'=>0,'i'=>0,'s'=>0,'a'=>0,'total'=>0];
   $scales      = character_scales();
@@ -201,7 +199,9 @@ require __DIR__ . '/../includes/header.php';
         <?php endif; ?>
       </div>
     <?php },
-    'academic' => function() use ($subjGroups, $cellsBySubj, $kkm, $jenjang) { ?>
+    'academic' => function() use ($subjGroups, $cellsBySubj, $kkm, $jenjang) {
+      $isTK = ($jenjang === 'TK');
+      ?>
       <div class="rapor-section">
         <h3>Academic Assessment (Combined Final SPK Score per Subject)</h3>
         <table class="t-print">
@@ -209,8 +209,12 @@ require __DIR__ . '/../includes/header.php';
             <tr>
               <th style="width:32px">No</th>
               <th>Subject</th>
-              <th>Remarks</th>
               <th style="width:110px">Score</th>
+              <?php if ($isTK): ?>
+                <th style="width:100px; text-align:center;">Star Rating</th>
+                <th style="width:80px; text-align:center;">Photo</th>
+              <?php endif; ?>
+              <th>Remarks</th>
               <th style="width:90px">Grade</th>
             </tr>
           </thead>
@@ -218,38 +222,61 @@ require __DIR__ . '/../includes/header.php';
           <?php
             $no = 0;
             $finalSum = 0.0; $finalCnt = 0;
+            // TK punya 7 kolom (No, Subject, Score, Star, Photo, Remarks, Grade)
+            // Non-TK punya 5 kolom (No, Subject, Score, Remarks, Grade)
+            $colspanCat = $isTK ? 7 : 5;
             foreach ($subjGroups as $catNama => $subs): ?>
-            <tr><td colspan="5" style="background:#eef; font-weight:600"><?= esc($catNama) ?></td></tr>
+            <tr><td colspan="<?= $colspanCat ?>" style="background:#eef; font-weight:600"><?= esc($catNama) ?></td></tr>
             <?php foreach ($subs as $s): $no++;
                   $cell    = $cellsBySubj[(int)$s['id']] ?? null;
                   $overall = $cell ? ($cell['overall'] ?? null) : null;
                   $note    = $cell ? ($cell['note'] ?? null) : null;
+                  $imgPath = $cell ? ($cell['image_path'] ?? null) : null;
                   $pred    = kkm_predikat($jenjang, $overall);
                   if ($overall !== null) { $finalSum += $overall; $finalCnt++; }
             ?>
               <tr>
                 <td><?= $no ?></td>
                 <td><?= esc($s['nama']) ?></td>
-                <td><?= esc($note ?? '—') ?></td>
                 <td style="text-align:center"><strong><?= $overall !== null ? esc((string)$overall) : '—' ?></strong></td>
+                <?php if ($isTK): ?>
+                  <td style="text-align:center; vertical-align:middle;">
+                    <?php if ($overall !== null):
+                        $starCount = max(1, min(4, (int)round((float)$overall)));
+                    ?>
+                        <div style="color:#f59e0b; font-size:1.15rem; letter-spacing:1px; white-space:nowrap;">
+                            <?= str_repeat('★', $starCount) . str_repeat('☆', 4 - $starCount) ?>
+                        </div>
+                    <?php else: ?>
+                        <span class="text-muted">—</span>
+                    <?php endif; ?>
+                  </td>
+                  <td style="text-align:center; vertical-align:middle;">
+                    <?php
+                        $imgResolved = $imgPath && file_exists(__DIR__ . '/' . ltrim('uploads/'.$imgPath,'/')) ? uploads_url($imgPath) : null;
+                        if ($imgResolved):
+                    ?>
+                        <img src="<?= esc($imgResolved) ?>" alt="Photo" style="max-width:50px; max-height:50px; object-fit:cover; border-radius:4px; border:1px solid #ccc;">
+                    <?php else: ?>
+                        <span class="text-muted">—</span>
+                    <?php endif; ?>
+                  </td>
+                <?php endif; ?>
+                <td><?= esc($note ?? '—') ?></td>
                 <td style="text-align:center"><strong><?= $overall !== null ? esc($pred['grade']) : '—' ?></strong></td>
               </tr>
             <?php endforeach; ?>
           <?php endforeach;
             $finalAvg = $finalCnt > 0 ? round($finalSum / $finalCnt, 2) : null;
             $finalPred = kkm_predikat($jenjang, $finalAvg);
+            $colspanTotal = $isTK ? 6 : 4;
           ?>
             <tr style="background:#fffbe6; font-weight:700">
-              <td colspan="4" style="text-align:right">Combined Final Score (Average of all subjects)</td>
+              <td colspan="<?= $colspanTotal ?>" style="text-align:right">Combined Final Score (Average of all subjects)</td>
               <td style="text-align:center"><strong><?= $finalAvg !== null ? esc($finalPred['grade']) : '—' ?></strong></td>
             </tr>
           </tbody>
         </table>
-
-        <div style="margin-top:6px; font-size:11px; color:#444">
-          <strong>Final Score (Σ SPK)</strong> for each subject is the combined average of
-          Attitude, Knowledge, and Skills scores in this <?= esc($jenjang) ?> period.
-        </div>
 
         <div style="margin-top:8px; font-size:11px">
           <strong>KKM Scale <?= esc($jenjang) ?>:</strong>
@@ -257,27 +284,6 @@ require __DIR__ . '/../includes/header.php';
             <span class="kkm-pill"><?= esc($k['grade']) ?> (<?= number_format((float)$k['min_val'],0) ?>–<?= number_format((float)$k['max_val'],0) ?>) <?= esc($k['predikat']) ?></span>
           <?php endforeach; ?>
         </div>
-      </div>
-    <?php },
-    'extracurricular' => function() use ($ekskul) { ?>
-      <div class="rapor-section">
-        <h3>Extracurricular</h3>
-        <?php if (!$ekskul): ?>
-          <div style="font-size:12px; color:#666">No extracurricular grades have been recorded.</div>
-        <?php else: ?>
-        <table class="t-print" style="max-width:600px">
-          <thead><tr><th>Extracurricular</th><th style="width:80px">Achievement Level</th><th>Notes</th></tr></thead>
-          <tbody>
-          <?php foreach ($ekskul as $e): ?>
-            <tr>
-              <td><?= esc($e['ekskul_nama']) ?></td>
-              <td style="text-align:center"><strong><?= esc($e['predikat'] ?? '—') ?></strong></td>
-              <td><?= esc($e['catatan'] ?? '') ?></td>
-            </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-        <?php endif; ?>
       </div>
     <?php },
     'attendance' => function() use ($myAtt) { ?>
@@ -291,12 +297,6 @@ require __DIR__ . '/../includes/header.php';
             </tr>
           </tbody>
         </table>
-      </div>
-    <?php },
-    'wali_note' => function() use ($waliRow, $student) { ?>
-      <div class="rapor-section">
-        <h3>Homeroom Teacher's Notes</h3>
-        <div style="border:1px solid #444; padding:10px; min-height:60px; font-size:12px; white-space:pre-wrap"><?= esc($waliRow[(int)$student['id']] ?? '—') ?></div>
       </div>
     <?php },
     'general_eval' => function() use ($generalRow, $student) { ?>

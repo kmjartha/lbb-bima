@@ -133,7 +133,7 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
     $stFg = $pdo->prepare(
         "SELECT student_id, subject_id,
                 nilai_sikap AS si, nilai_pengetahuan AS pe, nilai_keterampilan AS ke,
-                catatan_guru AS note, status
+                catatan_guru AS note, status, image_path
          FROM final_grades
          WHERE rombel_id = :r AND semester = :sem AND period_kind = :p"
     );
@@ -151,6 +151,7 @@ function leger_matrix(int $rombelId, string $semester, string $period): array
             'overall' => spk_overall($si, $pe, $ke),
             'note' => $row['note'] === null ? null : (string)$row['note'],
             'status' => (string)$row['status'],
+            'image_path' => $row['image_path'] === null ? null : (string)$row['image_path'],
         ];
     }
 
@@ -331,9 +332,7 @@ function rapor_default_layout(): array
         'identitas',
         'character',
         'academic',
-        'extracurricular',
         'attendance',
-        'wali_note',
         'general_eval',
         'signatures',
     ];
@@ -385,20 +384,6 @@ function character_evals_for_student(int $rombelId, int $studentId, string $sem,
          ORDER BY FIELD(ca.kategori,'Spiritual and morality','Discipline','Manner','Obedience','Focus and Confidence','spiritual','sosial'), ca.nama"
     );
     $st->execute(['y'=>$yearId,'r'=>$rombelId,'st'=>$studentId,'sem'=>$sem,'p'=>$period]);
-    return $st->fetchAll();
-}
-
-/** Ekskul grades for a student in active TA + semester. */
-function ekskul_grades_for_student(int $studentId, string $sem, int $yearId): array
-{
-    $st = db()->prepare(
-        "SELECT eg.*, e.nama AS ekskul_nama
-         FROM extracurricular_grades eg
-         JOIN extracurriculars e ON e.id = eg.extracurricular_id
-         WHERE eg.student_id=:s AND eg.semester=:sem AND eg.academic_year_id=:y
-         ORDER BY e.nama"
-    );
-    $st->execute(['s'=>$studentId,'sem'=>$sem,'y'=>$yearId]);
     return $st->fetchAll();
 }
 
