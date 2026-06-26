@@ -49,6 +49,13 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
 <link rel="icon" type="image/x-icon" href="<?= esc(url('../assets/img/logo.png')) ?>">
 <script defer src="<?= esc(url('../assets/js/app.js')) ?>"></script>
+<?php
+// Set flag in sessionStorage on fresh login so sidebar scrolls to top
+if (!empty($_SESSION['_fresh_login'])) {
+    unset($_SESSION['_fresh_login']);
+    echo '<script>sessionStorage.setItem("sg_fresh_login", "1");</script>';
+}
+?>
 </head>
 <body class="app">
 <aside class="sidebar" id="sidebar">
@@ -65,7 +72,7 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
   <?php if ($__user): ?>
   <div style="padding:.25rem var(--sp-2) var(--sp-3); display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">
     <span style="display:inline-flex;align-items:center;gap:.3rem;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;background:var(--c-primary-50);color:var(--c-primary-800);border:1px solid var(--c-primary-100)">
-      <?= esc(ucfirst($__user['role'])) ?>
+      <?= esc(display_role_label($__user)) ?>
       <?= !empty($__user['jenjang']) ? '· '.esc($__user['jenjang']) : '' ?>
     </span>
     <?php if ($__locked): ?>

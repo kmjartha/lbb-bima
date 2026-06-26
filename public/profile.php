@@ -100,7 +100,7 @@ require __DIR__ . '/../includes/header.php';
       </div>
       <div class="field" style="flex:1; min-width:220px;">
         <label class="label">Role</label>
-        <div class="readonly-value"><?= esc(ucfirst($me['role'])) ?></div>
+        <div class="readonly-value"><?= esc(display_role_label($me)) ?></div>
       </div>
       <div class="field" style="flex:1; min-width:220px;">
         <label class="label">Jenjang</label>

@@ -13,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rem = !empty($_POST['remember']);
         if ($niy === '' || $pw === '') throw new RuntimeException('NIY dan password wajib diisi.');
         staff_login($niy, $pw, $rem);
+        // Flag to reset sidebar scroll on fresh login
+        $_SESSION['_fresh_login'] = true;
         redirect('dashboard.php');
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }

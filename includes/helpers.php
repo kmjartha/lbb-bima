@@ -178,3 +178,14 @@ function elective_subject_label(string $nama, ?string $electiveKode): string
     }
     return $nama . ' (' . $electiveKode . ')';
 }
+
+function display_role_label(?array $user): string
+{
+    if (!$user) {
+        return '';
+    }
+    if (($user['role'] ?? '') === 'guru' && !empty($user['is_wali'])) {
+        return 'Guru Wali';
+    }
+    return ucfirst((string)($user['role'] ?? ''));
+}

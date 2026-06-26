@@ -106,9 +106,9 @@ if ($role === 'guru') {
 <div class="card mt-4">
   <div class="card-header"><h3 class="card-title">Selamat datang, <?= esc($me['nama']) ?></h3></div>
   <div class="card-body">
-    <p class="text-muted">Anda masuk sebagai <strong><?= esc(ucfirst($role)) ?></strong>. Pilih Tahun Ajaran, Semester, dan Periode (PTS/PAS) di topbar untuk mengubah scope global.</p>
+    <p class="text-muted">Anda masuk sebagai <strong><?= esc($role === 'guru' && !empty($me['is_wali']) ? 'Guru Wali' : ucfirst($role)) ?></strong>. Pilih Tahun Ajaran, Semester, dan Periode (PTS/PAS) di topbar untuk mengubah scope global.</p>
     <?php if ($role === 'guru'): ?>
-      <p class="text-sm">Dashboard ini menampilkan rombel, siswa, dan mapel yang Anda ampu; gunakan menu di bawah untuk langsung ke input absensi, nilai, atau evaluasi.</p>
+      <p class="text-sm">Dashboard ini menampilkan <?= !empty($me['is_wali']) ? 'rombel wali, siswa, dan penilaian' : 'rombel, siswa, dan mapel yang Anda ampu' ?>; gunakan menu di bawah untuk langsung ke input absensi, nilai, atau evaluasi.</p>
     <?php elseif ($role === 'kepsek'): ?>
       <p class="text-sm">Gunakan ringkasan jenjang dan daftar verifikasi rapor untuk memantau status nilai dan publikasi.</p>
     <?php elseif ($role !== 'administrator'): ?>

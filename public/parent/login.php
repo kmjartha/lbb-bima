@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pw  = (string)($_POST['password'] ?? '');
         if ($nis === '' || $pw === '') throw new RuntimeException('NIS dan password wajib diisi.');
         parent_login($nis, $pw, !empty($_POST['remember']));
+        // Flag to reset sidebar scroll on fresh login
+        $_SESSION['_fresh_login'] = true;
         redirect('parent/home.php');
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }

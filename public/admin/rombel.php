@@ -11,6 +11,12 @@ $sc = active_scope();
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 $manageId = int_or_null($_GET['manage'] ?? null);
+$edit = null;
+if ($editId) {
+    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+    $stmt->execute(['id'=>$editId,'y'=>$sc['year_id']]);
+    $edit = $stmt->fetch();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -30,6 +36,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($tingkat < 0 || $tingkat > 2) throw new RuntimeException('Tingkat TK 0-2.');
             } else {
                 if ($tingkat < 1 || $tingkat > 12) throw new RuntimeException('Tingkat 1-12.');
+            }
+
+            if ($waliId !== null && $waliId > 0) {
+                $waliCheck = $pdo->prepare(
+                    "SELECT u.id
+                     FROM users u
+                     JOIN teachers t ON t.user_id = u.id
+                     JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y
+                     WHERE u.id = :uid AND u.role = 'guru' AND u.is_wali = 1 AND u.deleted_at IS NULL"
+                );
+                $waliCheck->execute(['uid'=>$waliId,'y'=>$sc['year_id']]);
+                if (!$waliCheck->fetchColumn()) {
+                    throw new RuntimeException('Guru yang dipilih bukan wali kelas yang valid.');
+                }
+
+                $duplicateWali = $pdo->prepare(
+                    "SELECT id FROM rombel
+                     WHERE academic_year_id = :y AND deleted_at IS NULL AND wali_id = :wid AND id <> :rid"
+                );
+                $duplicateWali->execute(['y'=>$sc['year_id'],'wid'=>$waliId,'rid'=>$id ?: 0]);
+                if ($duplicateWali->fetchColumn()) {
+                    throw new RuntimeException('Guru ini sudah menjadi wali kelas di rombel lain.');
+                }
             }
 
             if ($id) {
@@ -82,16 +111,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
-// Wali kelas options (guru who are assigned to the active academic year)
+// Wali kelas options (guru yang belum menjadi wali di rombel lain di TA aktif)
 $walis = $pdo->prepare(
     "SELECT u.id, u.niy, u.nama
      FROM users u
      JOIN teachers t ON t.user_id = u.id
      JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y
      WHERE u.role = 'guru' AND u.is_wali = 1 AND u.deleted_at IS NULL
+       AND NOT EXISTS (
+           SELECT 1 FROM rombel r
+           WHERE r.academic_year_id = :y2
+             AND r.deleted_at IS NULL
+             AND r.wali_id = u.id
+             AND r.id <> :edit_id
+       )
      ORDER BY u.nama"
 );
-$walis->execute(['y' => $sc['year_id']]);
+$walis->execute(['y' => $sc['year_id'], 'y2' => $sc['year_id'], 'edit_id' => $editId ?: 0]);
 $walis = $walis->fetchAll();
 
 // List rombel for active TA
@@ -104,12 +140,6 @@ $rows = $pdo->prepare(
 );
 $rows->execute(['y'=>$sc['year_id']]);
 $rows = $rows->fetchAll();
-
-$edit = null;
-if ($editId) {
-    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
-    $stmt->execute(['id'=>$editId,'y'=>$sc['year_id']]); $edit = $stmt->fetch();
-}
 
 // Manage members of one rombel
 $manage = null; $members = []; $eligible = [];
@@ -202,7 +232,7 @@ require __DIR__ . '/../../includes/header.php';
               <option value="<?= (int)$w['id'] ?>" <?= ($edit['wali_id']??null)==$w['id']?'selected':'' ?>><?= esc($w['niy'].' — '.$w['nama']) ?></option>
             <?php endforeach; ?>
           </select>
-          <div class="help">Hanya guru yang ditandai "Wali Kelas" di halaman Guru.</div>
+          <div class="help">Hanya guru yang ditandai "Wali Kelas" di halaman Guru. Guru yang sudah menjadi wali di rombel lain tidak ditampilkan.</div>
         </div>
         <button class="btn btn-primary" type="submit">Simpan</button>
       </form>

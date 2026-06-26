@@ -11,14 +11,27 @@
   }
 
   // Keep sidebar scroll position when navigating through menu links.
+  // On fresh login, reset scroll position to top.
   if (sb) {
     const SIDEBAR_SCROLL_KEY = 'sg_sidebar_scroll_top';
+    const FRESH_LOGIN_KEY = 'sg_fresh_login';
+    
     const restoreSidebarScroll = () => {
-      const stored = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
-      if (stored !== null) {
-        const value = Number(stored);
-        if (!Number.isNaN(value)) {
-          sb.scrollTop = value;
+      // Check if this is a fresh login
+      const isFreshLogin = sessionStorage.getItem(FRESH_LOGIN_KEY);
+      if (isFreshLogin) {
+        // Fresh login: reset scroll to top and remove the flag
+        sessionStorage.removeItem(FRESH_LOGIN_KEY);
+        sessionStorage.removeItem(SIDEBAR_SCROLL_KEY);
+        sb.scrollTop = 0;
+      } else {
+        // Not fresh login: restore previous scroll position
+        const stored = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+        if (stored !== null) {
+          const value = Number(stored);
+          if (!Number.isNaN(value)) {
+            sb.scrollTop = value;
+          }
         }
       }
     };
