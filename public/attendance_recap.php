@@ -13,7 +13,7 @@ require_once __DIR__ . '/../includes/attendance_helpers.php';
 $user = require_view('attendance_recap');
 $sc   = active_scope();
 
-$rombels = accessible_rombel($user);
+$rombels = accessible_attendance_rombel($user);
 $rid     = int_or_null($_GET['rombel_id'] ?? null);
 if (!$rid && $rombels) $rid = (int)$rombels[0]['id'];
 
@@ -31,7 +31,7 @@ if ($bulan !== '') {
 
 $rombel = null; $recap = []; $dates = []; $matrix = [];
 if ($rid) {
-    $rombel = assert_can_access_rombel($user, $rid);
+    $rombel = assert_can_access_attendance_rombel($user, $rid);
     $recap  = attendance_recap($rid, $from, $to);
     $dates  = attendance_dates($rid, $from, $to);
 

@@ -15,7 +15,7 @@ $pdo  = db();
 $sc   = active_scope();
 $err  = null;
 
-$rombels = accessible_rombel($user);
+$rombels = accessible_attendance_rombel($user);
 $rid     = int_or_null($_GET['rombel_id'] ?? null);
 $tanggal = (string)($_GET['tanggal'] ?? date('Y-m-d'));
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal)) $tanggal = date('Y-m-d');
@@ -25,7 +25,7 @@ if (!$rid && $rombels) $rid = (int)$rombels[0]['id'];
 
 $rombel = null; $members = []; $existing = [];
 if ($rid) {
-    $rombel  = assert_can_access_rombel($user, $rid);
+    $rombel  = assert_can_access_attendance_rombel($user, $rid);
     $members = rombel_members($rid);
     $existing = attendance_for($rid, $tanggal);
 }

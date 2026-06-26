@@ -92,6 +92,62 @@ function assert_can_access_rombel(array $user, int $rombelId): array
     die('403 — Anda tidak memiliki akses ke rombel ini.');
 }
 
+/** Rombel yang dapat diakses untuk fitur absensi. */
+function accessible_attendance_rombel(array $user): array
+{
+    $sc = active_scope();
+    $pdo = db();
+    $role = $user['role'] ?? '';
+
+    if (in_array($role, ['administrator','admin'], true)) {
+        $st = $pdo->prepare(
+            "SELECT r.*, u.nama AS wali_nama
+             FROM rombel r LEFT JOIN users u ON u.id = r.wali_id
+             WHERE r.academic_year_id = :y AND r.deleted_at IS NULL
+             ORDER BY FIELD(r.jenjang,'SD','SMP','SMA'), r.tingkat, r.nama"
+        );
+        $st->execute(['y' => $sc['year_id']]);
+        return $st->fetchAll();
+    }
+
+    if ($role === 'kepsek') {
+        $jen = $user['jenjang'] ?? null;
+        $sql = "SELECT r.*, u.nama AS wali_nama
+                FROM rombel r LEFT JOIN users u ON u.id = r.wali_id
+                WHERE r.academic_year_id = :y AND r.deleted_at IS NULL";
+        $params = ['y' => $sc['year_id']];
+        if ($jen) { $sql .= " AND r.jenjang = :j"; $params['j'] = $jen; }
+        $sql .= " ORDER BY FIELD(r.jenjang,'SD','SMP','SMA'), r.tingkat, r.nama";
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        return $st->fetchAll();
+    }
+
+    if ($role === 'guru') {
+        $st = $pdo->prepare(
+            "SELECT r.*, u.nama AS wali_nama
+             FROM rombel r LEFT JOIN users u ON u.id = r.wali_id
+             WHERE r.academic_year_id = :y AND r.deleted_at IS NULL
+               AND r.wali_id = :uid
+             ORDER BY FIELD(r.jenjang,'SD','SMP','SMA'), r.tingkat, r.nama"
+        );
+        $st->execute(['y' => $sc['year_id'], 'uid' => $user['id']]);
+        return $st->fetchAll();
+    }
+
+    return [];
+}
+
+/** Throws 403 if the user cannot access this rombel for attendance. */
+function assert_can_access_attendance_rombel(array $user, int $rombelId): array
+{
+    foreach (accessible_attendance_rombel($user) as $r) {
+        if ((int)$r['id'] === $rombelId) return $r;
+    }
+    http_response_code(403);
+    die('403 — Anda tidak memiliki akses absensi untuk rombel ini.');
+}
+
 /** Members of a rombel, ordered by name. */
 function rombel_members(int $rombelId): array
 {
