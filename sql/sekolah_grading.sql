@@ -1599,7 +1599,7 @@ INSERT INTO `semesters_state` (`id`, `academic_year_id`, `semester`, `semester_l
 CREATE TABLE `students` (
   `id` int(10) UNSIGNED NOT NULL,
   `academic_year_id` int(10) UNSIGNED NOT NULL,
-  `nisn` varchar(10) NOT NULL,
+  `nisn` varchar(10) DEFAULT NULL,
   `nis` varchar(7) NOT NULL,
   `nama` varchar(120) NOT NULL,
   `jenjang` enum('TK','SD','SMP','SMA') NOT NULL,

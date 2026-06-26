@@ -7,10 +7,10 @@ $err = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
-        $nisn = trim((string)($_POST['nisn'] ?? ''));
-        $pw   = (string)($_POST['password'] ?? '');
-        if ($nisn === '' || $pw === '') throw new RuntimeException('NISN dan password wajib diisi.');
-        parent_login($nisn, $pw, !empty($_POST['remember']));
+        $nis = trim((string)($_POST['nis'] ?? $_POST['nisn'] ?? ''));
+        $pw  = (string)($_POST['password'] ?? '');
+        if ($nis === '' || $pw === '') throw new RuntimeException('NIS dan password wajib diisi.');
+        parent_login($nis, $pw, !empty($_POST['remember']));
         redirect('parent/home.php');
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
@@ -23,11 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head><body><div class="auth-wrap bm"><div class="auth-card">
   <div class="auth-logo">⭐</div>
   <h2>Portal Orang Tua</h2>
-  <p class="text-muted mb-4"><?= esc(cfg()['app_name']) ?> · Gunakan NISN anak. Default password = tanggal lahir <strong>ddmmyyyy</strong>.</p>
+  <p class="text-muted mb-4"><?= esc(cfg()['app_name']) ?> · Gunakan NIS anak. Default password = tanggal lahir <strong>ddmmyyyy</strong>.</p>
   <?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>
   <form method="post">
     <?= csrf_field() ?>
-    <div class="field"><label class="label">NISN Anak</label><input class="input" name="nisn" autofocus required></div>
+    <div class="field"><label class="label">NIS Anak</label><input class="input" name="nis" autofocus required></div>
     <div class="field"><label class="label">Password</label><input class="input" type="password" name="password" required></div>
     <label class="checkbox-row mb-4"><input type="checkbox" name="remember" value="1"> Ingat saya</label>
     <button class="btn btn-primary" type="submit" style="width:100%">Masuk</button>

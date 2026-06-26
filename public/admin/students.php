@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($op === 'save') {
             $id       = int_or_null($_POST['id'] ?? null);
-            $nisn     = req_str($_POST, 'nisn', 10);
+            $nisn     = opt_str($_POST, 'nisn', 10);
             $nis      = req_str($_POST, 'nis', 7);
             $nama     = req_str($_POST, 'nama', 120);
             $jenjang  = req_str($_POST, 'jenjang', 3);
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $p_ibu    = opt_str($_POST, 'pekerjaan_ibu', 80);
             $telp     = opt_str($_POST, 'telp_ortu', 30);
 
-            if (!valid_nisn($nisn)) throw new RuntimeException('NISN harus 10 digit angka.');
+            if ($nisn !== null && !valid_nisn($nisn)) throw new RuntimeException('NISN harus 10 digit angka.');
             if (!valid_nis($nis))   throw new RuntimeException('NIS harus 7 digit angka.');
             if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
             $valid = ($jenjang==='TK' && $tingkat>=0 && $tingkat<=2)||($jenjang==='SD' && $tingkat>=1 && $tingkat<=6) || ($jenjang==='SMP' && $tingkat>=7 && $tingkat<=9) || ($jenjang==='SMA' && $tingkat>=10 && $tingkat<=12);
@@ -197,8 +197,8 @@ require __DIR__ . '/../../includes/header.php';
         <?= csrf_field() ?><input type="hidden" name="op" value="save">
         <?php if ($edit): ?><input type="hidden" name="id" value="<?= (int)$edit['id'] ?>"><?php endif; ?>
         <div class="row">
-          <div class="field"><label class="label">NISN * (10 digit)</label><input class="input" name="nisn" maxlength="10" pattern="\d{10}" required value="<?= esc($edit['nisn'] ?? '') ?>"></div>
           <div class="field"><label class="label">NIS * (7 digit)</label><input class="input" name="nis" maxlength="7" pattern="\d{7}" required value="<?= esc($edit['nis'] ?? '') ?>"></div>
+          <div class="field"><label class="label">NISN (opsional, 10 digit)</label><input class="input" name="nisn" maxlength="10" pattern="\d{10}" value="<?= esc($edit['nisn'] ?? '') ?>"></div>
         </div>
         <div class="field"><label class="label">Nama *</label><input class="input" name="nama" required value="<?= esc($edit['nama'] ?? '') ?>"></div>
         <div class="row">

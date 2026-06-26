@@ -44,19 +44,19 @@ function current_user(): ?array
 }
 
 /* =====================================================================
- * Parent auth (NISN + password + remember-me)
+ * Parent auth (NIS + password + remember-me)
  * ===================================================================== */
 
-function parent_login(string $nisn, string $password, bool $remember = false): array
+function parent_login(string $nis, string $password, bool $remember = false): array
 {
     $yearId = active_scope()['year_id'];
     $studentStmt = db()->prepare(
-        "SELECT id, nisn, nama, jenjang, tingkat, tgl_lahir
+        "SELECT id, nis, nisn, nama, jenjang, tingkat, tgl_lahir
          FROM students
-         WHERE nisn = :n AND deleted_at IS NULL
+         WHERE nis = :n AND deleted_at IS NULL
          ORDER BY CASE WHEN academic_year_id = :y THEN 0 ELSE 1 END, id LIMIT 1"
     );
-    $studentStmt->execute(['n' => $nisn, 'y' => $yearId]);
+    $studentStmt->execute(['n' => $nis, 'y' => $yearId]);
     $student = $studentStmt->fetch();
     if (!$student) throw new RuntimeException('Akun ortu tidak ditemukan.');
 
@@ -78,7 +78,7 @@ function parent_login(string $nisn, string $password, bool $remember = false): a
             }
         }
         if ($defaultPassword === '') {
-            $defaultPassword = (string)$student['nisn'];
+            $defaultPassword = (string)$student['nis'];
         }
 
         $hash = password_hash($defaultPassword, PASSWORD_DEFAULT);
@@ -96,7 +96,7 @@ function parent_login(string $nisn, string $password, bool $remember = false): a
         ];
     }
 
-    if (!password_verify($password, $row['password_hash'])) throw new RuntimeException('NISN atau password salah.');
+    if (!password_verify($password, $row['password_hash'])) throw new RuntimeException('NIS atau password salah.');
 
     session_regenerate_id(true);
     $_SESSION['parent'] = [
