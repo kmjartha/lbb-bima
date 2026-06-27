@@ -22,6 +22,22 @@ function tingkat_options_for_jenjang(string $jenjang): array {
     };
 }
 
+// --- FITUR DOWNLOAD TEMPLATE CSV ---
+if (($_GET['action'] ?? '') === 'download_template') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=template_import_siswa.csv');
+    $output = fopen('php://output', 'w');
+    
+    // Header kolom
+    fputcsv($output, ['NIS (7 digit)', 'NISN (10 digit)', 'Nama Lengkap', 'Jenjang (TK/SD/SMP/SMA)', 'Tingkat (Angka)', 'JK (L/P)', 'Tempat Lahir', 'Tgl Lahir (YYYY-MM-DD)', 'Alamat', 'Nama Ayah', 'Nama Ibu', 'Pekerjaan Ayah', 'Pekerjaan Ibu', 'Telp Ortu']);
+    
+    // Contoh data (baris panduan)
+    fputcsv($output, ['1234567', '1234567890', 'Budi Santoso', 'SD', '1', 'L', 'Denpasar', '2015-05-20', 'Jl. Merdeka No 1', 'Bapak Budi', 'Ibu Budi', 'Wiraswasta', 'PNS', '081234567890']);
+    
+    fclose($output);
+    exit;
+}
+
 // jenjang filter
 $jf = in_array(($_GET['jenjang'] ?? ''), ['TK','SD','SMP','SMA'], true) ? $_GET['jenjang'] : '';
 $q  = trim((string)($_GET['q'] ?? ''));
@@ -108,6 +124,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin/students.php' . ($jf ? '?jenjang=' . $jf : ''));
         }
 
+        // --- FITUR IMPORT DATA CSV ---
+        if ($op === 'import') {
+            if (empty($_FILES['file_import']['tmp_name']) || $_FILES['file_import']['error'] !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Gagal mengupload file CSV.');
+            }
+            
+            $ext = strtolower(pathinfo($_FILES['file_import']['name'], PATHINFO_EXTENSION));
+            if ($ext !== 'csv') throw new RuntimeException('Hanya mendukung file dengan format .csv');
+
+            $handle = fopen($_FILES['file_import']['tmp_name'], 'r');
+            if ($handle === false) throw new RuntimeException('Tidak dapat membaca file.');
+
+            fgetcsv($handle, 1000, ','); // Skip baris pertama (header)
+            
+            $successCount = 0;
+            $failCount = 0;
+
+            $pdo->beginTransaction();
+            try {
+                $sqlInsert = "INSERT INTO students (academic_year_id, nis, nisn, nama, jenjang, tingkat, jk, tempat_lahir, tgl_lahir, alamat, nama_ayah, nama_ibu, pekerjaan_ayah, pekerjaan_ibu, telp_ortu) 
+                              VALUES (:y, :nis, :nisn, :nama, :jenjang, :tingkat, :jk, :tempat, :tgl, :alamat, :a_ayah, :a_ibu, :p_ayah, :p_ibu, :telp)";
+                $stmtStudent = $pdo->prepare($sqlInsert);
+                
+                $sqlAuth = "INSERT INTO parents_auth (student_id, password_hash, must_change_pw) VALUES (:s, :h, 1)";
+                $stmtAuth = $pdo->prepare($sqlAuth);
+
+                while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+                    if (count($row) < 14) { $failCount++; continue; }
+
+                    $nis      = trim($row[0]);
+                    $nisn     = trim($row[1]) !== '' ? trim($row[1]) : null;
+                    $nama     = trim($row[2]);
+                    $jenjang  = strtoupper(trim($row[3]));
+                    $tingkat  = (int)trim($row[4]);
+                    $jk       = strtoupper(trim($row[5]));
+                    $tempat   = trim($row[6]);
+                    $tgl      = trim($row[7]);
+                    $alamat   = trim($row[8]);
+                    $a_ayah   = trim($row[9]);
+                    $a_ibu    = trim($row[10]);
+                    $p_ayah   = trim($row[11]);
+                    $p_ibu    = trim($row[12]);
+                    $telp     = trim($row[13]);
+
+                    // Validasi Dasar
+                    $valid = true;
+                    if (!preg_match('/^\d{7}$/', $nis)) $valid = false;
+                    if (empty($nama) || strlen($nama) > 120) $valid = false;
+                    if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) $valid = false;
+                    if (!in_array($jk, ['L','P'], true)) $valid = false;
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl)) $valid = false;
+                    
+                    // Validasi Tingkat vs Jenjang
+                    if ($valid) {
+                        $validTingkat = ($jenjang==='TK' && $tingkat>=0 && $tingkat<=2)||($jenjang==='SD' && $tingkat>=1 && $tingkat<=6) || ($jenjang==='SMP' && $tingkat>=7 && $tingkat<=9) || ($jenjang==='SMA' && $tingkat>=10 && $tingkat<=12);
+                        if (!$validTingkat) $valid = false;
+                    }
+
+                    if (!$valid) {
+                        $failCount++;
+                        continue; 
+                    }
+
+                    // Eksekusi Insert Siswa
+                    $stmtStudent->execute([
+                        'y' => $yearId, 'nis' => $nis, 'nisn' => $nisn, 'nama' => $nama,
+                        'jenjang' => $jenjang, 'tingkat' => $tingkat, 'jk' => $jk,
+                        'tempat' => $tempat, 'tgl' => $tgl, 'alamat' => $alamat,
+                        'a_ayah' => $a_ayah, 'a_ibu' => $a_ibu, 'p_ayah' => $p_ayah, 'p_ibu' => $p_ibu, 'telp' => $telp
+                    ]);
+                    $newId = (int)$pdo->lastInsertId();
+
+                    // Buat Autentikasi Orang Tua
+                    $dob = new DateTime($tgl);
+                    $pw  = $dob->format('dmY');
+                    $stmtAuth->execute(['s' => $newId, 'h' => password_hash($pw, PASSWORD_DEFAULT)]);
+
+                    $successCount++;
+                }
+                
+                $pdo->commit();
+                audit('import', "students: $successCount success, $failCount failed");
+                flash('success', "Import selesai. Berhasil: $successCount baris, Gagal/Dilewati: $failCount baris.");
+                redirect('admin/students.php');
+            } finally {
+                fclose($handle);
+            }
+        }
+
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
             $pdo->prepare("UPDATE students SET deleted_at = NOW(), is_active = 0 WHERE id = :id AND academic_year_id = :y")->execute(['id'=>$id, 'y'=>$yearId]);
@@ -145,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           if (in_array($newJenjang, ['TK','SD','SMP','SMA'], true)) { $sets[] = "jenjang = :j"; $params['j'] = $newJenjang; }
           if ($newTingkat !== null) { $sets[] = "tingkat = :t"; $params['t'] = $newTingkat; }
           if (!$sets) throw new RuntimeException('Pilih jenjang atau tingkat baru.');
-          // Build named placeholders for the IN() list to avoid mixing positional and named params
+          
           $idPlaceholders = [];
           foreach ($ids as $k => $idv) {
             $ph = ':id_' . $k;
@@ -203,7 +308,6 @@ require __DIR__ . '/../../includes/header.php';
 <div class="alert alert-info">Menampilkan siswa yang terdaftar pada Tahun Ajaran aktif: <strong><?= esc($sc['year']) ?></strong>.</div>
 
 <div class="row">
-  <!-- Form -->
   <div class="card" style="flex: 1; min-width: 360px">
     <div class="card-header"><h3 class="card-title"><?= $edit ? 'Edit' : 'Tambah' ?> Siswa</h3>
       <?php if ($edit): ?><a class="btn btn-ghost btn-sm" href="<?= esc(url('admin/students.php')) ?>">Batal</a><?php endif; ?>
@@ -282,7 +386,6 @@ require __DIR__ . '/../../includes/header.php';
     </div>
   </div>
 
-  <!-- List -->
   <div class="card" style="flex: 2; min-width: 380px">
     <div class="card-header">
       <h3 class="card-title">Daftar Siswa (<?= $total ?>)</h3>
@@ -295,6 +398,19 @@ require __DIR__ . '/../../includes/header.php';
         <button class="btn btn-secondary btn-sm" type="submit">Filter</button>
       </form>
     </div>
+
+    <div class="card-body" style="border-bottom: 1px solid var(--border); background: var(--bg-alt); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-2);">
+      <a href="?action=download_template" class="btn btn-secondary btn-sm" target="_blank">
+        ↓ Download Template CSV
+      </a>
+      <form method="post" enctype="multipart/form-data" style="margin: 0; display: flex; gap: var(--sp-2); align-items: center;">
+        <?= csrf_field() ?>
+        <input type="hidden" name="op" value="import">
+        <input type="file" name="file_import" accept=".csv" required class="input" style="padding: 4px; font-size: 14px; max-width: 200px;">
+        <button class="btn btn-primary btn-sm" type="submit" data-confirm="Pastikan format CSV sudah sesuai dengan template. Lanjutkan import?">Import Data</button>
+      </form>
+    </div>
+
     <div class="card-body">
       <form method="post" id="batchForm">
         <?= csrf_field() ?><input type="hidden" name="op" value="batch_promote">
