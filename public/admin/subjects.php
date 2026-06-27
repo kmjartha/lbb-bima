@@ -16,6 +16,23 @@ $q      = trim((string)($_GET['q'] ?? ''));
 $limit  = 15;
 $page   = max(1, (int)($_GET['p'] ?? 1));
 
+// --- FITUR DOWNLOAD TEMPLATE CSV ---
+if (($_GET['action'] ?? '') === 'download_template') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=template_import_mapel.csv');
+    $output = fopen('php://output', 'w');
+    
+    // Header kolom
+    fputcsv($output, ['Kode Mapel (Wajib)', 'Nama Mapel (Wajib)', 'Kategori (Opsional)', 'Jenjang (Pisahkan koma: TK,SD,SMP,SMA)', 'KKM SD (Opsional)', 'KKM SMP (Opsional)', 'KKM SMA (Opsional)']);
+    
+    // Contoh data (baris panduan)
+    fputcsv($output, ['MTK', 'Matematika', 'Wajib', 'SD, SMP', '70', '75', '']);
+    fputcsv($output, ['SBD', 'Seni Budaya', 'Muatan Lokal', 'SD', '75', '', '']);
+    
+    fclose($output);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
@@ -133,6 +150,105 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             audit('save', 'subject:' . $id);
             flash('success', 'Mata pelajaran disimpan.');
             redirect('admin/subjects.php');
+        }
+
+        // --- FITUR IMPORT DATA CSV ---
+        if ($op === 'import') {
+            if (empty($_FILES['file_import']['tmp_name']) || $_FILES['file_import']['error'] !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Gagal mengupload file CSV.');
+            }
+            
+            $ext = strtolower(pathinfo($_FILES['file_import']['name'], PATHINFO_EXTENSION));
+            if ($ext !== 'csv') throw new RuntimeException('Hanya mendukung file dengan format .csv');
+
+            $handle = fopen($_FILES['file_import']['tmp_name'], 'r');
+            if ($handle === false) throw new RuntimeException('Tidak dapat membaca file.');
+
+            fgetcsv($handle, 1000, ','); // Lewati baris header
+            
+            $successCount = 0;
+            $failCount = 0;
+
+            $pdo->beginTransaction();
+            try {
+                $stmtCatCheck = $pdo->prepare("SELECT id FROM subject_categories WHERE nama = :n AND academic_year_id = :y");
+                $stmtCatInsert = $pdo->prepare("INSERT INTO subject_categories (academic_year_id, nama) VALUES (:y, :n)");
+                $stmtSubject = $pdo->prepare("INSERT INTO subjects (academic_year_id, kode, nama, category_id) VALUES (:y, :k, :n, :c)");
+                $stmtJenjang = $pdo->prepare("INSERT INTO subject_jenjang_map (subject_id, jenjang) VALUES (:s, :j)");
+
+                while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+                    if (count($row) < 4) { $failCount++; continue; } // Minimal punya kode, nama, jenjang
+
+                    $kode       = trim($row[0]);
+                    $nama       = trim($row[1]);
+                    $catName    = trim($row[2]);
+                    $jenjangRaw = strtoupper(trim($row[3]));
+                    $kkmSd      = trim($row[4] ?? '');
+                    $kkmSmp     = trim($row[5] ?? '');
+                    $kkmSma     = trim($row[6] ?? '');
+
+                    // Validasi Dasar
+                    if (empty($kode) || empty($nama) || empty($jenjangRaw)) {
+                        $failCount++; continue;
+                    }
+
+                    // Parsing Jenjang (memisahkan berdasarkan koma)
+                    $jenjangs = [];
+                    foreach (explode(',', $jenjangRaw) as $j) {
+                        $j = trim($j);
+                        if (in_array($j, ['TK','SD','SMP','SMA'], true)) {
+                            $jenjangs[] = $j;
+                        }
+                    }
+                    if (!$jenjangs) { $failCount++; continue; } // Lewati jika format jenjang salah total
+
+                    // Auto-Create Category if needed
+                    $catId = null;
+                    if ($catName !== '') {
+                        $stmtCatCheck->execute(['n' => $catName, 'y' => $sc['year_id']]);
+                        $catId = (int)($stmtCatCheck->fetchColumn() ?: 0);
+                        if (!$catId) {
+                            $stmtCatInsert->execute(['y' => $sc['year_id'], 'n' => $catName]);
+                            $catId = (int)$pdo->lastInsertId();
+                        }
+                    }
+
+                    // Insert Subject
+                    $stmtSubject->execute([
+                        'y' => $sc['year_id'],
+                        'k' => $kode,
+                        'n' => $nama,
+                        'c' => $catId ?: null
+                    ]);
+                    $subjectId = (int)$pdo->lastInsertId();
+
+                    // Insert Jenjang Map
+                    foreach ($jenjangs as $j) {
+                        $stmtJenjang->execute(['s' => $subjectId, 'j' => $j]);
+                    }
+
+                    // Menyiapkan Array KKM (Hanya menyimpan nilai KKM jika jenjangnya dipilih di baris tersebut)
+                    $kkmDefaults = [];
+                    if (in_array('SD', $jenjangs, true) && $kkmSd !== '')  $kkmDefaults['SD'] = (float)$kkmSd;
+                    if (in_array('SMP', $jenjangs, true) && $kkmSmp !== '') $kkmDefaults['SMP'] = (float)$kkmSmp;
+                    if (in_array('SMA', $jenjangs, true) && $kkmSma !== '') $kkmDefaults['SMA'] = (float)$kkmSma;
+
+                    // Menggunakan helper function bawaan Anda untuk KKM
+                    subject_kkm_save($subjectId, $jenjangs, $kkmDefaults, []);
+
+                    $successCount++;
+                }
+                
+                $pdo->commit();
+                audit('import', "subjects: $successCount success, $failCount failed");
+                flash('success', "Import selesai. Berhasil: $successCount baris. Gagal/Dilewati: $failCount baris.");
+                redirect('admin/subjects.php');
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                throw new RuntimeException('Terjadi kesalahan saat import data: ' . $e->getMessage());
+            } finally {
+                fclose($handle);
+            }
         }
 
         if ($op === 'delete') {
@@ -324,6 +440,18 @@ require __DIR__ . '/../../includes/header.php';
         </form>
     </div>
     
+    <div class="card-body" style="border-bottom: 1px solid var(--border); background: var(--bg-alt); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-2);">
+      <a href="?action=download_template" class="btn btn-secondary btn-sm" target="_blank">
+        ↓ Download Template CSV
+      </a>
+      <form method="post" enctype="multipart/form-data" style="margin: 0; display: flex; gap: var(--sp-2); align-items: center;">
+        <?= csrf_field() ?>
+        <input type="hidden" name="op" value="import">
+        <input type="file" name="file_import" accept=".csv" required class="input" style="padding: 4px; font-size: 14px; max-width: 200px;">
+        <button class="btn btn-primary btn-sm" type="submit" data-confirm="Pastikan format CSV sudah sesuai dengan template. Lanjutkan import?">Import Data</button>
+      </form>
+    </div>
+
     <div class="table-wrap">
       <table class="t">
         <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Jenjang</th><th>KKM</th><th></th></tr></thead>
