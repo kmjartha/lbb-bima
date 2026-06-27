@@ -15,6 +15,22 @@ $q      = trim((string)($_GET['q'] ?? ''));
 $limit  = 15;
 $page   = max(1, (int)($_GET['p'] ?? 1));
 
+// --- FITUR DOWNLOAD TEMPLATE CSV ---
+if (($_GET['action'] ?? '') === 'download_template') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=template_import_guru.csv');
+    $output = fopen('php://output', 'w');
+    
+    // Header kolom
+    fputcsv($output, ['NIY (Wajib & Unik)', 'NIP', 'Nama Lengkap (Wajib)', 'Email', 'Telepon', 'Wali Kelas (1=Ya, 0=Tidak)']);
+    
+    // Contoh data (baris panduan)
+    fputcsv($output, ['12345678', '198001012005011001', 'Budi Santoso, S.Pd', 'budi@sekolah.com', '081234567890', '1']);
+    
+    fclose($output);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
@@ -74,6 +90,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin/teachers.php');
         }
 
+        // --- FITUR IMPORT DATA CSV ---
+        if ($op === 'import') {
+            if (empty($_FILES['file_import']['tmp_name']) || $_FILES['file_import']['error'] !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Gagal mengupload file CSV.');
+            }
+            
+            $ext = strtolower(pathinfo($_FILES['file_import']['name'], PATHINFO_EXTENSION));
+            if ($ext !== 'csv') throw new RuntimeException('Hanya mendukung file dengan format .csv');
+
+            $handle = fopen($_FILES['file_import']['tmp_name'], 'r');
+            if ($handle === false) throw new RuntimeException('Tidak dapat membaca file.');
+
+            fgetcsv($handle, 1000, ','); // Lewati baris header
+            
+            $successCount = 0;
+            $failCount = 0;
+
+            $pdo->beginTransaction();
+            try {
+                $stmtUser = $pdo->prepare("INSERT INTO users (niy, nama, email, password_hash, role, is_wali, must_change_pw) VALUES (:n, :nm, :e, :h, 'guru', :w, 1)");
+                $stmtTeacher = $pdo->prepare("INSERT INTO teachers (user_id, nip, phone) VALUES (:u, :p, :ph)");
+                $stmtYear = $pdo->prepare("INSERT IGNORE INTO teacher_years (teacher_id, academic_year_id) VALUES (:t, :y)");
+
+                while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+                    if (count($row) < 6) { $failCount++; continue; }
+
+                    $niy     = trim($row[0]);
+                    $nip     = trim($row[1]) !== '' ? trim($row[1]) : null;
+                    $nama    = trim($row[2]);
+                    $email   = trim($row[3]) !== '' ? trim($row[3]) : null;
+                    $phone   = trim($row[4]) !== '' ? trim($row[4]) : null;
+                    
+                    // Deteksi boolean wali kelas (mendukung input 1, Ya, Y, True)
+                    $isWaliInput = strtolower(trim($row[5]));
+                    $is_wali = in_array($isWaliInput, ['1', 'ya', 'y', 'true', 'benar'], true) ? 1 : 0;
+
+                    // Validasi Dasar
+                    if (empty($niy) || empty($nama) || strlen($niy) < 4) {
+                        $failCount++;
+                        continue;
+                    }
+
+                    // Cek duplikasi NIY
+                    if (!niy_unique($niy)) {
+                        $failCount++;
+                        continue;
+                    }
+
+                    // Password default = 4 digit terakhir NIY
+                    $defaultPw = substr($niy, -4);
+                    $hash = password_hash($defaultPw, PASSWORD_DEFAULT);
+
+                    // Insert ke tabel users
+                    $stmtUser->execute(['n' => $niy, 'nm' => $nama, 'e' => $email, 'h' => $hash, 'w' => $is_wali]);
+                    $userId = (int)$pdo->lastInsertId();
+
+                    // Insert ke tabel teachers
+                    $stmtTeacher->execute(['u' => $userId, 'p' => $nip, 'ph' => $phone]);
+                    $teacherId = (int)$pdo->lastInsertId();
+
+                    // Insert ke tabel teacher_years (Relasi ke Tahun Ajaran saat ini)
+                    $stmtYear->execute(['t' => $teacherId, 'y' => $sc['year_id']]);
+
+                    $successCount++;
+                }
+                
+                $pdo->commit();
+                audit('import', "teachers: $successCount success, $failCount failed");
+                flash('success', "Import selesai. Berhasil: $successCount baris. Gagal/Dilewati (Duplikat/Tidak Valid): $failCount baris.");
+                redirect('admin/teachers.php');
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                throw new RuntimeException('Terjadi kesalahan saat import data: ' . $e->getMessage());
+            } finally {
+                fclose($handle);
+            }
+        }
+
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
             $userId = (int)$pdo->query("SELECT user_id FROM teachers WHERE id = " . (int)$id)->fetchColumn();
@@ -123,7 +217,6 @@ $baseWhere = "WHERE u.deleted_at IS NULL AND u.is_active = 1 AND u.role = 'guru'
               ) " . $searchCond;
 
 // Count total records for pagination
-// We use a subquery for counting to handle the complex joins and EXISTS clauses properly
 $countSql = "SELECT COUNT(DISTINCT t.id) FROM teachers t
              JOIN users u ON u.id = t.user_id
              LEFT JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y_year
@@ -140,7 +233,7 @@ $offset = ($page - 1) * $limit;
 
 // Fetch rows with LIMIT and OFFSET
 $rowParams = $countParams;
-$rowParams['y_outer'] = $sc['year_id']; // Parameter needed for the final SELECT, not used in COUNT
+$rowParams['y_outer'] = $sc['year_id'];
 
 $rowSql = "SELECT t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone,
                   GROUP_CONCAT(DISTINCT s.kode ORDER BY s.kode SEPARATOR ', ') AS mapel
@@ -155,8 +248,6 @@ $rowSql = "SELECT t.id, u.niy, u.nama, u.email, u.is_wali, t.nip, t.phone,
            LIMIT $limit OFFSET $offset";
 
 $stmtRows = $pdo->prepare($rowSql);
-// PDO expects LIMIT and OFFSET to be integers if passed as parameters, 
-// so embedding them directly into the string query is safer here given $limit and $offset are already cast to int.
 $stmtRows->execute($rowParams);
 $rows = $stmtRows->fetchAll();
 
@@ -209,6 +300,18 @@ require __DIR__ . '/../../includes/header.php';
                 <a href="teachers.php" class="btn btn-ghost btn-sm" title="Reset Pencarian">✕</a>
             <?php endif; ?>
         </form>
+    </div>
+    
+    <div class="card-body" style="border-bottom: 1px solid var(--border); background: var(--bg-alt); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-2);">
+      <a href="?action=download_template" class="btn btn-secondary btn-sm" target="_blank">
+        ↓ Download Template CSV
+      </a>
+      <form method="post" enctype="multipart/form-data" style="margin: 0; display: flex; gap: var(--sp-2); align-items: center;">
+        <?= csrf_field() ?>
+        <input type="hidden" name="op" value="import">
+        <input type="file" name="file_import" accept=".csv" required class="input" style="padding: 4px; font-size: 14px; max-width: 200px;">
+        <button class="btn btn-primary btn-sm" type="submit" data-confirm="Pastikan format CSV sudah sesuai dengan template. Lanjutkan import?">Import Data</button>
+      </form>
     </div>
     
     <div class="table-wrap">
