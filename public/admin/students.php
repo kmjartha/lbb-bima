@@ -38,6 +38,65 @@ if (($_GET['action'] ?? '') === 'download_template') {
     exit;
 }
 
+// --- FITUR EXPORT DATA SISWA KE CSV ---
+if (($_GET['action'] ?? '') === 'export_csv') {
+    $exp_jf = in_array(($_GET['jenjang'] ?? ''), ['TK','SD','SMP','SMA'], true) ? $_GET['jenjang'] : '';
+    $exp_q  = trim((string)($_GET['q'] ?? ''));
+
+    // Siapkan query dengan filter yang sama dengan tampilan tabel
+    $where_exp = ['s.academic_year_id = :y'];
+    $params_exp = ['y' => $yearId];
+
+    if ($exp_jf) { 
+        $where_exp[] = 's.jenjang = :j'; 
+        $params_exp['j'] = $exp_jf; 
+    }
+    if ($exp_q !== '') {
+        $where_exp[] = '(s.nama LIKE :q_nama OR s.nisn LIKE :q_nisn OR s.nis LIKE :q_nis)';
+        $params_exp['q_nama'] = '%' . $exp_q . '%';
+        $params_exp['q_nisn'] = '%' . $exp_q . '%';
+        $params_exp['q_nis'] = '%' . $exp_q . '%';
+    }
+    
+    $wsql_exp = 'WHERE ' . implode(' AND ', $where_exp);
+    
+    // Ambil seluruh data tanpa dibatasi oleh LIMIT/pagination
+    $stmtExp = $pdo->prepare("SELECT s.* FROM students s $wsql_exp ORDER BY s.deleted_at IS NOT NULL, s.jenjang, s.tingkat, s.nama");
+    $stmtExp->execute($params_exp);
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=Data_Siswa_' . date('Ymd_His') . '.csv');
+    
+    $output = fopen('php://output', 'w');
+    
+    // Header kolom hasil export
+    fputcsv($output, ['NIS', 'NISN', 'Nama Lengkap', 'Jenjang', 'Tingkat', 'JK', 'Tempat Lahir', 'Tgl Lahir', 'Alamat', 'Nama Ayah', 'Nama Ibu', 'Pekerjaan Ayah', 'Pekerjaan Ibu', 'Telp Ortu', 'Status']);
+    
+    while ($row = $stmtExp->fetch(PDO::FETCH_ASSOC)) {
+        $status = $row['deleted_at'] === null ? 'Aktif' : 'Nonaktif';
+        fputcsv($output, [
+            $row['nis'],
+            $row['nisn'],
+            $row['nama'],
+            $row['jenjang'],
+            $row['tingkat'],
+            $row['jk'],
+            $row['tempat_lahir'],
+            $row['tgl_lahir'],
+            $row['alamat'],
+            $row['nama_ayah'],
+            $row['nama_ibu'],
+            $row['pekerjaan_ayah'],
+            $row['pekerjaan_ibu'],
+            $row['telp_ortu'],
+            $status
+        ]);
+    }
+    
+    fclose($output);
+    exit;
+}
+
 // jenjang filter
 $jf = in_array(($_GET['jenjang'] ?? ''), ['TK','SD','SMP','SMA'], true) ? $_GET['jenjang'] : '';
 $q  = trim((string)($_GET['q'] ?? ''));
@@ -400,9 +459,14 @@ require __DIR__ . '/../../includes/header.php';
     </div>
 
     <div class="card-body" style="border-bottom: 1px solid var(--border); background: var(--bg-alt); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-2);">
-      <a href="?action=download_template" class="btn btn-secondary btn-sm" target="_blank">
-        ↓ Download Template CSV
-      </a>
+      <div style="display: flex; gap: var(--sp-2);">
+        <a href="?action=download_template" class="btn btn-secondary btn-sm" target="_blank">
+          ↓ Download Template CSV
+        </a>
+        <a href="?action=export_csv&jenjang=<?= urlencode($jf) ?>&q=<?= urlencode($q) ?>" class="btn btn-primary btn-sm" target="_blank">
+          ↑ Export Data Siswa CSV
+        </a>
+      </div>
       <form method="post" enctype="multipart/form-data" style="margin: 0; display: flex; gap: var(--sp-2); align-items: center;">
         <?= csrf_field() ?>
         <input type="hidden" name="op" value="import">
