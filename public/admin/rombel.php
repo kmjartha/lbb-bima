@@ -12,6 +12,7 @@ $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
 $manageId = int_or_null($_GET['manage'] ?? null);
 $edit = null;
+
 if ($editId) {
     $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
     $stmt->execute(['id'=>$editId,'y'=>$sc['year_id']]);
@@ -31,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nama      = req_str($_POST, 'nama', 40);
             $waliId    = int_or_null($_POST['wali_id'] ?? null);
             $kapasitas = max(1, (int)($_POST['kapasitas'] ?? 28));
+            
             if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException('Jenjang invalid.');
             if ($jenjang === 'TK') {
                 if ($tingkat < 0 || $tingkat > 2) throw new RuntimeException('Tingkat TK 0-2.');
@@ -74,6 +76,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin/rombel.php');
         }
 
+        // --- FITUR BARU: IMPORT DATA CSV (UPDATE & INSERT) ---
+        if ($op === 'import') {
+            if (empty($_FILES['file_csv']['tmp_name'])) {
+                throw new RuntimeException('Silakan pilih file CSV terlebih dahulu.');
+            }
+            $file = $_FILES['file_csv']['tmp_name'];
+            $handle = fopen($file, 'r');
+            if (!$handle) throw new RuntimeException('Gagal membaca file.');
+
+            $header = fgetcsv($handle); // Lewati header
+            
+            $inserted = 0;
+            $updated  = 0;
+            $skipped  = 0;
+            $failed   = 0;
+            $errors   = [];
+            $rowNum   = 1;
+
+            while (($data = fgetcsv($handle)) !== false) {
+                $rowNum++;
+                if (count(array_filter($data)) === 0) continue; // Skip baris kosong
+
+                try {
+                    $jenjang   = strtoupper(trim((string)($data[0] ?? '')));
+                    $tingkat   = (int)($data[1] ?? 0);
+                    $nama      = trim((string)($data[2] ?? ''));
+                    $kapasitas = max(1, (int)($data[3] ?? 28));
+                    $niyWali   = trim((string)($data[4] ?? ''));
+
+                    if (!$jenjang || !$tingkat || !$nama) throw new RuntimeException("Jenjang, Tingkat, dan Nama Rombel wajib diisi.");
+                    if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) throw new RuntimeException("Jenjang '$jenjang' invalid.");
+                    if ($jenjang === 'TK' && ($tingkat < 0 || $tingkat > 2)) throw new RuntimeException("Tingkat TK harus 0-2.");
+                    if ($jenjang !== 'TK' && ($tingkat < 1 || $tingkat > 12)) throw new RuntimeException("Tingkat harus 1-12.");
+
+                    $waliId = null;
+                    if ($niyWali !== '') {
+                        $stmtWali = $pdo->prepare(
+                            "SELECT u.id FROM users u
+                             JOIN teachers t ON t.user_id = u.id
+                             JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y
+                             WHERE u.niy = :niy AND u.role = 'guru' AND u.is_wali = 1 AND u.deleted_at IS NULL"
+                        );
+                        $stmtWali->execute(['niy' => $niyWali, 'y' => $sc['year_id']]);
+                        $waliId = $stmtWali->fetchColumn();
+                        if (!$waliId) throw new RuntimeException("Guru dengan NIY '$niyWali' tidak ditemukan atau bukan wali kelas aktif di TA ini.");
+                    }
+
+                    // Cek berdasarkan Nama Rombel di TA aktif
+                    $stmtExist = $pdo->prepare("SELECT id, jenjang, tingkat, kapasitas, wali_id FROM rombel WHERE nama = :nama AND academic_year_id = :y AND deleted_at IS NULL");
+                    $stmtExist->execute(['nama' => $nama, 'y' => $sc['year_id']]);
+                    $exist = $stmtExist->fetch(PDO::FETCH_ASSOC);
+
+                    // Validasi Guru ganda sebagai Wali Kelas di rombel lain
+                    if ($waliId) {
+                        $rid = $exist ? (int)$exist['id'] : 0;
+                        $dupWali = $pdo->prepare("SELECT id FROM rombel WHERE academic_year_id=:y AND deleted_at IS NULL AND wali_id=:wid AND id <> :rid");
+                        $dupWali->execute(['y'=>$sc['year_id'], 'wid'=>$waliId, 'rid'=>$rid]);
+                        if ($dupWali->fetchColumn()) throw new RuntimeException("Guru NIY '$niyWali' sudah menjadi wali kelas di rombel lain.");
+                    }
+
+                    if ($exist) {
+                        $id = (int)$exist['id'];
+                        $oldWali = $exist['wali_id'] ? (int)$exist['wali_id'] : null;
+                        
+                        // Periksa perbedaan
+                        if (
+                            $exist['jenjang'] !== $jenjang || 
+                            (int)$exist['tingkat'] !== $tingkat || 
+                            (int)$exist['kapasitas'] !== $kapasitas || 
+                            $oldWali !== $waliId
+                        ) {
+                            $pdo->prepare("UPDATE rombel SET jenjang=:j, tingkat=:t, wali_id=:w, kapasitas=:k WHERE id=:id AND academic_year_id=:y")
+                                ->execute(['j'=>$jenjang, 't'=>$tingkat, 'w'=>$waliId, 'k'=>$kapasitas, 'id'=>$id, 'y'=>$sc['year_id']]);
+                            $updated++;
+                        } else {
+                            $skipped++;
+                        }
+                    } else {
+                        $pdo->prepare("INSERT INTO rombel (academic_year_id, jenjang, tingkat, nama, wali_id, kapasitas) VALUES (:y,:j,:t,:n,:w,:k)")
+                            ->execute(['y'=>$sc['year_id'], 'j'=>$jenjang, 't'=>$tingkat, 'n'=>$nama, 'w'=>$waliId, 'k'=>$kapasitas]);
+                        $inserted++;
+                    }
+                } catch (Throwable $e) {
+                    $failed++;
+                    $errors[] = "Baris $rowNum ($nama): " . $e->getMessage();
+                }
+            }
+            fclose($handle);
+            audit('import_rombel', "insert:$inserted, update:$updated, skip:$skipped, fail:$failed");
+            
+            $msg = "Import Rombel selesai: <strong>$inserted</strong> data baru, <strong>$updated</strong> data diperbarui, <strong>$skipped</strong> dilewati.";
+            if ($failed > 0) {
+                $err = $msg . "<br><br><strong>$failed baris gagal diproses:</strong><br>" . implode("<br>", array_slice($errors, 0, 5)) . (count($errors) > 5 ? "<br>... dan " . (count($errors) - 5) . " lainnya." : "");
+            } else {
+                flash('success', $msg);
+                redirect('admin/rombel.php');
+            }
+        }
+        // ---------------------------------------------------
+
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
             $pdo->prepare("UPDATE rombel SET deleted_at=NOW() WHERE id=:id AND academic_year_id=:y")
@@ -110,6 +212,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
+
+// --- FITUR BARU: EXPORT & DOWNLOAD TEMPLATE CSV ---
+$action = $_GET['action'] ?? '';
+if ($action === 'download_template') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="template_import_rombel.csv"');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['Jenjang (TK/SD/SMP/SMA)', 'Tingkat (0-12)', 'Nama Rombel', 'Kapasitas', 'NIY Wali Kelas (Opsional)']);
+    fputcsv($output, ['SD', '1', '1A', '28', '1234567']);
+    fputcsv($output, ['SMP', '7', '7-Bilal', '30', '']); // Contoh kosong
+    fclose($output);
+    exit;
+}
+
+if ($action === 'export') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="export_rombel_TA_'.$sc['year'].'_'.date('Ymd_His').'.csv"');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['Jenjang', 'Tingkat', 'Nama Rombel', 'Kapasitas', 'NIY Wali Kelas', 'Nama Wali Kelas', 'Jml Anggota']);
+    
+    $exportSql = "SELECT r.jenjang, r.tingkat, r.nama, r.kapasitas, u.niy as wali_niy, u.nama as wali_nama,
+                         (SELECT COUNT(*) FROM rombel_members rm WHERE rm.rombel_id = r.id) as jml_anggota
+                  FROM rombel r
+                  LEFT JOIN users u ON u.id = r.wali_id
+                  WHERE r.academic_year_id = :y AND r.deleted_at IS NULL
+                  ORDER BY FIELD(r.jenjang,'TK','SD','SMP','SMA'), r.tingkat, r.nama";
+                  
+    $stmtExp = $pdo->prepare($exportSql);
+    $stmtExp->execute(['y' => $sc['year_id']]);
+    while ($r = $stmtExp->fetch(PDO::FETCH_ASSOC)) {
+        fputcsv($output, [
+            $r['jenjang'],
+            $r['tingkat'],
+            $r['nama'],
+            $r['kapasitas'],
+            $r['wali_niy'] ?? '',
+            $r['wali_nama'] ?? 'Belum ditugaskan',
+            $r['jml_anggota']
+        ]);
+    }
+    fclose($output);
+    exit;
+}
+// -------------------------------------------------
 
 // Wali kelas options (guru yang belum menjadi wali di rombel lain di TA aktif)
 $walis = $pdo->prepare(
@@ -172,7 +318,7 @@ if ($manageId) {
 $page_title = 'Rombel & Anggota';
 require __DIR__ . '/../../includes/header.php';
 ?>
-<?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>
+<?php if ($err): ?><div class="alert alert-error"><?= $err ?></div><?php endif; ?>
 
 <div class="row">
   <?php if ($canEdit): ?><div class="card" style="flex: 1; min-width: 320px">
@@ -240,7 +386,27 @@ require __DIR__ . '/../../includes/header.php';
   </div><?php endif; ?>
 
   <div class="card" style="flex: 2; min-width: 380px">
-    <div class="card-header"><h3 class="card-title">Daftar Rombel (<?= count($rows) ?>)</h3></div>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 class="card-title">Daftar Rombel (<?= count($rows) ?>)</h3>
+        
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <a href="?action=download_template" class="btn btn-secondary btn-sm" title="Unduh CSV Kosong">Unduh Template</a>
+            <a href="?action=export" class="btn btn-secondary btn-sm" title="Export data saat ini ke CSV">Export CSV</a>
+        </div>
+    </div>
+    
+    <?php if ($canEdit): ?>
+    <div style="padding: 12px 15px; border-bottom: 1px solid var(--c-border); background: #f9fafb;">
+        <form method="post" enctype="multipart/form-data" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <?= csrf_field() ?>
+            <input type="hidden" name="op" value="import">
+            <strong style="font-size: 0.9rem; color: #555;">Import Data:</strong>
+            <input type="file" name="file_csv" accept=".csv" required class="input input-sm" style="max-width: 250px; padding: 2px;">
+            <button type="submit" class="btn btn-primary btn-sm">Upload & Import</button>
+        </form>
+    </div>
+    <?php endif; ?>
+
     <div class="table-wrap">
       <table class="t">
         <thead><tr><th>Jenjang</th><th>Tingkat</th><th>Nama</th><th>Wali Kelas</th><th>Anggota</th><th></th></tr></thead>
