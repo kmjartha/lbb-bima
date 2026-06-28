@@ -76,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin/rombel.php');
         }
 
-        // --- FITUR BARU: IMPORT DATA CSV (UPDATE & INSERT) ---
         if ($op === 'import') {
             if (empty($_FILES['file_csv']['tmp_name'])) {
                 throw new RuntimeException('Silakan pilih file CSV terlebih dahulu.');
@@ -85,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $handle = fopen($file, 'r');
             if (!$handle) throw new RuntimeException('Gagal membaca file.');
 
-            $header = fgetcsv($handle); // Lewati header
+            $header = fgetcsv($handle); 
             
             $inserted = 0;
             $updated  = 0;
@@ -96,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             while (($data = fgetcsv($handle)) !== false) {
                 $rowNum++;
-                if (count(array_filter($data)) === 0) continue; // Skip baris kosong
+                if (count(array_filter($data)) === 0) continue; 
 
                 try {
                     $jenjang   = strtoupper(trim((string)($data[0] ?? '')));
@@ -123,12 +122,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!$waliId) throw new RuntimeException("Guru dengan NIY '$niyWali' tidak ditemukan atau bukan wali kelas aktif di TA ini.");
                     }
 
-                    // Cek berdasarkan Nama Rombel di TA aktif
                     $stmtExist = $pdo->prepare("SELECT id, jenjang, tingkat, kapasitas, wali_id FROM rombel WHERE nama = :nama AND academic_year_id = :y AND deleted_at IS NULL");
                     $stmtExist->execute(['nama' => $nama, 'y' => $sc['year_id']]);
                     $exist = $stmtExist->fetch(PDO::FETCH_ASSOC);
 
-                    // Validasi Guru ganda sebagai Wali Kelas di rombel lain
                     if ($waliId) {
                         $rid = $exist ? (int)$exist['id'] : 0;
                         $dupWali = $pdo->prepare("SELECT id FROM rombel WHERE academic_year_id=:y AND deleted_at IS NULL AND wali_id=:wid AND id <> :rid");
@@ -140,7 +137,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $id = (int)$exist['id'];
                         $oldWali = $exist['wali_id'] ? (int)$exist['wali_id'] : null;
                         
-                        // Periksa perbedaan
                         if (
                             $exist['jenjang'] !== $jenjang || 
                             (int)$exist['tingkat'] !== $tingkat || 
@@ -174,7 +170,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('admin/rombel.php');
             }
         }
-        // ---------------------------------------------------
 
         if ($op === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
@@ -213,7 +208,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
-// --- FITUR BARU: EXPORT & DOWNLOAD TEMPLATE CSV ---
 $action = $_GET['action'] ?? '';
 if ($action === 'download_template') {
     header('Content-Type: text/csv; charset=utf-8');
@@ -221,7 +215,7 @@ if ($action === 'download_template') {
     $output = fopen('php://output', 'w');
     fputcsv($output, ['Jenjang (TK/SD/SMP/SMA)', 'Tingkat (0-12)', 'Nama Rombel', 'Kapasitas', 'NIY Wali Kelas (Opsional)']);
     fputcsv($output, ['SD', '1', '1A', '28', '1234567']);
-    fputcsv($output, ['SMP', '7', '7-Bilal', '30', '']); // Contoh kosong
+    fputcsv($output, ['SMP', '7', '7-Bilal', '30', '']); 
     fclose($output);
     exit;
 }
@@ -255,9 +249,7 @@ if ($action === 'export') {
     fclose($output);
     exit;
 }
-// -------------------------------------------------
 
-// Wali kelas options (guru yang belum menjadi wali di rombel lain di TA aktif)
 $walis = $pdo->prepare(
     "SELECT u.id, u.niy, u.nama
      FROM users u
@@ -276,7 +268,6 @@ $walis = $pdo->prepare(
 $walis->execute(['y' => $sc['year_id'], 'y2' => $sc['year_id'], 'edit_id' => $editId ?: 0]);
 $walis = $walis->fetchAll();
 
-// List rombel for active TA
 $rows = $pdo->prepare(
     "SELECT r.*, u.nama AS wali_nama,
             (SELECT COUNT(*) FROM rombel_members rm WHERE rm.rombel_id = r.id) AS jml_anggota
@@ -287,7 +278,6 @@ $rows = $pdo->prepare(
 $rows->execute(['y'=>$sc['year_id']]);
 $rows = $rows->fetchAll();
 
-// Manage members of one rombel
 $manage = null; $members = []; $eligible = [];
 if ($manageId) {
     $stmt = $pdo->prepare("SELECT r.*, u.nama AS wali_nama FROM rombel r LEFT JOIN users u ON u.id=r.wali_id WHERE r.id=:id AND r.academic_year_id=:y AND r.deleted_at IS NULL");
@@ -295,7 +285,6 @@ if ($manageId) {
     if ($manage) {
         $m = $pdo->prepare("SELECT s.* FROM rombel_members rm JOIN students s ON s.id=rm.student_id WHERE rm.rombel_id=:r AND s.deleted_at IS NULL AND s.academic_year_id = :y ORDER BY s.nama");
         $m->execute(['r'=>$manageId,'y'=>$sc['year_id']]); $members = $m->fetchAll();
-        // Eligible = same jenjang+tingkat & not yet member of any rombel in this TA
         $e = $pdo->prepare(
             "SELECT s.* FROM students s
              WHERE s.deleted_at IS NULL AND s.is_active=1 AND s.academic_year_id = :y_outer AND s.jenjang=:j AND s.tingkat=:t
@@ -468,16 +457,53 @@ require __DIR__ . '/../../includes/header.php';
         <?php if (!$eligible): ?><div class="empty">Tidak ada siswa eligible.</div><?php else: ?>
           <form method="post">
             <?= csrf_field() ?><input type="hidden" name="op" value="add_members"><input type="hidden" name="rombel_id" value="<?= (int)$manage['id'] ?>">
+            
+            <div style="margin-bottom: 8px;">
+              <label style="font-weight: bold; cursor: pointer; display: inline-block;">
+                <input type="checkbox" id="checkAllStudents"> Pilih Semua Siswa
+              </label>
+            </div>
+
             <div style="max-height:260px; overflow:auto; border:1px solid #e6e6e6; padding:8px; border-radius:6px">
               <?php foreach ($eligible as $s): ?>
-                <label style="display:block; margin-bottom:6px;">
-                  <input type="checkbox" name="student_ids[]" value="<?= (int)$s['id'] ?>"> <?= esc($s['nis'].' — '.$s['nama'].' ('.$s['jk'].')') ?>
+                <label style="display:block; margin-bottom:6px; cursor: pointer;">
+                  <input type="checkbox" name="student_ids[]" class="student-checkbox" value="<?= (int)$s['id'] ?>"> <?= esc($s['nis'].' — '.$s['nama'].' ('.$s['jk'].')') ?>
                 </label>
               <?php endforeach; ?>
             </div>
-            <div class="help">Centang siswa yang akan ditambahkan.</div>
+            <div class="help mt-1">Centang siswa yang akan ditambahkan.</div>
             <button class="btn btn-primary mt-2">Tambahkan</button>
           </form>
+          
+          <script>
+            document.addEventListener('DOMContentLoaded', function() {
+              const checkAllBtn = document.getElementById('checkAllStudents');
+              const studentCheckboxes = document.querySelectorAll('.student-checkbox');
+
+              if (checkAllBtn) {
+                  // Aksi ketika master checkbox (Pilih Semua) di klik
+                  checkAllBtn.addEventListener('change', function() {
+                      studentCheckboxes.forEach(cb => {
+                          cb.checked = this.checked;
+                      });
+                  });
+
+                  // Aksi agar centang Pilih Semua lepas jika ada salah satu siswa yang batal dicentang
+                  studentCheckboxes.forEach(cb => {
+                      cb.addEventListener('change', function() {
+                          if (!this.checked) {
+                              checkAllBtn.checked = false;
+                          } else {
+                              // Cek apakah semua siswa tercentang manual
+                              const allChecked = Array.from(studentCheckboxes).every(c => c.checked);
+                              checkAllBtn.checked = allChecked;
+                          }
+                      });
+                  });
+              }
+            });
+          </script>
+          
         <?php endif; ?><?php endif; ?>
       </div>
     </div>
