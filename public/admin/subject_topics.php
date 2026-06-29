@@ -106,6 +106,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('success', 'Topik dihapus.');
             redirect('admin/subject_topics.php?rombel_id=' . $rid . '&subject_id=' . $sid);
         }
+
+        if ($op === 'copy_all') {
+            $sourceRid       = (int)($_POST['rombel_id'] ?? 0);
+            $sourceSid       = (int)($_POST['subject_id'] ?? 0);
+            $targetRid       = (int)($_POST['target_rombel_id'] ?? 0);
+            $targetSid       = (int)($_POST['target_subject_id'] ?? 0);
+            
+            if (!$sourceRid || !$sourceSid || !$targetRid || !$targetSid) {
+                throw new RuntimeException('Data yang diperlukan tidak lengkap.');
+            }
+            
+            // Permission check
+            if ($me['role'] === 'guru') {
+                // Check source access
+                $stmt = $pdo->prepare(
+                    "SELECT 1 FROM rombel_subject_teachers rst
+                     JOIN teachers t ON t.id = rst.teacher_id
+                     WHERE rst.rombel_id = :r
+                       AND rst.subject_id = :s
+                       AND t.user_id = :u
+                       AND (rst.semester IS NULL OR rst.semester = :sem)"
+                );
+                $stmt->execute(['r'=>$sourceRid,'s'=>$sourceSid,'u'=>$me['id'],'sem'=>$sc['semester']]);
+                if (!$stmt->fetchColumn()) {
+                    throw new RuntimeException('Anda tidak memiliki akses untuk copy topik dari mapel ini.');
+                }
+                
+                // Check target access
+                $stmt->execute(['r'=>$targetRid,'s'=>$targetSid,'u'=>$me['id'],'sem'=>$sc['semester']]);
+                if (!$stmt->fetchColumn()) {
+                    throw new RuntimeException('Anda tidak memiliki akses untuk copy topik ke mapel target.');
+                }
+            }
+            
+            // Fetch all source topics for this rombel & subject & semester
+            $stmtSrc = $pdo->prepare(
+                "SELECT * FROM subject_topics 
+                 WHERE rombel_id=:r AND subject_id=:s AND semester=:sem AND deleted_at IS NULL
+                 ORDER BY kode, id"
+            );
+            $stmtSrc->execute(['r'=>$sourceRid, 's'=>$sourceSid, 'sem'=>$sc['semester']]);
+            $sourceTopics = $stmtSrc->fetchAll();
+            
+            if (!$sourceTopics) {
+                throw new RuntimeException('Tidak ada subjek penilaian untuk dicopy.');
+            }
+            
+            // Prepare insert statement
+            $insertStmt = $pdo->prepare(
+                "INSERT INTO subject_topics 
+                 (rombel_id, subject_id, semester, kode, judul, ranah, ranah_list, kategori, bobot, deskripsi, created_by) 
+                 VALUES (:r, :s, :sem, :k, :j, :rn, :rl, :kat, :b, :d, :u)"
+            );
+            
+            $copiedCount = 0;
+            $skippedCount = 0;
+            
+            foreach ($sourceTopics as $topic) {
+                // Check if topic with same kode already exists in target
+                $chkExists = $pdo->prepare(
+                    "SELECT id FROM subject_topics 
+                     WHERE rombel_id=:r AND subject_id=:s AND kode=:k AND semester=:sem AND deleted_at IS NULL"
+                );
+                $chkExists->execute(['r'=>$targetRid,'s'=>$targetSid,'k'=>$topic['kode'],'sem'=>$topic['semester']]);
+                
+                if ($chkExists->fetchColumn()) {
+                    $skippedCount++;
+                    continue; // Skip this topic if already exists
+                }
+                
+                // Insert new topic as copy
+                $insertStmt->execute([
+                    'r'   => $targetRid,
+                    's'   => $targetSid,
+                    'sem' => $topic['semester'],
+                    'k'   => $topic['kode'],
+                    'j'   => $topic['judul'],
+                    'rn'  => $topic['ranah'],
+                    'rl'  => $topic['ranah_list'],
+                    'kat' => $topic['kategori'],
+                    'b'   => $topic['bobot'],
+                    'd'   => $topic['deskripsi'],
+                    'u'   => $me['id']
+                ]);
+                
+                $copiedCount++;
+            }
+            
+            if ($copiedCount === 0) {
+                throw new RuntimeException('Tidak ada subjek yang berhasil dicopy (semua sudah ada di target).');
+            }
+            
+            audit('copy_all', 'topics: ' . $copiedCount . ' copied, ' . $skippedCount . ' skipped');
+            
+            $msg = 'Berhasil dicopy: ' . $copiedCount . ' subjek penilaian';
+            if ($skippedCount > 0) {
+                $msg .= ' (' . $skippedCount . ' subjek dilewati karena sudah ada)';
+            }
+            flash('success', $msg);
+            redirect('admin/subject_topics.php?rombel_id=' . $sourceRid . '&subject_id=' . $sourceSid);
+        }
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
@@ -239,7 +340,12 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 
   <div class="card" style="flex: 2; min-width: 380px">
-    <div class="card-header"><h3 class="card-title">Daftar Subjek (<?= count($topics) ?>) — Semester <?= esc(ucfirst($sc['semester'])) ?><?= $editTopic ? ' <span class="badge badge-warning" style="margin-left:.5rem">Edit Mode: ' . esc($editTopic['judul']) . '</span>' : '' ?></h3></div>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+      <h3 class="card-title" style="margin:0">Daftar Subjek (<?= count($topics) ?>) — Semester <?= esc(ucfirst($sc['semester'])) ?><?= $editTopic ? ' <span class="badge badge-warning" style="margin-left:.5rem">Edit Mode: ' . esc($editTopic['judul']) . '</span>' : '' ?></h3>
+      <?php if ($topics): ?>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="openCopyAllModal(<?= (int)$rombelId ?>, <?= (int)$subjectId ?>, <?= count($topics) ?>)">Copy Subject Ke ...</button>
+      <?php endif; ?>
+    </div>
     <div class="table-wrap">
       <table class="t">
         <thead><tr><th>Kode</th><th>Judul</th><th>Kategori</th><th>Bobot</th><th></th></tr></thead>
@@ -266,5 +372,119 @@ require __DIR__ . '/../../includes/header.php';
     </div>
   </div>
 </div>
+
+<!-- Modal Copy All Topics -->
+<div id="copyAllModal" class="modal" style="display:none;">
+  <div class="modal-backdrop" onclick="closeCopyAllModal()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title">Copy Semua Subjek Penilaian</h3>
+      <button class="modal-close" type="button" onclick="closeCopyAllModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="copyAllInfo" style="color:#666; margin-bottom:1.5rem;"></p>
+      <form id="copyAllForm" method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="op" value="copy_all">
+        <input type="hidden" name="rombel_id" id="copyAllSourceRombel">
+        <input type="hidden" name="subject_id" id="copyAllSourceSubject">
+        
+        <div class="field">
+          <label class="label">Target Rombel *</label>
+          <select class="select" id="copyAllTargetRombel" name="target_rombel_id" onchange="loadCopyAllTargetSubjects()" required>
+            <option value="">— Pilih rombel target —</option>
+            <?php foreach ($rombels as $r): ?>
+              <option value="<?= (int)$r['id'] ?>"><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['nama']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        
+        <div class="field">
+          <label class="label">Target Mapel *</label>
+          <select class="select" id="copyAllTargetSubject" name="target_subject_id" required>
+            <option value="">— Pilih mapel target —</option>
+          </select>
+        </div>
+        
+        <div style="margin-top:1.5rem; display:flex; gap:10px; justify-content:flex-end;">
+          <button class="btn btn-ghost" type="button" onclick="closeCopyAllModal()">Batal</button>
+          <button class="btn btn-primary" type="submit">Copy Semua</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-backdrop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+.modal-content { position: relative; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); width: 90%; max-width: 500px; max-height: 90vh; overflow: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid #e0e0e0; }
+.modal-title { margin: 0; font-size: 1.25rem; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.modal-close:hover { background: #f5f5f5; border-radius: 4px; }
+.modal-body { padding: 1.5rem; }
+</style>
+
+<script>
+function openCopyAllModal(sourceRombel, sourceSubject, topicCount) {
+  document.getElementById('copyAllSourceRombel').value = sourceRombel;
+  document.getElementById('copyAllSourceSubject').value = sourceSubject;
+  document.getElementById('copyAllInfo').innerHTML = '📌 Akan copy <strong>' + topicCount + ' subjek penilaian</strong> ke rombel & mapel pilihan Anda.';
+  document.getElementById('copyAllTargetRombel').value = '';
+  document.getElementById('copyAllTargetSubject').innerHTML = '<option value="">— Pilih mapel target —</option>';
+  document.getElementById('copyAllModal').style.display = 'flex';
+}
+
+function closeCopyAllModal() {
+  document.getElementById('copyAllModal').style.display = 'none';
+}
+
+function loadCopyAllTargetSubjects() {
+  const rombel_id = document.getElementById('copyAllTargetRombel').value;
+  if (!rombel_id) {
+    document.getElementById('copyAllTargetSubject').innerHTML = '<option value="">— Pilih mapel target —</option>';
+    return;
+  }
+  
+  // Fetch subjects for selected rombel via AJAX
+  fetch('<?= esc(url('admin/subject_topics_api.php')) ?>', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_subjects', rombel_id: parseInt(rombel_id) })
+  })
+  .then(r => r.json())
+  .then(data => {
+    const select = document.getElementById('copyAllTargetSubject');
+    if (data.success && Array.isArray(data.subjects)) {
+      select.innerHTML = '<option value="">— Pilih mapel target —</option>' +
+        data.subjects.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+    } else {
+      select.innerHTML = '<option value="">Error loading subjects</option>';
+    }
+  })
+  .catch(err => {
+    console.error('Error:', err);
+    document.getElementById('copyAllTargetSubject').innerHTML = '<option value="">Error</option>';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const copyAllForm = document.getElementById('copyAllForm');
+  if (copyAllForm) {
+    copyAllForm.addEventListener('submit', (e) => {
+      if (!document.getElementById('copyAllTargetSubject').value) {
+        e.preventDefault();
+        alert('Pilih target mapel terlebih dahulu');
+      }
+    });
+  }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeCopyAllModal();
+});
+</script>
 <?php endif; ?>
 <?php require __DIR__ . '/../../includes/footer.php'; ?>
