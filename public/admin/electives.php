@@ -58,10 +58,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Pilih minimal 1 rombel untuk mapel pilihan ini.');
             }
 
+            $kkmDefaultRaw = $_POST['kkm_default'] ?? null;
+            $kkmDefault = null;
+            if ($kkmDefaultRaw !== null && $kkmDefaultRaw !== '') {
+                $kkmDefault = (float)$kkmDefaultRaw;
+                if ($kkmDefault < 0 || $kkmDefault > 100) {
+                    throw new RuntimeException('KKM default harus antara 0-100.');
+                }
+            }
+            $kkmDefaults = [];
+            if ($jenjang !== 'TK' && $kkmDefault !== null) {
+                $kkmDefaults[$jenjang] = $kkmDefault;
+            }
+            $kkmOverrides = [];
+            $rawOverrides = $_POST['kkm_tingkat'] ?? [];
+            if (is_array($rawOverrides)) {
+                foreach ($rawOverrides as $t => $v) {
+                    $t = (int)$t;
+                    if ($t < 1 || $t > 12) continue;
+                    if ($v === '' || $v === null) continue;
+                    $fv = (float)$v;
+                    if ($fv < 0 || $fv > 100) {
+                        throw new RuntimeException('KKM kelas ' . $t . ' harus antara 0-100.');
+                    }
+                    $kkmOverrides[$t] = $fv;
+                }
+            }
+
             $classNames = $_POST['classes']['name'] ?? [];
+            $classCodes = $_POST['classes']['kode'] ?? [];
             $classCaps  = $_POST['classes']['kapasitas'] ?? [];
             $classIds   = $_POST['classes']['id'] ?? [];
-            if (!is_array($classNames) || !is_array($classCaps) || !is_array($classIds)) {
+            if (!is_array($classNames) || !is_array($classCodes) || !is_array($classCaps) || !is_array($classIds)) {
                 throw new RuntimeException('Format data opsi pilihan tidak valid.');
             }
 
@@ -71,9 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($name === '') {
                     continue;
                 }
+                $kode = trim((string)($classCodes[$index] ?? ''));
+                if ($kode === '') {
+                    throw new RuntimeException('Kode opsi mapel pilihan wajib diisi.');
+                }
                 $kapasitas = max(0, intval($classCaps[$index] ?? 0));
                 $cid = intval($classIds[$index] ?? 0);
-                $options[] = ['id' => $cid, 'nama' => $name, 'kapasitas' => $kapasitas];
+                $options[] = ['id' => $cid, 'nama' => $name, 'kode' => $kode, 'kapasitas' => $kapasitas];
             }
             if (!$options) {
                 throw new RuntimeException('Masukkan minimal 1 opsi mapel pilihan.');
@@ -133,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Treat this option exactly like a regular mata pelajaran:
                 // sync/create its shadow subject so it shows up in Guru
                 // Pengampu, Subjek Penilaian, Nilai Akhir, Leger, and Rapor.
-                elective_class_sync_subject($classId, $option['nama'], $yearId, $jenjang, $categoryId);
+                elective_class_sync_subject($classId, $option['nama'], $yearId, $jenjang, $categoryId, $kkmDefaults, $kkmOverrides, $option['kode']);
             }
 
             if ($existingClassIds) {
@@ -180,12 +212,23 @@ $rows = electives_for_year($yearId);
 $edit = null;
 $editRombels = [];
 $editClasses = [];
+$editKkm = [];
+$editDefaultKkm = 70;
 if ($editId) {
     $edit = elective_by_id($editId, $yearId);
     if ($edit) {
         $editRombels = elective_rombel_ids($editId);
         $editClasses = elective_classes($editId);
+        foreach ($editClasses as $class) {
+            if (!empty($class['subject_id'])) {
+                $editKkm = subject_kkm_map((int)$class['subject_id']);
+                break;
+            }
+        }
     }
+}
+if ($editKkm) {
+    $editDefaultKkm = round(array_sum($editKkm) / count($editKkm), 2);
 }
 
 $page_title = 'Mapel Pilihan';
@@ -212,7 +255,7 @@ require __DIR__ . '/../../includes/header.php';
         </div>
         <div class="field">
           <label class="label">Jenjang *</label>
-          <select id="elective-jenjang" class="select" name="jenjang" onchange="filterRombels()" required>
+          <select id="elective-jenjang" class="select" name="jenjang" onchange="filterRombels(); updateKkmUi();" required>
             <option value="">— Pilih jenjang —</option>
             <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
               <option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '') === $j ? 'selected' : '' ?>><?= $j ?></option>
@@ -227,6 +270,18 @@ require __DIR__ . '/../../includes/header.php';
               <option value="<?= (int)$cat['id'] ?>" <?= ((int)($edit['category_id'] ?? 0)) === (int)$cat['id'] ? 'selected' : '' ?>><?= esc($cat['nama']) ?></option>
             <?php endforeach; ?>
           </select>
+        </div>
+        <div class="field">
+          <label class="label">KKM</label>
+          <p class="text-muted text-sm" style="margin:0 0 .5rem;">Atur KKM default untuk opsi mapel pilihan ini. Nilai ini akan diterapkan ke setiap opsi mapel pilihan yang dibuat dari form ini.</p>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label class="text-sm text-muted" id="elective-kkm-label" style="min-width:100px;">KKM default</label>
+            <input type="number" class="input" id="elective-kkm-default" name="kkm_default" min="0" max="100" step="0.01" value="<?= esc((string)$editDefaultKkm) ?>">
+          </div>
+          <button type="button" id="elective-kkm-advanced-toggle" class="btn btn-secondary btn-sm" style="margin-top:.5rem;">Sesuaikan KKM per tingkat kelas</button>
+          <div id="elective-kkm-advanced-panel" style="display:none; margin-top:.5rem; padding:.75rem; border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.02);">
+            <div id="elective-kkm-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap:8px;"></div>
+          </div>
         </div>
         <div class="field">
           <label class="label">Rombel yang digabung *</label>
@@ -248,6 +303,7 @@ require __DIR__ . '/../../includes/header.php';
               <?php foreach ($editClasses as $class): ?>
                 <div class="row class-row" style="gap:.5rem; align-items:flex-end; margin-bottom:.5rem">
                   <input type="hidden" name="classes[id][]" value="<?= (int)$class['id'] ?>">
+                  <div class="field" style="flex:1; min-width:100px"><label class="label">Kode</label><input class="input" name="classes[kode][]" required value="<?= esc($class['subject_kode'] ?? '') ?>"></div>
                   <div class="field" style="flex:2"><label class="label">Nama</label><input class="input" name="classes[name][]" required value="<?= esc($class['nama']) ?>"></div>
                   <div class="field" style="flex:1; min-width:120px"><label class="label">Kapasitas</label><input class="input" type="number" min="0" name="classes[kapasitas][]" value="<?= (int)$class['kapasitas'] ?>"></div>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="removeClassRow(this)">Hapus</button>
@@ -256,6 +312,7 @@ require __DIR__ . '/../../includes/header.php';
             <?php else: ?>
               <div class="row class-row" style="gap:.5rem; align-items:flex-end; margin-bottom:.5rem">
                 <input type="hidden" name="classes[id][]" value="0">
+                <div class="field" style="flex:1; min-width:100px"><label class="label">Kode</label><input class="input" name="classes[kode][]" required></div>
                 <div class="field" style="flex:2"><label class="label">Nama</label><input class="input" name="classes[name][]" required></div>
                 <div class="field" style="flex:1; min-width:120px"><label class="label">Kapasitas</label><input class="input" type="number" min="0" name="classes[kapasitas][]" value="0"></div>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="removeClassRow(this)">Hapus</button>
@@ -310,10 +367,65 @@ require __DIR__ . '/../../includes/header.php';
 </div>
 
 <script>
+  var existingOverrides = <?= $editKkm ? json_encode($editKkm, JSON_NUMERIC_CHECK | JSON_FORCE_OBJECT) : '{}' ?>;
+
   function filterRombels() {
     const jenjang = document.getElementById('elective-jenjang').value;
     document.querySelectorAll('#rombel-options [data-jenjang]').forEach(el => {
       el.style.display = jenjang && el.getAttribute('data-jenjang') !== jenjang ? 'none' : 'inline-flex';
+    });
+  }
+
+  function getElectiveJenjang() {
+    return document.getElementById('elective-jenjang').value;
+  }
+
+  function updateKkmUi() {
+    const jenjang = getElectiveJenjang();
+    const label = document.getElementById('elective-kkm-label');
+    const input = document.getElementById('elective-kkm-default');
+    const toggleBtn = document.getElementById('elective-kkm-advanced-toggle');
+    const panel = document.getElementById('elective-kkm-advanced-panel');
+    const grid = document.getElementById('elective-kkm-grid');
+    if (!label || !input || !toggleBtn || !panel || !grid) return;
+
+    if (!jenjang || jenjang === 'TK') {
+      label.textContent = 'KKM default';
+      input.value = '';
+      input.disabled = true;
+      toggleBtn.style.display = 'none';
+      panel.style.display = 'none';
+      grid.innerHTML = '';
+      return;
+    }
+
+    label.textContent = 'KKM default (' + jenjang + ')';
+    input.disabled = false;
+    toggleBtn.style.display = 'inline-block';
+    if (panel.style.display !== 'none') {
+      renderElectiveKkmGrid(jenjang);
+    }
+  }
+
+  function renderElectiveKkmGrid(jenjang) {
+    const grid = document.getElementById('elective-kkm-grid');
+    if (!grid) return;
+
+    const levels = jenjang === 'SD' ? [1,2,3,4,5,6] : jenjang === 'SMP' ? [7,8,9] : [10,11,12];
+    const typed = {};
+    grid.querySelectorAll('.elective-tingkat-kkm-input').forEach(function (inp) {
+      typed[inp.dataset.tingkat] = inp.value;
+    });
+
+    grid.innerHTML = '';
+    levels.forEach(function (t) {
+      const val = typed[t] !== undefined ? typed[t] : (existingOverrides[t] !== undefined ? existingOverrides[t] : (parseFloat(document.getElementById('elective-kkm-default').value) || 70));
+      const cell = document.createElement('div');
+      cell.style.cssText = 'background:rgba(0,0,0,.03); border-radius:8px; padding:6px 8px;';
+      cell.innerHTML = '<div class="text-muted" style="font-size:11px; margin-bottom:3px;">Kelas ' + t + '</div>' +
+        '<input type="number" class="input elective-tingkat-kkm-input" style="width:100%; padding:4px 6px;" min="0" max="100" step="0.01" ' +
+        'name="kkm_tingkat[' + t + ']" data-tingkat="' + t + '" value="' + val + '">';
+      grid.appendChild(cell);
     });
   }
 
@@ -329,6 +441,7 @@ require __DIR__ . '/../../includes/header.php';
     row.style = 'gap:.5rem; align-items:flex-end; margin-bottom:.5rem';
     row.innerHTML = `
       <input type="hidden" name="classes[id][]" value="0">
+      <div class="field" style="flex:1; min-width:100px"><label class="label">Kode</label><input class="input" name="classes[kode][]" required></div>
       <div class="field" style="flex:2"><label class="label">Nama</label><input class="input" name="classes[name][]" required></div>
       <div class="field" style="flex:1; min-width:120px"><label class="label">Kapasitas</label><input class="input" type="number" min="0" name="classes[kapasitas][]" value="0"></div>
       <button type="button" class="btn btn-ghost btn-sm" onclick="removeClassRow(this)">Hapus</button>
@@ -336,6 +449,26 @@ require __DIR__ . '/../../includes/header.php';
     container.appendChild(row);
   }
 
-  document.addEventListener('DOMContentLoaded', filterRombels);
+  document.addEventListener('DOMContentLoaded', function () {
+    filterRombels();
+    updateKkmUi();
+  });
+
+  document.getElementById('elective-kkm-advanced-toggle').addEventListener('click', function () {
+    const panel = document.getElementById('elective-kkm-advanced-panel');
+    const toggleBtn = document.getElementById('elective-kkm-advanced-toggle');
+    const hidden = panel.style.display === 'none';
+    panel.style.display = hidden ? 'block' : 'none';
+    toggleBtn.textContent = hidden ? 'Sembunyikan KKM per tingkat kelas' : 'Sesuaikan KKM per tingkat kelas';
+    if (hidden) {
+      renderElectiveKkmGrid(getElectiveJenjang());
+    }
+  });
+
+  document.getElementById('elective-kkm-default').addEventListener('input', function () {
+    if (document.getElementById('elective-kkm-advanced-panel').style.display !== 'none') {
+      renderElectiveKkmGrid(getElectiveJenjang());
+    }
+  });
 </script>
 <?php require __DIR__ . '/../../includes/footer.php'; ?>

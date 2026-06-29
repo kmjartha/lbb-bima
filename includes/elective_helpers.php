@@ -31,10 +31,11 @@ function elective_by_id(int $id, ?int $yearId = null): ?array
 function elective_classes(int $electiveId): array
 {
     $st = db()->prepare(
-        "SELECT id, nama, kapasitas, subject_id
-         FROM elective_classes
-         WHERE elective_id = :e AND deleted_at IS NULL
-         ORDER BY id"
+        "SELECT ec.id, ec.nama, ec.kapasitas, ec.subject_id, s.kode AS subject_kode
+         FROM elective_classes ec
+         LEFT JOIN subjects s ON s.id = ec.subject_id
+         WHERE ec.elective_id = :e AND ec.deleted_at IS NULL
+         ORDER BY ec.id"
     );
     $st->execute(['e' => $electiveId]);
     return $st->fetchAll();
@@ -144,9 +145,14 @@ function elective_rombel_options(int $yearId, string $jenjang): array
  * Strips to A-Z0-9, uppercases, truncates to fit the 20-char column even
  * after a numeric collision suffix is appended.
  */
-function elective_subject_kode_for(PDO $pdo, int $yearId, string $optionName, ?int $excludeSubjectId = null): string
+function elective_subject_kode_for(PDO $pdo, int $yearId, string $optionName, ?int $excludeSubjectId = null, ?string $preferredCode = null): string
 {
-    $base = strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', $optionName) ?? '');
+    $base = trim((string)($preferredCode ?? ''));
+    if ($base === '') {
+        $base = strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', $optionName) ?? '');
+    } else {
+        $base = strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', $base) ?? '');
+    }
     if ($base === '') {
         $base = 'OPSI';
     }
@@ -186,15 +192,18 @@ function elective_subject_kode_for(PDO $pdo, int $yearId, string $optionName, ?i
  * - category_id = the elective's chosen mapel category.
  * - jenjang    = the elective's jenjang (one jenjang per elective).
  *
- * Existing teacher-set KKM values are preserved on update (KKM defaults are
- * only applied the first time a shadow subject is created).
+ * KKM values supplied from the elective form are applied to the shadow
+ * subject so mapel pilihan behaves like a regular subject for grading.
  */
 function elective_class_sync_subject(
     int $electiveClassId,
     string $optionName,
     int $electiveYearId,
     string $electiveJenjang,
-    int $electiveCategoryId
+    int $electiveCategoryId,
+    array $kkmDefaults = [],
+    array $kkmOverrides = [],
+    ?string $optionCode = null
 ): int {
     $pdo = db();
 
@@ -207,13 +216,14 @@ function elective_class_sync_subject(
         // Shadow subject already exists -- update name/category, restore if
         // it was previously soft-deleted, but keep its own kode (kode is
         // not user-facing for shadow subjects, no need to reshuffle it).
+        $subjectKode = elective_subject_kode_for($pdo, $electiveYearId, $optionName, $existingSubjectId, $optionCode);
         $pdo->prepare(
-            "UPDATE subjects SET nama = :n, category_id = :c, deleted_at = NULL, updated_at = NOW()
+            "UPDATE subjects SET nama = :n, category_id = :c, kode = :k, deleted_at = NULL, updated_at = NOW()
              WHERE id = :id"
-        )->execute(['n' => $optionName, 'c' => $electiveCategoryId, 'id' => $existingSubjectId]);
+        )->execute(['n' => $optionName, 'c' => $electiveCategoryId, 'k' => $subjectKode, 'id' => $existingSubjectId]);
         $subjectId = $existingSubjectId;
     } else {
-        $kode = elective_subject_kode_for($pdo, $electiveYearId, $optionName);
+        $kode = elective_subject_kode_for($pdo, $electiveYearId, $optionName, null, $optionCode);
         $pdo->prepare(
             "INSERT INTO subjects (academic_year_id, kode, nama, category_id, elective_class_id)
              VALUES (:y, :k, :n, :c, :ec)"
@@ -234,20 +244,10 @@ function elective_class_sync_subject(
     $pdo->prepare("INSERT INTO subject_jenjang_map (subject_id, jenjang) VALUES (:s, :j)")
         ->execute(['s' => $subjectId, 'j' => $electiveJenjang]);
 
-    // Keep KKM rows aligned with the elective's jenjang. If this is the first
-    // sync (no KKM rows yet), seed sensible defaults (70). If the elective's
-    // jenjang changed since the last sync (e.g. SD -> SMP), the old jenjang's
-    // tingkat rows would otherwise be orphaned (subject_kkm has no FK to
-    // subject_jenjang_map) -- detect that and rebuild for the new jenjang.
-    $existingTingkat = $pdo->prepare("SELECT tingkat FROM subject_kkm WHERE subject_id = :s");
-    $existingTingkat->execute(['s' => $subjectId]);
-    $existingTingkat = array_map('intval', $existingTingkat->fetchAll(PDO::FETCH_COLUMN));
-
-    $expectedTingkat = tingkat_for_jenjang($electiveJenjang);
-    $jenjangMismatch = $existingTingkat && array_diff($existingTingkat, $expectedTingkat) !== [];
-
-    if (($jenjangMismatch || !$existingTingkat) && $electiveJenjang !== 'TK') {
-        subject_kkm_save($subjectId, [$electiveJenjang], [], []);
+    // Keep KKM rows aligned with the elective's jenjang and apply the values
+    // supplied from the elective form to the shadow subject.
+    if ($electiveJenjang !== 'TK') {
+        subject_kkm_save($subjectId, [$electiveJenjang], $kkmDefaults, $kkmOverrides);
     }
 
     return $subjectId;
