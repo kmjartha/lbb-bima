@@ -54,10 +54,10 @@ function elective_rombels_for(int $electiveId): array
     return $st->fetchAll();
 }
 
-function elective_students(int $electiveId): array
+function elective_students(int $electiveId, ?array $rombelIds = null): array
 {
-    $st = db()->prepare(
-        "SELECT DISTINCT s.id, s.nis, s.nisn, s.nama,
+    $params = ['e' => $electiveId];
+    $sql = "SELECT DISTINCT s.id, s.nis, s.nisn, s.nama,
                 r.jenjang, r.tingkat, r.nama AS rombel_nama
          FROM elective_rombels er
          JOIN rombel_members rm ON rm.rombel_id = er.rombel_id
@@ -65,10 +65,21 @@ function elective_students(int $electiveId): array
          JOIN rombel r ON r.id = rm.rombel_id
          WHERE er.elective_id = :e
            AND s.deleted_at IS NULL
-           AND r.deleted_at IS NULL
-         ORDER BY r.jenjang, r.tingkat, r.nama, s.nama"
-    );
-    $st->execute(['e' => $electiveId]);
+           AND r.deleted_at IS NULL";
+    
+    if ($rombelIds !== null && count($rombelIds) > 0) {
+        $placeholders = [];
+        foreach ($rombelIds as $i => $rid) {
+            $key = ':rid' . $i;
+            $placeholders[] = $key;
+            $params[$key] = (int)$rid;
+        }
+        $sql .= " AND r.id IN (" . implode(',', $placeholders) . ")";
+    }
+    
+    $sql .= " ORDER BY r.jenjang, r.tingkat, r.nama, s.nama";
+    $st = db()->prepare($sql);
+    $st->execute($params);
     return $st->fetchAll();
 }
 

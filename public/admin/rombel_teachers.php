@@ -266,7 +266,10 @@ require __DIR__ . '/../../includes/header.php';
                 <option value="genap">Genap saja</option>
               </select>
             </div>
-            <button class="btn btn-primary" type="submit">Simpan Mapping</button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-primary" type="submit">Simpan Mapping</button>
+              <button class="btn btn-secondary" type="reset" id="resetForm" style="display: none;">Reset</button>
+            </div>
           </form>
         </div>
       </div>
@@ -295,9 +298,12 @@ require __DIR__ . '/../../includes/header.php';
   <?php endif; ?>
 
   <div class="card" style="flex: 2; min-width: 380px">
-    <div class="card-header"><h3 class="card-title">Mapping Aktif (<?= count($assignments) ?>)</h3></div>
+    <div class="card-header" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+      <h3 class="card-title" style="margin: 0; flex-shrink: 0;">Mapping Aktif (<?= count($assignments) ?>)</h3>
+      <input type="text" id="searchMapping" placeholder="Cari mapel atau guru..." style="width: 300px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" onkeyup="filterMappingTable()">
+    </div>
     <div class="table-wrap">
-      <table class="t">
+      <table class="t" id="mappingTable">
         <thead><tr><th>Mapel</th><th>Guru</th><th>Semester</th><th></th></tr></thead>
         <tbody>
         <?php if (!$assignments): ?><tr><td colspan="4"><div class="empty">Belum ada mapping.</div></td></tr><?php endif; ?>
@@ -306,8 +312,10 @@ require __DIR__ . '/../../includes/header.php';
             <td><strong><?= esc($a['s_kode']) ?></strong> · <?= esc(elective_subject_label($a['s_nama'], $a['elective_kode'] ?? null)) ?></td>
             <td><?= esc($a['t_nama']) ?> <span class="text-muted text-sm">(<?= esc($a['t_niy']) ?>)</span></td>
             <td><span class="badge"><?= esc($a['semester'] ?? 'Ganjil + Genap') ?></span></td>
-            <td style="text-align:right">
-              <?php if ($canEdit): ?><form method="post" style="display:inline" data-confirm="Hapus mapping ini?">
+            <td style="text-align:right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+              <?php if ($canEdit): ?>
+              <button type="button" class="btn btn-primary btn-sm" onclick="editMapping(this, <?= (int)$a['subject_id'] ?>, <?= (int)$a['teacher_id'] ?>, '<?= esc($a['semester'] ?? '') ?>')">Edit</button>
+              <form method="post" style="display:inline" data-confirm="Hapus mapping ini?">
                 <?= csrf_field() ?><input type="hidden" name="op" value="unassign">
                 <input type="hidden" name="id" value="<?= (int)$a['id'] ?>"><input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
                 <button class="btn btn-danger btn-sm">Hapus</button>
@@ -321,4 +329,52 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 </div>
 <?php endif; ?>
+
+<script>
+function editMapping(button, subjectId, teacherId, semester) {
+  // Populate form fields with the mapping data
+  document.querySelector('select[name="subject_id"]').value = subjectId;
+  document.querySelector('select[name="teacher_id"]').value = teacherId;
+  document.querySelector('select[name="semester"]').value = semester;
+  
+  // Show reset button and scroll to form
+  document.getElementById('resetForm').style.display = 'inline-block';
+  document.querySelector('form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  
+  // Focus on the form
+  document.querySelector('select[name="subject_id"]').focus();
+}
+
+function filterMappingTable() {
+  const searchInput = document.getElementById('searchMapping').value.toLowerCase();
+  const table = document.getElementById('mappingTable');
+  const rows = table.querySelectorAll('tbody tr');
+  let visibleCount = 0;
+  
+  rows.forEach(row => {
+    // Skip the empty message row
+    if (row.querySelector('.empty')) {
+      return;
+    }
+    
+    const mapelText = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
+    const guruText = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+    const semesterText = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+    
+    const matches = mapelText.includes(searchInput) || 
+                   guruText.includes(searchInput) || 
+                   semesterText.includes(searchInput);
+    
+    row.style.display = matches ? '' : 'none';
+    if (matches) visibleCount++;
+  });
+  
+  // Show empty message if no results
+  const emptyRow = table.querySelector('tbody tr td .empty');
+  if (emptyRow && visibleCount === 0 && searchInput !== '') {
+    emptyRow.parentElement.parentElement.style.display = '';
+  }
+}
+</script>
+
 <?php require __DIR__ . '/../../includes/footer.php'; ?>

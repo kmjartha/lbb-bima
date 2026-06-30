@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Mapel pilihan tidak ditemukan atau tidak dapat diakses.');
             }
 
-            $students = elective_students($eid);
+            $students = elective_students($eid, $myRombelIds);
             foreach ($students as $student) {
                 $sid = (int)$student['id'];
                 if (!array_key_exists((string)$sid, $assignmentValues)) {
@@ -54,11 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st = $pdo->prepare(
                     "SELECT 1 FROM elective_rombels er
                        JOIN rombel_members rm ON rm.rombel_id = er.rombel_id
-                      WHERE er.elective_id = :e AND rm.student_id = :s"
+                      WHERE er.elective_id = :e AND rm.student_id = :s
+                        AND er.rombel_id IN (" . implode(',', $myRombelIds) . ")"
                 );
                 $st->execute(['e' => $eid, 's' => $sid]);
                 if (!$st->fetchColumn()) {
-                    throw new RuntimeException('Siswa bukan anggota rombel yang terkait mapel ini.');
+                    throw new RuntimeException('Siswa bukan anggota rombel yang terkait mapel ini atau Anda tidak memiliki akses.');
                 }
 
                 $cid = int_or_null($assignmentValues[(string)$sid] ?? null);
@@ -140,7 +141,7 @@ if ($electiveId) {
     }
     if ($selectedElective) {
         $electiveRombels = elective_rombels_for($electiveId);
-        $students = elective_students($electiveId);
+        $students = elective_students($electiveId, $myRombelIds);
         $classes = elective_classes($electiveId);
         $classCounts = elective_class_counts($electiveId, $semester);
 
