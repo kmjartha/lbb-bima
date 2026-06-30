@@ -56,6 +56,7 @@ $studentMeta = $studentMetaParts ? implode(' · ', $studentMetaParts) : 'Data be
 <title><?= esc($page_title) ?> · <?= esc(cfg()['app_name']) ?></title>
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
 <link rel="stylesheet" href="<?= esc(url('../assets/css/parent-theme.css')) ?>">
+<link rel="icon" type="image/x-icon" href="<?= esc(url('../assets/img/logo.png')) ?>">
 </head>
 <body>
 <div class="parent-shell">
@@ -71,11 +72,7 @@ $studentMeta = $studentMetaParts ? implode(' · ', $studentMetaParts) : 'Data be
   ?>
   <nav class="p-side-nav no-print" aria-label="Menu utama (desktop)">
     <div class="brand">
-      <span class="crest" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3l2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>
-        </svg>
-      </span>
+      <div class="auth-logo"><img src="..\..\assets\img\logo.png" width="50px"></div>
       <span><?= esc(cfg()['app_name']) ?></span>
     </div>
     <?php foreach ($bm_nav as $n): $active = $current_nav === $n['key']; ?>
@@ -87,11 +84,7 @@ $studentMeta = $studentMetaParts ? implode(' · ', $studentMetaParts) : 'Data be
   </nav>
 
   <div class="parent-topbar">
-    <span class="crest" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 3l2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.4-4.6 2.4.9-5.2-3.8-3.7 5.2-.8z"/>
-      </svg>
-    </span>
+    <div class="auth-logo"><img src="..\..\assets\img\logo.png" width="50px"></div>
     <div class="who" style="flex:1">
       <small>Halo, Orang Tua</small>
       <strong><?= esc($studentName) ?></strong>

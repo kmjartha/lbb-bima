@@ -22,8 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <title>Login Orang Tua · <?= esc(cfg()['app_name']) ?></title>
 <link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
 <link rel="stylesheet" href="<?= esc(url('../assets/css/parent-theme.css')) ?>">
+<link rel="icon" type="image/x-icon" href="<?= esc(url('../assets/img/logo.png')) ?>">
 </head><body><div class="auth-wrap bm"><div class="auth-card">
-  <div class="auth-logo">⭐</div>
+  <div class="auth-logo"><img src="..\..\assets\img\logo.png" width="50px"></div>
   <h2>Portal Orang Tua</h2>
   <p class="text-muted mb-4"><?= esc(cfg()['app_name']) ?> · Gunakan NIS anak. Default password = tanggal lahir <strong>ddmmyyyy</strong>.</p>
   <?php if ($err): ?><div class="alert alert-error"><?= esc($err) ?></div><?php endif; ?>
