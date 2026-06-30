@@ -24,7 +24,6 @@ foreach ($subjectCategories as $cat) {
 
 // --- FITUR EXPORT MAPEL PILIHAN KE XLSX ---
 if (($_GET['action'] ?? '') === 'export_xlsx') {
-    // Siapkan data export
     $allElectives = electives_for_year($yearId);
     
     if (empty($allElectives)) {
@@ -32,19 +31,14 @@ if (($_GET['action'] ?? '') === 'export_xlsx') {
         redirect('admin/electives.php');
     }
 
-    // Buat CSV yang dapat dibuka dengan Excel
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename=Mapel_Pilihan_' . date('Ymd_His') . '.xlsx');
+    header('Content-Disposition: attachment; filename=Mapel_Pilihan_' . date('Ymd_His') . '.csv');
     
     $output = fopen('php://output', 'w');
-    
-    // Tambahkan BOM untuk Excel supaya UTF-8 terbaca dengan baik
     fwrite($output, "\xEF\xBB\xBF");
     
-    // Header kolom
     fputcsv($output, ['Kode', 'Nama', 'Kategori', 'Jenjang', 'Rombel', 'Jumlah Opsi'], ',');
     
-    // Data
     foreach ($allElectives as $row) {
         $rowRombelsData = elective_rombels_for((int)$row['id']);
         $rombelText = implode('; ', array_map(function($rb) {
@@ -67,6 +61,43 @@ if (($_GET['action'] ?? '') === 'export_xlsx') {
     exit;
 }
 
+// --- FITUR DOWNLOAD TEMPLATE IMPORT ---
+if (($_GET['action'] ?? '') === 'download_template') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=Template_Import_Mapel_Pilihan.csv');
+    
+    $output = fopen('php://output', 'w');
+    // Tambahkan BOM agar bisa dibaca UTF-8 dengan baik di Excel
+    fwrite($output, "\xEF\xBB\xBF");
+    
+    // Header format template
+    fputcsv($output, [
+        'Kode Mapel', 
+        'Nama Mapel', 
+        'Jenjang (TK/SD/SMP/SMA)', 
+        'ID Kategori (Lihat di Master Kategori)', 
+        'ID Rombel (Pisahkan dengan koma)', 
+        'Kode Opsi (Pisahkan dengan koma)', 
+        'Nama Opsi (Pisahkan dengan koma)', 
+        'Kapasitas Opsi (Pisahkan dengan koma)'
+    ], ',');
+    
+    // Contoh Data
+    fputcsv($output, [
+        'MPL-IT', 
+        'Pilihan IT Terpadu', 
+        'SMA', 
+        '1', 
+        '12,13,14', 
+        'IT-RPL,IT-TKJ', 
+        'Rekayasa Perangkat Lunak,Teknik Komputer Jaringan', 
+        '30,30'
+    ], ',');
+    
+    fclose($output);
+    exit;
+}
+
 // Load current year rombels for assignment
 $allRombels = $pdo->prepare(
     "SELECT id, jenjang, tingkat, nama
@@ -82,6 +113,152 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         csrf_check();
         require_edit('electives');
         $op = (string)($_POST['op'] ?? '');
+
+        // --- FITUR IMPORT CSV ---
+        if ($op === 'import') {
+            if (!isset($_FILES['file_import']) || $_FILES['file_import']['error'] !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Gagal mengupload file.');
+            }
+            $ext = strtolower(pathinfo($_FILES['file_import']['name'], PATHINFO_EXTENSION));
+            if ($ext !== 'csv') {
+                throw new RuntimeException('Hanya mendukung file format CSV.');
+            }
+
+            $file = fopen($_FILES['file_import']['tmp_name'], 'r');
+            $bom = fread($file, 3); // Skip BOM
+            if ($bom !== "\xEF\xBB\xBF") rewind($file);
+
+            $header = fgetcsv($file, 1000, ',');
+            if (!$header) throw new RuntimeException('Format CSV tidak valid.');
+
+            $pdo->beginTransaction();
+            $rowNum = 1;
+            $imported = 0;
+
+            while (($data = fgetcsv($file, 1000, ',')) !== false) {
+                $rowNum++;
+                if (count($data) < 8) continue; // Skip baris tidak lengkap
+
+                $kode = trim((string)$data[0]);
+                $nama = trim((string)$data[1]);
+                $jenjang = trim((string)$data[2]);
+                $categoryId = (int)trim((string)$data[3]);
+                
+                $rombelIdsRaw = array_filter(array_map('trim', explode(',', $data[4])), 'strlen');
+                $opsiKodes = array_filter(array_map('trim', explode(',', $data[5])), 'strlen');
+                $opsiNamas = array_map('trim', explode(',', $data[6]));
+                $opsiKaps = array_map('trim', explode(',', $data[7]));
+
+                // Lewati baris kosong / contoh
+                if ($kode === '' || $nama === '' || stripos($kode, 'Kode Mapel') !== false) continue; 
+
+                if (!in_array($jenjang, ['TK','SD','SMP','SMA'], true)) {
+                    throw new RuntimeException("Jenjang invalid pada baris $rowNum.");
+                }
+
+                // Cek kategori
+                $stmt = $pdo->prepare("SELECT 1 FROM subject_categories WHERE id = :id AND academic_year_id = :y");
+                $stmt->execute(['id' => $categoryId, 'y' => $yearId]);
+                if (!$stmt->fetchColumn()) {
+                    throw new RuntimeException("Kategori ID '$categoryId' tidak ditemukan pada baris $rowNum.");
+                }
+
+                // Validasi Rombel
+                $rombelIds = [];
+                foreach ($rombelIdsRaw as $rId) {
+                    if ((int)$rId > 0) $rombelIds[] = (int)$rId;
+                }
+                if (!$rombelIds) {
+                    throw new RuntimeException("Minimal 1 ID rombel valid diperlukan pada baris $rowNum.");
+                }
+
+                $in = implode(',', $rombelIds);
+                $count = (int)$pdo->query(
+                    "SELECT COUNT(*) FROM rombel WHERE id IN ($in) AND academic_year_id = $yearId AND jenjang = " . $pdo->quote($jenjang) . " AND deleted_at IS NULL"
+                )->fetchColumn();
+                
+                if ($count !== count($rombelIds)) {
+                    throw new RuntimeException("ID Rombel ada yang tidak valid atau beda jenjang pada baris $rowNum.");
+                }
+
+                if (!$opsiKodes) {
+                    throw new RuntimeException("Minimal 1 kode opsi mapel diperlukan pada baris $rowNum.");
+                }
+
+                // Cek Mapel eksisting by Kode
+                $stmt = $pdo->prepare("SELECT id FROM electives WHERE kode = :k AND academic_year_id = :y AND deleted_at IS NULL LIMIT 1");
+                $stmt->execute(['k' => $kode, 'y' => $yearId]);
+                $existingId = $stmt->fetchColumn();
+
+                if ($existingId) {
+                    $id = (int)$existingId;
+                    $stmt = $pdo->prepare("UPDATE electives SET nama = :n, jenjang = :j, category_id = :c WHERE id = :id");
+                    $stmt->execute(['n' => $nama, 'j' => $jenjang, 'c' => $categoryId, 'id' => $id]);
+                } else {
+                    $stmt = $pdo->prepare("INSERT INTO electives (kode, nama, jenjang, category_id, academic_year_id) VALUES (:k, :n, :j, :c, :y)");
+                    $stmt->execute(['k' => $kode, 'n' => $nama, 'j' => $jenjang, 'c' => $categoryId, 'y' => $yearId]);
+                    $id = (int)$pdo->lastInsertId();
+                }
+
+                // Sync Rombel
+                $pdo->prepare("DELETE FROM elective_rombels WHERE elective_id = :e")->execute(['e' => $id]);
+                $insertRombel = $pdo->prepare("INSERT INTO elective_rombels (elective_id, rombel_id) VALUES (:e, :r)");
+                foreach ($rombelIds as $rid) {
+                    $insertRombel->execute(['e' => $id, 'r' => $rid]);
+                }
+
+                // Sync Options (Sub-Classes)
+                $existingClassIds = [];
+                $stmt = $pdo->prepare("SELECT id, subject_kode FROM elective_classes WHERE elective_id = :e AND deleted_at IS NULL");
+                $stmt->execute(['e' => $id]);
+                $dbClasses = $stmt->fetchAll();
+                
+                $mapDbClasses = [];
+                foreach ($dbClasses as $dbc) {
+                    $mapDbClasses[$dbc['subject_kode']] = (int)$dbc['id'];
+                    $existingClassIds[] = (int)$dbc['id'];
+                }
+
+                $usedIds = [];
+                foreach ($opsiKodes as $idx => $optKode) {
+                    $optNama = !empty($opsiNamas[$idx]) ? $opsiNamas[$idx] : $optKode;
+                    $optKap = isset($opsiKaps[$idx]) ? max(0, (int)$opsiKaps[$idx]) : 0;
+
+                    if (isset($mapDbClasses[$optKode])) {
+                        $classId = $mapDbClasses[$optKode];
+                        $update = $pdo->prepare("UPDATE elective_classes SET nama = :n, kapasitas = :k WHERE id = :id");
+                        $update->execute(['n' => $optNama, 'k' => $optKap, 'id' => $classId]);
+                    } else {
+                        $insert = $pdo->prepare("INSERT INTO elective_classes (elective_id, nama, kapasitas) VALUES (:e, :n, :k)");
+                        $insert->execute(['e' => $id, 'n' => $optNama, 'k' => $optKap]);
+                        $classId = (int)$pdo->lastInsertId();
+                    }
+                    $usedIds[] = $classId;
+                    
+                    // Sync subject into the system (menggunakan KKM default)
+                    elective_class_sync_subject($classId, $optNama, $yearId, $jenjang, $categoryId, [], [], $optKode);
+                }
+
+                // Cleanup unused options
+                if ($existingClassIds) {
+                    $toDelete = array_diff($existingClassIds, $usedIds);
+                    if ($toDelete) {
+                        $pdo->prepare("UPDATE elective_classes SET deleted_at = NOW() WHERE id IN (" . implode(',', $toDelete) . ")")->execute();
+                        foreach ($toDelete as $removedClassId) {
+                            elective_class_archive_subject((int)$removedClassId);
+                        }
+                    }
+                }
+                
+                $imported++;
+            }
+            
+            fclose($file);
+            $pdo->commit();
+            audit('import', "Imported $imported mapel pilihan");
+            flash('success', "Berhasil memproses $imported baris data dari CSV.");
+            redirect('admin/electives.php');
+        }
 
         if ($op === 'save') {
             $id = int_or_null($_POST['id'] ?? null);
@@ -211,8 +388,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $usedIds[] = $classId;
                 // Treat this option exactly like a regular mata pelajaran:
-                // sync/create its shadow subject so it shows up in Guru
-                // Pengampu, Subjek Penilaian, Nilai Akhir, Leger, and Rapor.
                 elective_class_sync_subject($classId, $option['nama'], $yearId, $jenjang, $categoryId, $kkmDefaults, $kkmOverrides, $option['kode']);
             }
 
@@ -424,16 +599,37 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 
   <div class="card" style="flex: 2 1 380px; min-width: 380px">
-    <div class="card-header" style="justify-content: space-between; align-items: center;">
+    <div class="card-header" style="justify-content: space-between; align-items: center; flex-wrap:wrap; gap:1rem;">
       <div>
         <h3 class="card-title">
           Daftar Mapel Pilihan (<?= (int)$totalRows ?><?= $search !== '' ? ' dari ' . (int)$allRowsCount : '' ?>)
         </h3>
         <div class="text-xs text-muted">Kelola mapel pilihan dan lihat rombel yang sudah digabung.</div>
       </div>
-      <a href="?action=export_xlsx" class="btn btn-secondary btn-sm" target="_blank" style="flex-shrink: 0;">
-        ↓ Export XLSX
-      </a>
+      
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; flex-shrink: 0;">
+        <a href="?action=download_template" class="btn btn-secondary btn-sm">Template Import CSV</a>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('import-panel').style.display='block'">Import CSV</button>
+        <a href="?action=export_xlsx" class="btn btn-secondary btn-sm" target="_blank">Export Data</a>
+      </div>
+    </div>
+
+    <div class="card-body" id="import-panel" style="display:none; padding-bottom: 0;">
+      <div style="padding: 1rem; border: 1px dashed var(--border); border-radius: var(--r-md); background: rgba(0,0,0,.02);">
+        <form method="post" enctype="multipart/form-data" style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+          <?= csrf_field() ?>
+          <input type="hidden" name="op" value="import">
+          <div class="field" style="flex:1; min-width: 200px;">
+            <label class="label">Pilih File CSV (.csv)</label>
+            <input type="file" name="file_import" accept=".csv" class="input" required style="background:#fff;">
+          </div>
+          <div style="display:flex; gap:.5rem;">
+            <button type="submit" class="btn btn-primary">Proses Import</button>
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('import-panel').style.display='none'">Batal</button>
+          </div>
+        </form>
+        <div class="text-xs text-muted" style="margin-top:.5rem;">Gunakan pemisah koma (,). Pastikan Anda menggunakan Template Import agar format kolom sesuai.</div>
+      </div>
     </div>
 
     <div class="card-body" style="padding-bottom:0;">
