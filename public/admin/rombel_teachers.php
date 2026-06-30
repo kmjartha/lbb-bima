@@ -108,6 +108,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin/rombel_teachers.php?rombel_id=' . $rid);
         }
 
+        if ($op === 'batch_unassign') {
+          $ids = array_values(array_unique(array_map('intval', (array)($_POST['ids'] ?? []))));
+          $rid = (int)($_POST['rombel_id'] ?? 0);
+          if (!$ids) throw new RuntimeException('Pilih minimal 1 mapping.');
+          if (!$rid) throw new RuntimeException('Rombel tidak valid.');
+
+          $stmt = $pdo->prepare("SELECT 1 FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+          $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
+          if (!$stmt->fetchColumn()) throw new RuntimeException('Rombel tidak ditemukan di tahun ajaran aktif.');
+
+          $place = [];
+          $params = ['y' => $sc['year_id'], 'rid' => $rid];
+          foreach ($ids as $i => $idv) { $k = 'id_' . $i; $place[] = ':' . $k; $params[$k] = $idv; }
+
+          $check = $pdo->prepare("SELECT COUNT(*) FROM rombel_subject_teachers rst JOIN rombel r ON r.id = rst.rombel_id AND r.academic_year_id = :y WHERE rst.id IN (" . implode(',', $place) . ") AND rst.rombel_id = :rid");
+          $check->execute($params);
+          if ((int)$check->fetchColumn() !== count($ids)) throw new RuntimeException('Salah satu mapping tidak ditemukan.');
+
+          // delete only the selected ids
+          $delParams = [];
+          foreach ($ids as $i => $idv) { $delParams['id_' . $i] = $idv; }
+          $del = $pdo->prepare("DELETE FROM rombel_subject_teachers WHERE id IN (" . implode(',', array_map(fn($k)=>':' . $k, array_keys($delParams))) . ")");
+          $del->execute($delParams);
+
+          audit('batch_unassign', 'rombel:' . $rid, ['count' => count($ids)]);
+          flash('success', count($ids) . ' mapping berhasil dihapus.');
+          redirect('admin/rombel_teachers.php?rombel_id=' . $rid);
+        }
+
         // =========================================================================
         // FITUR IMPORT CSV
         // =========================================================================
@@ -322,31 +351,47 @@ require __DIR__ . '/../../includes/header.php';
   <div class="card" style="flex: 2; min-width: 380px">
     <div class="card-header" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
       <h3 class="card-title" style="margin: 0; flex-shrink: 0;">Mapping Aktif (<?= count($assignments) ?>)</h3>
-      <input type="text" id="searchMapping" placeholder="Cari mapel atau guru..." style="width: 300px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" onkeyup="filterMappingTable()">
+      <div style="display:flex; align-items:center; gap:1rem; margin-left:auto;">
+        <input type="text" id="searchMapping" placeholder="Cari mapel atau guru..." style="width: 300px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" onkeyup="filterMappingTable()">
+        <button class="btn btn-danger btn-sm" id="batchDeleteBtn" type="submit" form="batchDeleteForm" style="display:none;" disabled data-confirm="Hapus mapping terpilih?">Hapus Terpilih</button>
+      </div>
     </div>
     <div class="table-wrap">
-      <table class="t" id="mappingTable">
-        <thead><tr><th>Mapel</th><th>Guru</th><th>Semester</th><th></th></tr></thead>
-        <tbody>
-        <?php if (!$assignments): ?><tr><td colspan="4"><div class="empty">Belum ada mapping.</div></td></tr><?php endif; ?>
-        <?php foreach ($assignments as $a): ?>
-          <tr>
-            <td><strong><?= esc($a['s_kode']) ?></strong> · <?= esc(elective_subject_label($a['s_nama'], $a['elective_kode'] ?? null)) ?></td>
-            <td><?= esc($a['t_nama']) ?> <span class="text-muted text-sm">(<?= esc($a['t_niy']) ?>)</span></td>
-            <td><span class="badge"><?= esc($a['semester'] ?? 'Ganjil + Genap') ?></span></td>
-            <td style="text-align:right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+      <form method="post" id="batchDeleteForm">
+        <?= csrf_field() ?><input type="hidden" name="op" value="batch_unassign"><input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
+        
+        <table class="t" id="mappingTable">
+          <thead>
+            <tr>
+              <?php if ($canEdit): ?><th style="width:36px"><input type="checkbox" id="selectAllMappings"></th><?php endif; ?>
+              <th>Mapel</th><th>Guru</th><th>Semester</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php if (!$assignments): ?><tr><td colspan="5"><div class="empty">Belum ada mapping.</div></td></tr><?php endif; ?>
+          <?php foreach ($assignments as $a): ?>
+            <tr>
               <?php if ($canEdit): ?>
-              <button type="button" class="btn btn-primary btn-sm" onclick="editMapping(this, <?= (int)$a['subject_id'] ?>, <?= (int)$a['teacher_id'] ?>, '<?= esc($a['semester'] ?? '') ?>')">Edit</button>
-              <form method="post" style="display:inline" data-confirm="Hapus mapping ini?">
-                <?= csrf_field() ?><input type="hidden" name="op" value="unassign">
-                <input type="hidden" name="id" value="<?= (int)$a['id'] ?>"><input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
-                <button class="btn btn-danger btn-sm">Hapus</button>
-              </form><?php endif; ?>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
+                <td style="vertical-align:middle; text-align:center;">
+                  <input type="checkbox" class="map-chk" name="ids[]" value="<?= (int)$a['id'] ?>">
+                </td>
+              <?php endif; ?>
+              <td><strong><?= esc($a['s_kode']) ?></strong> · <?= esc(elective_subject_label($a['s_nama'], $a['elective_kode'] ?? null)) ?></td>
+              <td><?= esc($a['t_nama']) ?> <span class="text-muted text-sm">(<?= esc($a['t_niy']) ?>)</span></td>
+              <td><span class="badge"><?= esc($a['semester'] ?? 'Ganjil + Genap') ?></span></td>
+              <td style="text-align:right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <?php if ($canEdit): ?>
+                <button type="button" class="btn btn-primary btn-sm" onclick="editMapping(this, <?= (int)$a['subject_id'] ?>, <?= (int)$a['teacher_id'] ?>, '<?= esc($a['semester'] ?? '') ?>')">Edit</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="singleDelete(<?= (int)$a['id'] ?>)">Hapus</button><?php endif; ?>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </form>
+      <form method="post" id="singleDeleteForm" style="display:none;">
+        <?= csrf_field() ?><input type="hidden" name="op" value="unassign"><input type="hidden" name="id" value=""><input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
+      </form>
     </div>
   </div>
 </div>
@@ -398,5 +443,48 @@ function filterMappingTable() {
   }
 }
 </script>
+
+<script>
+// Batch delete helpers: select-all, enable/disable button, confirm
+(function () {
+  const selectAll = document.getElementById('selectAllMappings');
+  const batchBtn = document.getElementById('batchDeleteBtn');
+  const form = document.getElementById('batchDeleteForm');
+  function toggleBatchButton() {
+    const any = Array.from(document.querySelectorAll('.map-chk')).some(c => c.checked);
+    if (!batchBtn) return;
+    batchBtn.disabled = !any;
+    batchBtn.style.display = any ? 'inline-block' : 'none';
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      document.querySelectorAll('.map-chk').forEach(c => { c.checked = this.checked; });
+      toggleBatchButton();
+    });
+  }
+
+  document.querySelectorAll('.map-chk').forEach(c => c.addEventListener('change', toggleBatchButton));
+
+  if (form && batchBtn) {
+    form.addEventListener('submit', function (e) {
+      if (!confirm(batchBtn.dataset.confirm || 'Hapus mapping terpilih?')) {
+        e.preventDefault();
+      }
+    });
+  }
+})();
+</script>
+
+<script>
+function singleDelete(id) {
+  if (!confirm('Hapus mapping ini?')) return;
+  const f = document.getElementById('singleDeleteForm');
+  if (!f) return;
+  f.querySelector('input[name="id"]').value = id;
+  f.submit();
+}
+</script>
+
 
 <?php require __DIR__ . '/../../includes/footer.php'; ?>
