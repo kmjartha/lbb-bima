@@ -210,12 +210,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
-$rombels = $pdo->prepare(
-    "SELECT id, jenjang, tingkat, nama FROM rombel
-     WHERE academic_year_id=:y AND deleted_at IS NULL
-     ORDER BY FIELD(jenjang,'SD','SMP','SMA'), tingkat, nama"
-);
-$rombels->execute(['y'=>$sc['year_id']]);
+if ($me['role'] === 'guru') {
+    // Hanya ambil rombel di mana guru ini ditugaskan mengajar minimal 1 mapel
+    $rombels = $pdo->prepare(
+        "SELECT DISTINCT r.id, r.jenjang, r.tingkat, r.nama 
+         FROM rombel r
+         JOIN rombel_subject_teachers rst ON rst.rombel_id = r.id
+         JOIN teachers t ON t.id = rst.teacher_id
+         WHERE r.academic_year_id = :y 
+           AND r.deleted_at IS NULL 
+           AND t.user_id = :u
+           AND (rst.semester IS NULL OR rst.semester = :sem)
+         ORDER BY FIELD(r.jenjang,'SD','SMP','SMA'), r.tingkat, r.nama"
+    );
+    $rombels->execute([
+        'y'   => $sc['year_id'],
+        'u'   => $me['id'],
+        'sem' => $sc['semester']
+    ]);
+} else {
+    // Admin / peran lain tetap bisa melihat semua rombel
+    $rombels = $pdo->prepare(
+        "SELECT id, jenjang, tingkat, nama FROM rombel
+         WHERE academic_year_id=:y AND deleted_at IS NULL
+         ORDER BY FIELD(jenjang,'SD','SMP','SMA'), tingkat, nama"
+    );
+    $rombels->execute(['y'=>$sc['year_id']]);
+}
 $rombels = $rombels->fetchAll();
 
 $subjects = []; $current = null; $topics = [];
@@ -315,7 +336,6 @@ require __DIR__ . '/../../includes/header.php';
           <div class="field" style="flex:0 0 110px"><label class="label">Kode</label><input class="input" name="kode" placeholder="T1, U2" value="<?= $editTopic ? esc($editTopic['kode'] ?? '') : '' ?>"></div>
           <div class="field"><label class="label">Judul *</label><input class="input" name="judul" required placeholder="Bab 1 — Bilangan Bulat" value="<?= $editTopic ? esc($editTopic['judul']) : '' ?>"></div>
         </div>
-        <!-- Ranah selector dihapus: setiap subjek penilaian otomatis mencakup Sikap, Pengetahuan, dan Keterampilan (SPK). -->
         <div class="row">
           <div class="field"><label class="label">Kategori *</label>
             <select class="select" name="kategori" required>
@@ -373,7 +393,6 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 </div>
 
-<!-- Modal Copy All Topics -->
 <div id="copyAllModal" class="modal" style="display:none;">
   <div class="modal-backdrop" onclick="closeCopyAllModal()"></div>
   <div class="modal-content">
