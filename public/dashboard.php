@@ -117,6 +117,56 @@ if ($role === 'guru') {
   </div>
 </div>
 
+<?php
+// Untuk role guru (termasuk guru wali) — ambil daftar mata pelajaran yang diampu, dikelompokkan per rombel
+$my_subjects_by_rombel = [];
+if ($role === 'guru') {
+    $st = $pdo->prepare(
+        "SELECT r.id AS rombel_id, r.jenjang, r.tingkat, r.nama AS rombel_nama,
+                s.id AS subj_id, s.nama AS subj_nama, s.kode AS subj_kode
+           FROM rombel_subject_teachers rst
+           JOIN rombel r ON r.id = rst.rombel_id
+           JOIN subjects s ON s.id = rst.subject_id
+           JOIN teachers t ON t.id = rst.teacher_id
+          WHERE t.user_id = :uid AND r.academic_year_id = :y
+            AND r.deleted_at IS NULL AND s.deleted_at IS NULL
+          GROUP BY r.id, s.id
+          ORDER BY r.jenjang, r.tingkat, r.nama, s.nama"
+    );
+    $st->execute(['uid' => $me['id'], 'y' => (int)$sc['year_id']]);
+    $subs = $st->fetchAll();
+    foreach ($subs as $s) {
+        $label = trim($s['jenjang'] . ' ' . $s['rombel_nama']);
+        if ($s['tingkat'] !== null && $s['tingkat'] !== '') $label .= ' · ' . (int)$s['tingkat'];
+        $my_subjects_by_rombel[$label][] = $s;
+    }
+}
+?>
+
+<?php if ($role === 'guru'): ?>
+<div class="card mt-4">
+  <div class="card-header"><h3 class="card-title">Mata Pelajaran yang Diampu</h3></div>
+  <div class="card-body">
+    <?php if (empty($my_subjects_by_rombel)): ?>
+      <div class="text-muted">Belum ada mata pelajaran yang diampu.</div>
+    <?php else: ?>
+      <div style="display:flex; flex-wrap:wrap; gap:var(--sp-4);">
+      <?php foreach ($my_subjects_by_rombel as $rombel_label => $subjs): ?>
+        <div style="flex: 1 1 320px; min-width:220px; background:var(--bg-alt); padding:.75rem; border-radius:8px">
+          <div class="text-sm text-muted" style="margin-bottom:.35rem"><?= esc($rombel_label) ?></div>
+          <ul style="margin:0; padding-left:1rem">
+            <?php foreach ($subjs as $s): ?>
+              <li style="list-style: disc; margin-left: .5rem; margin-bottom:.25rem"><strong><?= esc($s['subj_nama']) ?></strong> <span class="text-xs text-muted">· <?= esc($s['subj_kode']) ?></span></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if ($quickLinks): ?>
 <div class="card mt-4">
   <div class="card-header"><h3 class="card-title">Tindakan Cepat</h3></div>
