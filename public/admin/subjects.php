@@ -33,6 +33,80 @@ if (($_GET['action'] ?? '') === 'download_template') {
     exit;
 }
 
+// --- FITUR EXPORT DATA CSV ---
+if (($_GET['action'] ?? '') === 'export') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=export_mapel_' . date('Ymd_His') . '.csv');
+    $output = fopen('php://output', 'w');
+    
+    fputcsv($output, ['Kode Mapel (Wajib)', 'Nama Mapel (Wajib)', 'Kategori (Opsional)', 'Jenjang (Pisahkan koma: TK,SD,SMP,SMA)', 'KKM SD (Opsional)', 'KKM SMP (Opsional)', 'KKM SMA (Opsional)']);
+
+    $conds = ["s.deleted_at IS NULL", "s.academic_year_id = :y"];
+    $params = ['y' => $sc['year_id']];
+
+    if ($q !== '') {
+        $conds[] = "(s.kode LIKE :q1 OR s.nama LIKE :q2)";
+        $params['q1'] = '%' . $q . '%';
+        $params['q2'] = '%' . $q . '%';
+    }
+
+    $whereSql = "WHERE " . implode(" AND ", $conds);
+    
+    $rowSql = "SELECT s.id, s.kode, s.nama, c.nama AS cat_nama,
+                      GROUP_CONCAT(jm.jenjang ORDER BY FIELD(jm.jenjang,'TK','SD','SMP','SMA') SEPARATOR ',') AS jenjangs
+               FROM subjects s
+               LEFT JOIN subject_categories c ON c.id = s.category_id
+               LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
+               $whereSql
+               GROUP BY s.id ORDER BY s.kode";
+
+    $stmtRows = $pdo->prepare($rowSql);
+    $stmtRows->execute($params);
+    $exportRows = $stmtRows->fetchAll();
+
+    $kkmBySubject = [];
+    if ($exportRows) {
+        $ids = array_map(fn($r) => (int)$r['id'], $exportRows);
+        $in  = implode(',', array_fill(0, count($ids), '?'));
+        $stK = $pdo->prepare("SELECT subject_id, tingkat, kkm FROM subject_kkm WHERE subject_id IN ($in)");
+        $stK->execute($ids);
+        foreach ($stK->fetchAll() as $k) {
+            $kkmBySubject[(int)$k['subject_id']][(int)$k['tingkat']] = (float)$k['kkm'];
+        }
+    }
+
+    foreach ($exportRows as $r) {
+        $id = (int)$r['id'];
+        $kkmData = $kkmBySubject[$id] ?? [];
+
+        $kkmSd = ''; $kkmSmp = ''; $kkmSma = '';
+        $sdVals = []; $smpVals = []; $smaVals = [];
+
+        foreach ($kkmData as $tingkat => $val) {
+            if ($tingkat >= 1 && $tingkat <= 6) $sdVals[] = $val;
+            if ($tingkat >= 7 && $tingkat <= 9) $smpVals[] = $val;
+            if ($tingkat >= 10 && $tingkat <= 12) $smaVals[] = $val;
+        }
+
+        if ($sdVals) $kkmSd = round(array_sum($sdVals) / count($sdVals), 2);
+        if ($smpVals) $kkmSmp = round(array_sum($smpVals) / count($smpVals), 2);
+        if ($smaVals) $kkmSma = round(array_sum($smaVals) / count($smaVals), 2);
+
+        fputcsv($output, [
+            $r['kode'],
+            $r['nama'],
+            $r['cat_nama'] ?? '',
+            $r['jenjangs'] ?? '',
+            $kkmSd,
+            $kkmSmp,
+            $kkmSma
+        ]);
+    }
+    
+    fclose($output);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         csrf_check();
@@ -441,9 +515,14 @@ require __DIR__ . '/../../includes/header.php';
     </div>
     
     <div class="card-body" style="border-bottom: 1px solid var(--border); background: var(--bg-alt); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-2);">
-      <a href="?action=download_template" class="btn btn-secondary btn-sm" target="_blank">
-        ↓ Download Template CSV
-      </a>
+      <div style="display: flex; gap: var(--sp-2);">
+        <a href="?action=download_template" class="btn btn-secondary btn-sm" target="_blank">
+          ↓ Download Template CSV
+        </a>
+        <a href="?action=export<?= $q ? '&q='.urlencode($q) : '' ?>" class="btn btn-secondary btn-sm">
+          📤 Export Data
+        </a>
+      </div>
       <form method="post" enctype="multipart/form-data" style="margin: 0; display: flex; gap: var(--sp-2); align-items: center;">
         <?= csrf_field() ?>
         <input type="hidden" name="op" value="import">
