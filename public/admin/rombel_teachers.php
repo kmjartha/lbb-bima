@@ -12,6 +12,50 @@ $sc = active_scope();
 $err = null;
 
 $rombelId = int_or_null($_GET['rombel_id'] ?? null);
+$action = $_GET['action'] ?? '';
+
+// =========================================================================
+// FITUR DOWNLOAD DATA DAN TEMPLATE
+// =========================================================================
+if ($action === 'download_template') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="template_mapping_guru.csv"');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['kode_mapel', 'niy_guru', 'semester']);
+    fputcsv($output, ['MTK', '12345678', 'ganjil']); // Contoh baris
+    fclose($output);
+    exit;
+}
+
+if ($action === 'download_data' && $rombelId) {
+    $stmt = $pdo->prepare("
+        SELECT s.kode AS s_kode, s.nama AS s_nama, u.niy AS t_niy, u.nama AS t_nama, rst.semester
+        FROM rombel_subject_teachers rst
+        JOIN subjects s ON s.id=rst.subject_id AND s.academic_year_id = :y
+        JOIN teachers t ON t.id=rst.teacher_id
+        JOIN users u ON u.id=t.user_id
+        WHERE rst.rombel_id = :r ORDER BY s.kode, rst.semester
+    ");
+    $stmt->execute(['r' => $rombelId, 'y' => $sc['year_id']]);
+    $data = $stmt->fetchAll();
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="mapping_guru_rombel_'.$rombelId.'.csv"');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['kode_mapel', 'nama_mapel', 'niy_guru', 'nama_guru', 'semester']);
+    foreach ($data as $row) {
+        fputcsv($output, [
+            $row['s_kode'], 
+            $row['s_nama'], 
+            $row['t_niy'], 
+            $row['t_nama'], 
+            $row['semester'] ?: 'Keduanya'
+        ]);
+    }
+    fclose($output);
+    exit;
+}
+// =========================================================================
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -52,6 +96,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('success', 'Mapping dihapus.');
             redirect('admin/rombel_teachers.php?rombel_id=' . $rid);
         }
+
+        // =========================================================================
+        // FITUR IMPORT CSV
+        // =========================================================================
+        if ($op === 'import') {
+            $rid = (int)($_POST['rombel_id'] ?? 0);
+            if (!$rid) throw new RuntimeException('Rombel tidak valid.');
+            if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Gagal upload file CSV.');
+            }
+
+            $stmt = $pdo->prepare("SELECT 1 FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+            $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
+            if (!$stmt->fetchColumn()) throw new RuntimeException('Rombel tidak ditemukan di tahun ajaran aktif.');
+
+            $handle = fopen($_FILES['file']['tmp_name'], 'r');
+            $header = fgetcsv($handle); // Lewati header
+            $imported = 0;
+
+            $pdo->beginTransaction();
+            try {
+                while (($row = fgetcsv($handle)) !== false) {
+                    if (count($row) < 2) continue; // Skip jika kolom tidak lengkap
+                    
+                    $kodeMapel = trim($row[0]);
+                    $niyGuru = trim($row[1]);
+                    $semRaw = isset($row[2]) ? strtolower(trim($row[2])) : '';
+
+                    if ($kodeMapel === '' || $niyGuru === '') continue;
+
+                    $semVal = null;
+                    if ($semRaw === 'ganjil') $semVal = 'ganjil';
+                    elseif ($semRaw === 'genap') $semVal = 'genap';
+
+                    // Cari ID Mapel
+                    $sid = $pdo->prepare("SELECT id FROM subjects WHERE kode=:k AND academic_year_id=:y AND deleted_at IS NULL LIMIT 1");
+                    $sid->execute(['k'=>$kodeMapel, 'y'=>$sc['year_id']]);
+                    $subjectId = $sid->fetchColumn();
+
+                    // Cari ID Guru
+                    $tid = $pdo->prepare("SELECT t.id FROM teachers t JOIN users u ON u.id=t.user_id WHERE u.niy=:n AND u.deleted_at IS NULL LIMIT 1");
+                    $tid->execute(['n'=>$niyGuru]);
+                    $teacherId = $tid->fetchColumn();
+
+                    // Insert jika mapel dan guru valid
+                    if ($subjectId && $teacherId) {
+                        $del = $pdo->prepare("DELETE FROM rombel_subject_teachers WHERE rombel_id=:r AND subject_id=:s AND (semester <=> :sem)");
+                        $del->execute(['r'=>$rid,'s'=>$subjectId,'sem'=>$semVal]);
+
+                        $pdo->prepare("INSERT INTO rombel_subject_teachers (rombel_id, subject_id, teacher_id, semester) VALUES (:r,:s,:t,:sem)")
+                            ->execute(['r'=>$rid,'s'=>$subjectId,'t'=>$teacherId,'sem'=>$semVal]);
+                        $imported++;
+                    }
+                }
+                $pdo->commit();
+                audit('import_teacher_mapping', "rombel:$rid", ['count'=>$imported]);
+                flash('success', "$imported data mapping berhasil diimport.");
+                redirect('admin/rombel_teachers.php?rombel_id=' . $rid);
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
+        }
+        // =========================================================================
+        
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
@@ -68,7 +177,6 @@ if ($rombelId) {
     $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
     $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
     if ($current) {
-        // Subjects available for this jenjang
         $s = $pdo->prepare(
             "SELECT s.id, s.kode, s.nama, e.kode AS elective_kode
              FROM subjects s
@@ -127,39 +235,64 @@ require __DIR__ . '/../../includes/header.php';
 
 <?php if ($current): ?>
 <div class="row">
-  <?php if ($canEdit): ?><div class="card" style="flex: 1; min-width: 320px">
-    <div class="card-header"><h3 class="card-title">Tambah / Ubah Mapping</h3></div>
-    <div class="card-body">
-      <form method="post">
-        <?= csrf_field() ?><input type="hidden" name="op" value="assign">
-        <input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
-        <div class="field"><label class="label">Mapel *</label>
-          <select class="select" name="subject_id" required>
-            <option value="">— Pilih mapel —</option>
-            <?php foreach ($subjects as $s): ?>
-              <option value="<?= (int)$s['id'] ?>"><?= esc($s['kode'].' — '.elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></option>
-            <?php endforeach; ?>
-          </select>
+  <?php if ($canEdit): ?>
+  <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Tambah / Ubah Mapping</h3></div>
+        <div class="card-body">
+          <form method="post">
+            <?= csrf_field() ?><input type="hidden" name="op" value="assign">
+            <input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
+            <div class="field"><label class="label">Mapel *</label>
+              <select class="select" name="subject_id" required>
+                <option value="">— Pilih mapel —</option>
+                <?php foreach ($subjects as $s): ?>
+                  <option value="<?= (int)$s['id'] ?>"><?= esc($s['kode'].' — '.elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="field"><label class="label">Guru *</label>
+              <select class="select" name="teacher_id" required>
+                <option value="">— Pilih guru —</option>
+                <?php foreach ($teachers as $t): ?>
+                  <option value="<?= (int)$t['id'] ?>"><?= esc($t['niy'].' — '.$t['nama']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="field"><label class="label">Berlaku Untuk</label>
+              <select class="select" name="semester">
+                <option value="">Kedua semester</option>
+                <option value="ganjil">Ganjil saja</option>
+                <option value="genap">Genap saja</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Simpan Mapping</button>
+          </form>
         </div>
-        <div class="field"><label class="label">Guru *</label>
-          <select class="select" name="teacher_id" required>
-            <option value="">— Pilih guru —</option>
-            <?php foreach ($teachers as $t): ?>
-              <option value="<?= (int)$t['id'] ?>"><?= esc($t['niy'].' — '.$t['nama']) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="field"><label class="label">Berlaku Untuk</label>
-          <select class="select" name="semester">
-            <option value="">Kedua semester</option>
-            <option value="ganjil">Ganjil saja</option>
-            <option value="genap">Genap saja</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" type="submit">Simpan Mapping</button>
-      </form>
-    </div>
-  </div><?php endif; ?>
+      </div>
+
+      <div class="card">
+          <div class="card-header"><h3 class="card-title">Import / Export CSV</h3></div>
+          <div class="card-body">
+              <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <a href="?rombel_id=<?= (int)$current['id'] ?>&action=download_data" class="btn btn-sm btn-outline">⬇️ Download Data</a>
+                  <a href="?action=download_template" class="btn btn-sm btn-outline">📝 Download Template</a>
+              </div>
+              <hr style="margin: 1rem 0; border: none; border-top: 1px solid #ddd;">
+              <form method="post" enctype="multipart/form-data">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="op" value="import">
+                  <input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
+                  <div class="field"><label class="label">Upload CSV</label>
+                      <input type="file" name="file" accept=".csv" required style="width: 100%; margin-bottom: 0.5rem;">
+                      <span class="text-sm text-muted">Format: kode_mapel, niy_guru, semester (opsional: ganjil/genap)</span>
+                  </div>
+                  <button class="btn btn-secondary btn-sm" type="submit">Import CSV</button>
+              </form>
+          </div>
+      </div>
+  </div>
+  <?php endif; ?>
 
   <div class="card" style="flex: 2; min-width: 380px">
     <div class="card-header"><h3 class="card-title">Mapping Aktif (<?= count($assignments) ?>)</h3></div>
