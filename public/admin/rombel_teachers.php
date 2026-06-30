@@ -64,25 +64,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $op = (string)($_POST['op'] ?? '');
 
         if ($op === 'assign') {
-            $rid = (int)($_POST['rombel_id'] ?? 0);
+            $currentRombelId = (int)($_POST['current_rombel_id'] ?? 0);
+            $selectedRombelIds = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['rombel_ids'] ?? [])))));
             $sid = (int)($_POST['subject_id'] ?? 0);
             $tid = (int)($_POST['teacher_id'] ?? 0);
             $sem = (string)($_POST['semester'] ?? '');
             if (!in_array($sem, ['ganjil','genap',''], true)) throw new RuntimeException('Semester invalid.');
             $semVal = $sem === '' ? null : $sem;
-            if (!$rid || !$sid || !$tid) throw new RuntimeException('Rombel, mapel, dan guru wajib dipilih.');
-            $stmt = $pdo->prepare("SELECT 1 FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
-            $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
-            if (!$stmt->fetchColumn()) throw new RuntimeException('Rombel tidak ditemukan di tahun ajaran aktif.');
+            if (!$currentRombelId || !$selectedRombelIds || !$sid || !$tid) throw new RuntimeException('Rombel, mapel, dan guru wajib dipilih.');
 
-            // upsert
+            $idPlaceholders = [];
+            $params = ['y' => $sc['year_id']];
+            foreach ($selectedRombelIds as $i => $rid) {
+                $key = 'rid_' . $i;
+                $idPlaceholders[] = ':' . $key;
+                $params[$key] = $rid;
+            }
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM rombel WHERE id IN (" . implode(',', $idPlaceholders) . ") AND academic_year_id=:y AND deleted_at IS NULL");
+            $stmt->execute($params);
+            if ((int)$stmt->fetchColumn() !== count($selectedRombelIds)) throw new RuntimeException('Salah satu rombel tidak ditemukan di tahun ajaran aktif.');
+
             $del = $pdo->prepare("DELETE FROM rombel_subject_teachers WHERE rombel_id=:r AND subject_id=:s AND (semester <=> :sem)");
-            $del->execute(['r'=>$rid,'s'=>$sid,'sem'=>$semVal]);
-            $pdo->prepare("INSERT INTO rombel_subject_teachers (rombel_id, subject_id, teacher_id, semester) VALUES (:r,:s,:t,:sem)")
-                ->execute(['r'=>$rid,'s'=>$sid,'t'=>$tid,'sem'=>$semVal]);
-            audit('assign_teacher', "rombel:$rid/subject:$sid", ['t'=>$tid,'sem'=>$semVal]);
-            flash('success', 'Guru pengampu disimpan.');
-            redirect('admin/rombel_teachers.php?rombel_id=' . $rid);
+            $ins = $pdo->prepare("INSERT INTO rombel_subject_teachers (rombel_id, subject_id, teacher_id, semester) VALUES (:r,:s,:t,:sem)");
+            foreach ($selectedRombelIds as $rid) {
+                $del->execute(['r' => $rid, 's' => $sid, 'sem' => $semVal]);
+                $ins->execute(['r' => $rid, 's' => $sid, 't' => $tid, 'sem' => $semVal]);
+            }
+
+            audit('assign_teacher', 'rombel:' . implode(',', $selectedRombelIds) . '/subject:' . $sid, ['t' => $tid, 'sem' => $semVal]);
+            flash('success', 'Guru pengampu disimpan ke ' . count($selectedRombelIds) . ' rombel.');
+            redirect('admin/rombel_teachers.php?rombel_id=' . $currentRombelId);
         }
 
         if ($op === 'unassign') {
@@ -242,7 +253,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="card-body">
           <form method="post">
             <?= csrf_field() ?><input type="hidden" name="op" value="assign">
-            <input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
+            <input type="hidden" name="current_rombel_id" value="<?= (int)$current['id'] ?>">
             <div class="field"><label class="label">Mapel *</label>
               <select class="select" name="subject_id" required>
                 <option value="">— Pilih mapel —</option>
@@ -258,6 +269,17 @@ require __DIR__ . '/../../includes/header.php';
                   <option value="<?= (int)$t['id'] ?>"><?= esc($t['niy'].' — '.$t['nama']) ?></option>
                 <?php endforeach; ?>
               </select>
+            </div>
+            <div class="field"><label class="label">Rombel *</label>
+              <div style="max-height:220px; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:0.5rem; background: var(--bg);">
+                <?php foreach ($rombels as $r): ?>
+                  <label style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
+                    <input type="checkbox" name="rombel_ids[]" value="<?= (int)$r['id'] ?>" <?= $r['id'] === (int)$current['id'] ? 'checked' : '' ?>>
+                    <span><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['nama']) ?></span>
+                  </label>
+                <?php endforeach; ?>
+              </div>
+              <span class="text-sm text-muted">Pilih satu atau beberapa rombel. Mapping akan disimpan untuk semua rombel terpilih.</span>
             </div>
             <div class="field"><label class="label">Berlaku Untuk</label>
               <select class="select" name="semester">
