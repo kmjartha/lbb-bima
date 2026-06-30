@@ -14,6 +14,59 @@ $search = trim((string)($_GET['q'] ?? ''));
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 25;
 
+$subjectCategories = $pdo->prepare("SELECT id, nama FROM subject_categories WHERE academic_year_id = :y ORDER BY nama");
+$subjectCategories->execute(['y' => $yearId]);
+$subjectCategories = $subjectCategories->fetchAll();
+$categoryMap = [];
+foreach ($subjectCategories as $cat) {
+    $categoryMap[(int)$cat['id']] = $cat['nama'];
+}
+
+// --- FITUR EXPORT MAPEL PILIHAN KE XLSX ---
+if (($_GET['action'] ?? '') === 'export_xlsx') {
+    // Siapkan data export
+    $allElectives = electives_for_year($yearId);
+    
+    if (empty($allElectives)) {
+        flash('warning', 'Tidak ada data untuk diexport.');
+        redirect('admin/electives.php');
+    }
+
+    // Buat CSV yang dapat dibuka dengan Excel
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=Mapel_Pilihan_' . date('Ymd_His') . '.xlsx');
+    
+    $output = fopen('php://output', 'w');
+    
+    // Tambahkan BOM untuk Excel supaya UTF-8 terbaca dengan baik
+    fwrite($output, "\xEF\xBB\xBF");
+    
+    // Header kolom
+    fputcsv($output, ['Kode', 'Nama', 'Kategori', 'Jenjang', 'Rombel', 'Jumlah Opsi'], ',');
+    
+    // Data
+    foreach ($allElectives as $row) {
+        $rowRombelsData = elective_rombels_for((int)$row['id']);
+        $rombelText = implode('; ', array_map(function($rb) {
+            return $rb['jenjang'] . ' ' . $rb['tingkat'] . ' - ' . $rb['nama'];
+        }, $rowRombelsData));
+        
+        $classCount = count(elective_classes((int)$row['id']));
+        
+        fputcsv($output, [
+            $row['kode'],
+            $row['nama'],
+            $categoryMap[(int)$row['category_id']] ?? '-',
+            $row['jenjang'],
+            $rombelText,
+            $classCount
+        ], ',');
+    }
+    
+    fclose($output);
+    exit;
+}
+
 // Load current year rombels for assignment
 $allRombels = $pdo->prepare(
     "SELECT id, jenjang, tingkat, nama
@@ -23,14 +76,6 @@ $allRombels = $pdo->prepare(
 );
 $allRombels->execute(['y' => $yearId]);
 $allRombels = $allRombels->fetchAll();
-
-$subjectCategories = $pdo->prepare("SELECT id, nama FROM subject_categories WHERE academic_year_id = :y ORDER BY nama");
-$subjectCategories->execute(['y' => $yearId]);
-$subjectCategories = $subjectCategories->fetchAll();
-$categoryMap = [];
-foreach ($subjectCategories as $cat) {
-    $categoryMap[(int)$cat['id']] = $cat['nama'];
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -379,13 +424,16 @@ require __DIR__ . '/../../includes/header.php';
   </div>
 
   <div class="card" style="flex: 2 1 380px; min-width: 380px">
-    <div class="card-header">
+    <div class="card-header" style="justify-content: space-between; align-items: center;">
       <div>
         <h3 class="card-title">
           Daftar Mapel Pilihan (<?= (int)$totalRows ?><?= $search !== '' ? ' dari ' . (int)$allRowsCount : '' ?>)
         </h3>
         <div class="text-xs text-muted">Kelola mapel pilihan dan lihat rombel yang sudah digabung.</div>
       </div>
+      <a href="?action=export_xlsx" class="btn btn-secondary btn-sm" target="_blank" style="flex-shrink: 0;">
+        ↓ Export XLSX
+      </a>
     </div>
 
     <div class="card-body" style="padding-bottom:0;">
