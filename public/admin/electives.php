@@ -10,6 +10,9 @@ $sc = active_scope();
 $yearId = (int)$sc['year_id'];
 $err = null;
 $editId = int_or_null($_GET['edit'] ?? null);
+$search = trim((string)($_GET['q'] ?? ''));
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 25;
 
 // Load current year rombels for assignment
 $allRombels = $pdo->prepare(
@@ -87,8 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $classNames = $_POST['classes']['name'] ?? [];
             $classCodes = $_POST['classes']['kode'] ?? [];
-            $classCaps  = $_POST['classes']['kapasitas'] ?? [];
-            $classIds   = $_POST['classes']['id'] ?? [];
+            $classCaps = $_POST['classes']['kapasitas'] ?? [];
+            $classIds = $_POST['classes']['id'] ?? [];
             if (!is_array($classNames) || !is_array($classCodes) || !is_array($classCaps) || !is_array($classIds)) {
                 throw new RuntimeException('Format data opsi pilihan tidak valid.');
             }
@@ -99,13 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($name === '') {
                     continue;
                 }
-                $kode = trim((string)($classCodes[$index] ?? ''));
-                if ($kode === '') {
+                $optionKode = trim((string)($classCodes[$index] ?? ''));
+                if ($optionKode === '') {
                     throw new RuntimeException('Kode opsi mapel pilihan wajib diisi.');
                 }
                 $kapasitas = max(0, intval($classCaps[$index] ?? 0));
                 $cid = intval($classIds[$index] ?? 0);
-                $options[] = ['id' => $cid, 'nama' => $name, 'kode' => $kode, 'kapasitas' => $kapasitas];
+                $options[] = ['id' => $cid, 'nama' => $name, 'kode' => $optionKode, 'kapasitas' => $kapasitas];
             }
             if (!$options) {
                 throw new RuntimeException('Masukkan minimal 1 opsi mapel pilihan.');
@@ -209,6 +212,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $rows = electives_for_year($yearId);
+$allRowsCount = count($rows);
+$rowRombels = [];
+
+foreach ($rows as $row) {
+    $rowRombels[(int)$row['id']] = elective_rombels_for((int)$row['id']);
+}
+
+if ($search !== '') {
+    $needle = function_exists('mb_strtolower') ? mb_strtolower($search, 'UTF-8') : strtolower($search);
+
+    $rows = array_values(array_filter($rows, function ($row) use ($needle, $categoryMap, $rowRombels) {
+        $parts = [
+            $row['kode'] ?? '',
+            $row['nama'] ?? '',
+            $row['jenjang'] ?? '',
+            $categoryMap[(int)($row['category_id'] ?? 0)] ?? '',
+        ];
+
+        foreach ($rowRombels[(int)$row['id']] ?? [] as $rb) {
+            $parts[] = ($rb['jenjang'] ?? '') . ' ' . ($rb['tingkat'] ?? '') . ' ' . ($rb['nama'] ?? '');
+        }
+
+        $haystack = implode(' ', $parts);
+        $haystack = function_exists('mb_strtolower') ? mb_strtolower($haystack, 'UTF-8') : strtolower($haystack);
+
+        return strpos($haystack, $needle) !== false;
+    }));
+}
+
+$totalRows = count($rows);
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+
+$offset = ($page - 1) * $perPage;
+$rowsPage = array_slice($rows, $offset, $perPage);
+
+$paginationUrl = static function (int $targetPage) use ($search): string {
+    $params = ['page' => max(1, $targetPage)];
+
+    if ($search !== '') {
+        $params['q'] = $search;
+    }
+
+    return url('admin/electives.php') . '?' . http_build_query($params);
+};
+
 $edit = null;
 $editRombels = [];
 $editClasses = [];
@@ -256,7 +308,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="field">
           <label class="label">Jenjang *</label>
           <select id="elective-jenjang" class="select" name="jenjang" onchange="filterRombels(); updateKkmUi();" required>
-            <option value="">— Pilih jenjang —</option>
+            <option value="">- Pilih jenjang -</option>
             <?php foreach (['TK','SD','SMP','SMA'] as $j): ?>
               <option value="<?= $j ?>" <?= ($edit['jenjang'] ?? '') === $j ? 'selected' : '' ?>><?= $j ?></option>
             <?php endforeach; ?>
@@ -265,7 +317,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="field">
           <label class="label">Kategori Mapel *</label>
           <select class="select" name="category_id" required>
-            <option value="">— Pilih kategori —</option>
+            <option value="">- Pilih kategori -</option>
             <?php foreach ($subjectCategories as $cat): ?>
               <option value="<?= (int)$cat['id'] ?>" <?= ((int)($edit['category_id'] ?? 0)) === (int)$cat['id'] ? 'selected' : '' ?>><?= esc($cat['nama']) ?></option>
             <?php endforeach; ?>
@@ -290,7 +342,7 @@ require __DIR__ . '/../../includes/header.php';
               <?php $checked = in_array((int)$r['id'], $editRombels, true); ?>
               <label class="checkbox-row" data-jenjang="<?= esc($r['jenjang']) ?>" style="width:100%; padding:.75rem 1rem; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface);">
                 <input type="checkbox" name="rombel_ids[]" value="<?= (int)$r['id'] ?>" <?= $checked ? 'checked' : '' ?>>
-                <span><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['nama']) ?></span>
+                <span><?= esc($r['jenjang'] . ' ' . $r['tingkat'] . ' - ' . $r['nama']) ?></span>
               </label>
             <?php endforeach; ?>
           </div>
@@ -329,17 +381,37 @@ require __DIR__ . '/../../includes/header.php';
   <div class="card" style="flex: 2 1 380px; min-width: 380px">
     <div class="card-header">
       <div>
-        <h3 class="card-title">Daftar Mapel Pilihan (<?= count($rows) ?>)</h3>
+        <h3 class="card-title">
+          Daftar Mapel Pilihan (<?= (int)$totalRows ?><?= $search !== '' ? ' dari ' . (int)$allRowsCount : '' ?>)
+        </h3>
         <div class="text-xs text-muted">Kelola mapel pilihan dan lihat rombel yang sudah digabung.</div>
       </div>
     </div>
+
+    <div class="card-body" style="padding-bottom:0;">
+      <form method="get" class="row" style="gap:.5rem; align-items:flex-end;">
+        <div class="field" style="flex:1; min-width:220px;">
+          <label class="label">Search</label>
+          <input class="input" type="search" name="q" value="<?= esc($search) ?>" placeholder="Cari kode, nama, kategori, jenjang, atau rombel">
+        </div>
+        <button class="btn btn-primary" type="submit">Cari</button>
+        <?php if ($search !== ''): ?>
+          <a class="btn btn-ghost" href="<?= esc(url('admin/electives.php')) ?>">Reset</a>
+        <?php endif; ?>
+      </form>
+
+      <div class="text-xs text-muted" style="margin-top:.5rem;">
+        Menampilkan <?= $totalRows ? (int)($offset + 1) : 0 ?>-<?= (int)min($offset + $perPage, $totalRows) ?> dari <?= (int)$totalRows ?> data.
+      </div>
+    </div>
+
     <div class="table-wrap">
       <table class="t">
         <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Jenjang</th><th>Rombel</th><th>Opsi</th><th></th></tr></thead>
         <tbody>
-        <?php if (!$rows): ?><tr><td colspan="6"><div class="empty">Belum ada data.</div></td></tr><?php endif; ?>
-        <?php foreach ($rows as $r): ?>
-          <?php $rombelList = elective_rombels_for((int)$r['id']); ?>
+        <?php if (!$rowsPage): ?><tr><td colspan="7"><div class="empty">Belum ada data.</div></td></tr><?php endif; ?>
+        <?php foreach ($rowsPage as $r): ?>
+          <?php $rombelList = $rowRombels[(int)$r['id']] ?? []; ?>
           <tr>
             <td><strong><?= esc($r['kode']) ?></strong></td>
             <td><?= esc($r['nama']) ?></td>
@@ -347,7 +419,7 @@ require __DIR__ . '/../../includes/header.php';
             <td><span class="badge badge-primary"><?= esc($r['jenjang']) ?></span></td>
             <td>
               <?php foreach ($rombelList as $rb): ?>
-                <div><?= esc($rb['jenjang'].' '.$rb['tingkat'].' · '.$rb['nama']) ?></div>
+                <div><?= esc($rb['jenjang'] . ' ' . $rb['tingkat'] . ' - ' . $rb['nama']) ?></div>
               <?php endforeach; ?>
             </td>
             <td><?= count(elective_classes((int)$r['id'])) ?> opsi</td>
@@ -363,6 +435,30 @@ require __DIR__ . '/../../includes/header.php';
         </tbody>
       </table>
     </div>
+
+    <?php if ($totalPages > 1): ?>
+      <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; gap:.75rem; flex-wrap:wrap;">
+        <div class="text-xs text-muted">
+          Halaman <?= (int)$page ?> dari <?= (int)$totalPages ?>
+        </div>
+
+        <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
+          <?php if ($page > 1): ?>
+            <a class="btn btn-secondary btn-sm" href="<?= esc($paginationUrl($page - 1)) ?>">Sebelumnya</a>
+          <?php endif; ?>
+
+          <?php for ($p = max(1, $page - 2); $p <= min($totalPages, $page + 2); $p++): ?>
+            <a class="btn btn-sm <?= $p === $page ? 'btn-primary' : 'btn-secondary' ?>" href="<?= esc($paginationUrl($p)) ?>">
+              <?= (int)$p ?>
+            </a>
+          <?php endfor; ?>
+
+          <?php if ($page < $totalPages): ?>
+            <a class="btn btn-secondary btn-sm" href="<?= esc($paginationUrl($page + 1)) ?>">Selanjutnya</a>
+          <?php endif; ?>
+        </div>
+      </div>
+    <?php endif; ?>
   </div>
 </div>
 
