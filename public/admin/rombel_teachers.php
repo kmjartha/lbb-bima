@@ -137,6 +137,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           redirect('admin/rombel_teachers.php?rombel_id=' . $rid);
         }
 
+        if ($op === 'batch_copy') {
+          $ids = array_values(array_unique(array_map('intval', (array)($_POST['ids'] ?? []))));
+          $targets = array_values(array_unique(array_map('intval', (array)($_POST['target_rombel_ids'] ?? []))));
+          $rid = (int)($_POST['rombel_id'] ?? 0);
+          if (!$ids) throw new RuntimeException('Pilih minimal 1 mapping untuk dicopy.');
+          if (!$targets) throw new RuntimeException('Pilih minimal 1 rombel tujuan.');
+          if (!$rid) throw new RuntimeException('Rombel asal tidak valid.');
+
+          // validate origin rombel
+          $stmt = $pdo->prepare("SELECT jenjang FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+          $stmt->execute(['id'=>$rid,'y'=>$sc['year_id']]);
+          $originJenjang = $stmt->fetchColumn();
+          if (!$originJenjang) throw new RuntimeException('Rombel asal tidak ditemukan.');
+
+          // validate target rombels belong to same jenjang
+          $place = [];
+          $params = ['y' => $sc['year_id']];
+          foreach ($targets as $i => $t) { $k = 't_' . $i; $place[] = ':' . $k; $params[$k] = $t; }
+          $check = $pdo->prepare("SELECT COUNT(*) FROM rombel WHERE id IN (" . implode(',', $place) . ") AND academic_year_id = :y AND jenjang = :j AND deleted_at IS NULL");
+          $params['j'] = $originJenjang;
+          $check->execute($params);
+          if ((int)$check->fetchColumn() !== count($targets)) throw new RuntimeException('Salah satu rombel tujuan tidak valid atau tidak se-jenjang.');
+
+          // validate mapping ids belong to origin rombel
+          $placeIds = [];
+          $p2 = ['rid' => $rid];
+          foreach ($ids as $i => $idv) { $k = 'id_' . $i; $placeIds[] = ':' . $k; $p2[$k] = $idv; }
+          $chk2 = $pdo->prepare("SELECT COUNT(*) FROM rombel_subject_teachers WHERE id IN (" . implode(',', $placeIds) . ") AND rombel_id = :rid");
+          $chk2->execute($p2);
+          if ((int)$chk2->fetchColumn() !== count($ids)) throw new RuntimeException('Salah satu mapping tidak ditemukan di rombel asal.');
+
+          // Fetch mapping details
+          $fetch = $pdo->prepare("SELECT subject_id, teacher_id, semester FROM rombel_subject_teachers WHERE id = :id");
+
+          $pdo->beginTransaction();
+          try {
+            $del = $pdo->prepare("DELETE FROM rombel_subject_teachers WHERE rombel_id = :r AND subject_id = :s AND (semester <=> :sem)");
+            $ins = $pdo->prepare("INSERT INTO rombel_subject_teachers (rombel_id, subject_id, teacher_id, semester) VALUES (:r,:s,:t,:sem)");
+
+            foreach ($ids as $idv) {
+              $fetch->execute(['id' => $idv]);
+              $m = $fetch->fetch();
+              if (!$m) continue;
+              foreach ($targets as $tr) {
+                $del->execute(['r' => $tr, 's' => $m['subject_id'], 'sem' => $m['semester']]);
+                $ins->execute(['r' => $tr, 's' => $m['subject_id'], 't' => $m['teacher_id'], 'sem' => $m['semester']]);
+              }
+            }
+
+            $pdo->commit();
+            audit('batch_copy', 'rombel:' . $rid, ['targets' => $targets, 'count' => count($ids)]);
+            flash('success', 'Mapping berhasil disalin ke ' . count($targets) . ' rombel.');
+            redirect('admin/rombel_teachers.php?rombel_id=' . $rid);
+          } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+          }
+        }
+
         // =========================================================================
         // FITUR IMPORT CSV
         // =========================================================================
@@ -354,6 +413,7 @@ require __DIR__ . '/../../includes/header.php';
       <div style="display:flex; align-items:center; gap:1rem; margin-left:auto;">
         <input type="text" id="searchMapping" placeholder="Cari mapel atau guru..." style="width: 300px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;" onkeyup="filterMappingTable()">
         <button class="btn btn-danger btn-sm" id="batchDeleteBtn" type="submit" form="batchDeleteForm" style="display:none;" disabled data-confirm="Hapus mapping terpilih?">Hapus Terpilih</button>
+        <button class="btn btn-secondary btn-sm" id="batchCopyBtn" type="button" style="display:none;">Copy Mapping</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -388,6 +448,21 @@ require __DIR__ . '/../../includes/header.php';
           <?php endforeach; ?>
           </tbody>
         </table>
+      </form>
+      <form method="post" id="batchCopyForm" style="display:none;">
+        <?= csrf_field() ?><input type="hidden" name="op" value="batch_copy"><input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
+        <div id="copyPanel" style="display:none; padding:0.75rem; border:1px solid var(--border); border-radius:8px; background:var(--bg); max-width:480px; margin:0.75rem 0;">
+          <div style="margin-bottom:0.5rem; font-weight:600">Pilih rombel tujuan (harus se-jenjang)</div>
+          <div style="max-height:220px; overflow:auto;">
+            <?php foreach ($rombels as $r): if ($r['id'] === (int)$current['id']) continue; if ($r['jenjang'] !== $current['jenjang']) continue; ?>
+              <label style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;"><input type="checkbox" name="target_rombel_ids[]" value="<?= (int)$r['id'] ?>"><span><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['nama']) ?></span></label>
+            <?php endforeach; ?>
+          </div>
+          <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+            <button class="btn btn-primary btn-sm" type="submit">Salin Mapping</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="cancelCopy">Batal</button>
+          </div>
+        </div>
       </form>
       <form method="post" id="singleDeleteForm" style="display:none;">
         <?= csrf_field() ?><input type="hidden" name="op" value="unassign"><input type="hidden" name="id" value=""><input type="hidden" name="rombel_id" value="<?= (int)$current['id'] ?>">
@@ -449,12 +524,15 @@ function filterMappingTable() {
 (function () {
   const selectAll = document.getElementById('selectAllMappings');
   const batchBtn = document.getElementById('batchDeleteBtn');
+  const batchCopyBtn = document.getElementById('batchCopyBtn');
   const form = document.getElementById('batchDeleteForm');
+  const copyForm = document.getElementById('batchCopyForm');
+  const copyPanel = document.getElementById('copyPanel');
+  const cancelCopy = document.getElementById('cancelCopy');
   function toggleBatchButton() {
     const any = Array.from(document.querySelectorAll('.map-chk')).some(c => c.checked);
-    if (!batchBtn) return;
-    batchBtn.disabled = !any;
-    batchBtn.style.display = any ? 'inline-block' : 'none';
+    if (batchBtn) { batchBtn.disabled = !any; batchBtn.style.display = any ? 'inline-block' : 'none'; }
+    if (batchCopyBtn) { batchCopyBtn.style.display = any ? 'inline-block' : 'none'; }
   }
 
   if (selectAll) {
@@ -471,6 +549,30 @@ function filterMappingTable() {
       if (!confirm(batchBtn.dataset.confirm || 'Hapus mapping terpilih?')) {
         e.preventDefault();
       }
+    });
+  }
+
+  // Batch copy: populate copy form with selected ids and show panel
+  if (batchCopyBtn && copyForm) {
+    batchCopyBtn.addEventListener('click', function () {
+      // remove previous id inputs
+      copyForm.querySelectorAll('input[name="ids[]"]').forEach(n=>n.remove());
+      const selected = Array.from(document.querySelectorAll('.map-chk:checked')).map(c => (c.value));
+      selected.forEach(function (v) {
+        const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'ids[]'; inp.value = v; copyForm.appendChild(inp);
+      });
+      // show panel
+      copyPanel.style.display = '';
+      copyForm.style.display = '';
+      copyForm.scrollIntoView({behavior:'smooth', block:'center'});
+    });
+
+    // cancel
+    if (cancelCopy) cancelCopy.addEventListener('click', function () { copyPanel.style.display = 'none'; copyForm.style.display = 'none'; });
+
+    // confirm on submit
+    copyForm.addEventListener('submit', function (e) {
+      if (!confirm('Salin mapping terpilih ke rombel tujuan?')) e.preventDefault();
     });
   }
 })();
