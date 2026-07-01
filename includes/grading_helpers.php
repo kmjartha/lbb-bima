@@ -112,6 +112,8 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
         $stt->execute(['u' => $user['id']]);
         $tid = (int)($stt->fetchColumn() ?: 0);
 
+        $results = [];
+
         // Get subjects from rombel_subject_teachers (regular subjects)
         $st = $pdo->prepare(
             "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
@@ -123,9 +125,14 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
                AND rst.teacher_id = :t
                AND (rst.semester IS NULL OR rst.semester = :sem)
                AND s.deleted_at IS NULL
-               AND s.academic_year_id = :y
-             UNION
-             SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+               AND s.academic_year_id = :y"
+        );
+        $st->execute(['r' => $rombelId, 't' => $tid, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
+        $results = $st->fetchAll();
+
+        // Get elective subjects assigned to this rombel
+        $st = $pdo->prepare(
+            "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
              FROM elective_rombels er
              JOIN elective_classes ec ON ec.elective_id = er.elective_id
              JOIN subjects s ON s.id = ec.subject_id
@@ -133,11 +140,26 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
              WHERE er.rombel_id = :r
                AND s.deleted_at IS NULL
                AND s.academic_year_id = :y
-               AND ec.deleted_at IS NULL
-             ORDER BY nama"
+               AND ec.deleted_at IS NULL"
         );
-        $st->execute(['r' => $rombelId, 't' => $tid, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
-        return $st->fetchAll();
+        $st->execute(['r' => $rombelId, 'y' => $sc['year_id']]);
+        $electives = $st->fetchAll();
+
+        // Merge and sort
+        $results = array_merge($results, $electives);
+        usort($results, fn($a, $b) => strcmp($a['nama'], $b['nama']));
+        
+        // Remove duplicates by id
+        $seen = [];
+        $unique = [];
+        foreach ($results as $row) {
+            if (!isset($seen[(int)$row['id']])) {
+                $seen[(int)$row['id']] = true;
+                $unique[] = $row;
+            }
+        }
+        
+        return $unique;
     }
 
     return [];
