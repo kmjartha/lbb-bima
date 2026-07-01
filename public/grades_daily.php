@@ -232,7 +232,6 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
       <div class="alert alert-info" style="margin:.5rem 1rem 1rem">
         <?php if ($electiveId): ?>
           <strong>ℹ️ Belum ada siswa</strong> yang ter-assign ke mapel pilihan ini di semester <strong><?= esc($sc['semester']) ?></strong>.
-          <a href="<?= esc(url('elective_assignment.php?elective_id=' . $electiveId)) ?>">Assign siswa sekarang →</a>
         <?php else: ?>
           Belum ada siswa dari rombel ini. Periksa keanggotaan rombel.
         <?php endif; ?>
