@@ -80,7 +80,7 @@ function active_bucket(): string
 /**
  * Subjects the user can grade in this rombel for the active scope.
  * - administrator/admin/kepsek: every subject mapped via rombel_subject_teachers (or all subjects).
- * - guru: only subjects where they are mapped via rombel_subject_teachers, OR the wali (any subject).
+ * - guru: subjects where they are mapped via rombel_subject_teachers, PLUS shadow subjects from electives assigned to this rombel.
  */
 function accessible_subjects_for_rombel(array $user, int $rombelId): array
 {
@@ -112,6 +112,7 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
         $stt->execute(['u' => $user['id']]);
         $tid = (int)($stt->fetchColumn() ?: 0);
 
+        // Get subjects from rombel_subject_teachers (regular subjects)
         $st = $pdo->prepare(
             "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
              FROM rombel_subject_teachers rst
@@ -123,7 +124,17 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
                AND (rst.semester IS NULL OR rst.semester = :sem)
                AND s.deleted_at IS NULL
                AND s.academic_year_id = :y
-             ORDER BY s.nama"
+             UNION
+             SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+             FROM elective_rombels er
+             JOIN elective_classes ec ON ec.elective_id = er.elective_id
+             JOIN subjects s ON s.id = ec.subject_id
+             JOIN electives e ON e.id = ec.elective_id
+             WHERE er.rombel_id = :r
+               AND s.deleted_at IS NULL
+               AND s.academic_year_id = :y
+               AND ec.deleted_at IS NULL
+             ORDER BY nama"
         );
         $st->execute(['r' => $rombelId, 't' => $tid, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
         return $st->fetchAll();

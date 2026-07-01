@@ -56,17 +56,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Guru hanya boleh menambah/edit subjek penilaian untuk mapel yang diaampu di rombel ini.
             if ($me['role'] === 'guru') {
-                $stmt = $pdo->prepare(
-                    "SELECT 1 FROM rombel_subject_teachers rst
-                     JOIN teachers t ON t.id = rst.teacher_id
-                     WHERE rst.rombel_id = :r
-                       AND rst.subject_id = :s
-                       AND t.user_id = :u
-                       AND (rst.semester IS NULL OR rst.semester = :sem)"
-                );
-                $stmt->execute(['r'=>$rid,'s'=>$sid,'u'=>$me['id'],'sem'=>$semester]);
-                if (!$stmt->fetchColumn()) {
-                    throw new RuntimeException('Anda tidak memiliki akses untuk membuat/mengedit subjek penilaian untuk mapel ini.');
+                // Check if it's a regular subject or shadow subject from elective
+                $subjChk = $pdo->prepare("SELECT elective_class_id FROM subjects WHERE id=:s AND deleted_at IS NULL");
+                $subjChk->execute(['s'=>$sid]);
+                $electiveClassId = $subjChk->fetchColumn();
+                
+                if ($electiveClassId === null) {
+                    // Regular subject - check rombel_subject_teachers
+                    $stmt = $pdo->prepare(
+                        "SELECT 1 FROM rombel_subject_teachers rst
+                         JOIN teachers t ON t.id = rst.teacher_id
+                         WHERE rst.rombel_id = :r
+                           AND rst.subject_id = :s
+                           AND t.user_id = :u
+                           AND (rst.semester IS NULL OR rst.semester = :sem)"
+                    );
+                    $stmt->execute(['r'=>$rid,'s'=>$sid,'u'=>$me['id'],'sem'=>$semester]);
+                    if (!$stmt->fetchColumn()) {
+                        throw new RuntimeException('Anda tidak memiliki akses untuk membuat/mengedit subjek penilaian untuk mapel ini.');
+                    }
+                } else {
+                    // Shadow subject from elective - check if rombel is part of this elective
+                    $stmt = $pdo->prepare(
+                        "SELECT 1 FROM elective_classes ec
+                         JOIN elective_rombels er ON er.elective_id = ec.elective_id
+                         WHERE ec.id = :ec AND er.rombel_id = :r"
+                    );
+                    $stmt->execute(['ec'=>$electiveClassId, 'r'=>$rid]);
+                    if (!$stmt->fetchColumn()) {
+                        throw new RuntimeException('Anda tidak memiliki akses untuk membuat/mengedit subjek penilaian untuk mapel pilihan ini.');
+                    }
                 }
             }
 
@@ -88,17 +107,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rid = (int)($_POST['rombel_id'] ?? 0);
             $sid = (int)($_POST['subject_id'] ?? 0);
             if ($me['role'] === 'guru') {
-                $stmt = $pdo->prepare(
-                    "SELECT 1 FROM rombel_subject_teachers rst
-                     JOIN teachers t ON t.id = rst.teacher_id
-                     WHERE rst.rombel_id = :r
-                       AND rst.subject_id = :s
-                       AND t.user_id = :u
-                       AND (rst.semester IS NULL OR rst.semester = :sem)"
-                );
-                $stmt->execute(['r'=>$rid,'s'=>$sid,'u'=>$me['id'],'sem'=>$sc['semester']]);
-                if (!$stmt->fetchColumn()) {
-                    throw new RuntimeException('Anda tidak memiliki akses untuk menghapus topik di mapel ini.');
+                // Check if it's a regular subject or shadow subject from elective
+                $subjChk = $pdo->prepare("SELECT elective_class_id FROM subjects WHERE id=:s AND deleted_at IS NULL");
+                $subjChk->execute(['s'=>$sid]);
+                $electiveClassId = $subjChk->fetchColumn();
+                
+                if ($electiveClassId === null) {
+                    // Regular subject - check rombel_subject_teachers
+                    $stmt = $pdo->prepare(
+                        "SELECT 1 FROM rombel_subject_teachers rst
+                         JOIN teachers t ON t.id = rst.teacher_id
+                         WHERE rst.rombel_id = :r
+                           AND rst.subject_id = :s
+                           AND t.user_id = :u
+                           AND (rst.semester IS NULL OR rst.semester = :sem)"
+                    );
+                    $stmt->execute(['r'=>$rid,'s'=>$sid,'u'=>$me['id'],'sem'=>$sc['semester']]);
+                    if (!$stmt->fetchColumn()) {
+                        throw new RuntimeException('Anda tidak memiliki akses untuk menghapus topik di mapel ini.');
+                    }
+                } else {
+                    // Shadow subject from elective
+                    $stmt = $pdo->prepare(
+                        "SELECT 1 FROM elective_classes ec
+                         JOIN elective_rombels er ON er.elective_id = ec.elective_id
+                         WHERE ec.id = :ec AND er.rombel_id = :r"
+                    );
+                    $stmt->execute(['ec'=>$electiveClassId, 'r'=>$rid]);
+                    if (!$stmt->fetchColumn()) {
+                        throw new RuntimeException('Anda tidak memiliki akses untuk menghapus topik di mapel pilihan ini.');
+                    }
                 }
             }
             $pdo->prepare("UPDATE subject_topics SET deleted_at=NOW() WHERE id=:id")->execute(['id'=>$id]);
@@ -245,6 +283,11 @@ if ($rombelId) {
     $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
     if ($current) {
             if ($me['role'] === 'guru') {
+                // Get teacher_id for the logged-in user
+                $tStmt = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
+                $tStmt->execute(['u'=>$me['id']]);
+                $tid = (int)($tStmt->fetchColumn() ?: 0);
+                
                 $s = $pdo->prepare(
                     "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
                      FROM subjects s
@@ -257,7 +300,17 @@ if ($rombelId) {
                        AND (rst.semester IS NULL OR rst.semester = :sem)
                        AND s.deleted_at IS NULL
                        AND s.academic_year_id = :y
-                     ORDER BY s.kode"
+                     UNION
+                     SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+                     FROM elective_rombels er
+                     JOIN elective_classes ec ON ec.elective_id = er.elective_id
+                     JOIN subjects s ON s.id = ec.subject_id
+                     JOIN electives e ON e.id = ec.elective_id
+                     WHERE er.rombel_id = :r
+                       AND s.deleted_at IS NULL
+                       AND s.academic_year_id = :y
+                       AND ec.deleted_at IS NULL
+                     ORDER BY kode"
                 );
                 $s->execute(['r'=>$rombelId,'u'=>$me['id'],'sem'=>$sc['semester'],'y'=>$sc['year_id']]);
                 $subjects = $s->fetchAll();

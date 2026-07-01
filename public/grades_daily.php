@@ -216,6 +216,28 @@ $isReadonly = is_view_only('grades_daily', $user) || $isLocked;
         <a href="<?= esc(url('admin/subject_topics.php?rombel_id='.$rid.'&subject_id='.$sid)) ?>">Tambahkan sekarang →</a>
       </div>
     <?php endif; ?>
+
+    <?php if ($rombel && $sid && $topics && !$members): ?>
+      <?php
+        // Check if this is an elective subject and get elective_id
+        $stmt = $pdo->prepare(
+          "SELECT ec.elective_id FROM subjects s
+           LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+           WHERE s.id=:id AND s.deleted_at IS NULL"
+        );
+        $stmt->execute(['id'=>$sid]);
+        $electiveInfo = $stmt->fetch();
+        $electiveId = $electiveInfo && $electiveInfo['elective_id'] ? (int)$electiveInfo['elective_id'] : null;
+      ?>
+      <div class="alert alert-info" style="margin:.5rem 1rem 1rem">
+        <?php if ($electiveId): ?>
+          <strong>ℹ️ Belum ada siswa</strong> yang ter-assign ke mapel pilihan ini di semester <strong><?= esc($sc['semester']) ?></strong>.
+          <a href="<?= esc(url('elective_assignment.php?elective_id=' . $electiveId)) ?>">Assign siswa sekarang →</a>
+        <?php else: ?>
+          Belum ada siswa dari rombel ini. Periksa keanggotaan rombel.
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
   </form>
 </div>
 
