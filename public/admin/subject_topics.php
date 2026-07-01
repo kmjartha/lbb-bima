@@ -288,6 +288,9 @@ if ($rombelId) {
                 $tStmt->execute(['u'=>$me['id']]);
                 $tid = (int)($tStmt->fetchColumn() ?: 0);
                 
+                $results = [];
+                
+                // Get subjects from rombel_subject_teachers (regular subjects)
                 $s = $pdo->prepare(
                     "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
                      FROM subjects s
@@ -299,21 +302,43 @@ if ($rombelId) {
                        AND t.user_id = :u
                        AND (rst.semester IS NULL OR rst.semester = :sem)
                        AND s.deleted_at IS NULL
-                       AND s.academic_year_id = :y
-                     UNION
-                     SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+                       AND s.academic_year_id = :y"
+                );
+                $s->execute(['r'=>$rombelId,'u'=>$me['id'],'sem'=>$sc['semester'],'y'=>$sc['year_id']]);
+                $results = $s->fetchAll();
+                
+                // Get elective subjects that teacher is assigned to teach in this rombel
+                    $s = $pdo->prepare(
+                        "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
                      FROM elective_rombels er
                      JOIN elective_classes ec ON ec.elective_id = er.elective_id
                      JOIN subjects s ON s.id = ec.subject_id
                      JOIN electives e ON e.id = ec.elective_id
+                     JOIN rombel_subject_teachers rst ON rst.subject_id = s.id
+                     JOIN teachers t ON t.id = rst.teacher_id
                      WHERE er.rombel_id = :r
+                       AND rst.rombel_id = er.rombel_id
+                       AND t.user_id = :u
                        AND s.deleted_at IS NULL
                        AND s.academic_year_id = :y
-                       AND ec.deleted_at IS NULL
-                     ORDER BY kode"
-                );
-                $s->execute(['r'=>$rombelId,'u'=>$me['id'],'sem'=>$sc['semester'],'y'=>$sc['year_id']]);
-                $subjects = $s->fetchAll();
+                       AND ec.deleted_at IS NULL"
+                  );
+                $s->execute(['r'=>$rombelId, 'u'=>$me['id'], 'y'=>$sc['year_id']]);
+                $electives = $s->fetchAll();
+                
+                // Merge and sort
+                $results = array_merge($results, $electives);
+                usort($results, fn($a, $b) => strcmp($a['kode'] ?? '', $b['kode'] ?? ''));
+                
+                // Remove duplicates by id
+                $seen = [];
+                $subjects = [];
+                foreach ($results as $row) {
+                    if (!isset($seen[(int)$row['id']])) {
+                        $seen[(int)$row['id']] = true;
+                        $subjects[] = $row;
+                    }
+                }
             } else {
                 $s = $pdo->prepare(
                     "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode FROM subjects s
