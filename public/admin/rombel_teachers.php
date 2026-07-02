@@ -34,7 +34,7 @@ if ($action === 'download_data' && $rombelId) {
         JOIN subjects s ON s.id=rst.subject_id AND s.academic_year_id = :y
         JOIN teachers t ON t.id=rst.teacher_id
         JOIN users u ON u.id=t.user_id
-        WHERE rst.rombel_id = :r ORDER BY s.kode, rst.semester
+        WHERE rst.rombel_id = :r AND s.deleted_at IS NULL ORDER BY s.kode, rst.semester
     ");
     $stmt->execute(['r' => $rombelId, 'y' => $sc['year_id']]);
     $data = $stmt->fetchAll();
@@ -306,7 +306,7 @@ if ($rombelId) {
            JOIN subjects s ON s.id=rst.subject_id AND s.academic_year_id = :y
            JOIN teachers t ON t.id=rst.teacher_id
            JOIN users u ON u.id=t.user_id
-           WHERE rst.rombel_id = :r ORDER BY s.kode, rst.semester"
+              WHERE rst.rombel_id = :r AND s.deleted_at IS NULL ORDER BY s.kode, rst.semester"
         );
         $a->execute(['r'=>$rombelId,'y'=>$sc['year_id']]); $assignments = $a->fetchAll();
     }
