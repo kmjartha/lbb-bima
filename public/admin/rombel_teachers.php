@@ -280,8 +280,8 @@ if ($rombelId) {
             "SELECT s.id, s.kode, s.nama, e.kode AS elective_kode
              FROM subjects s
              JOIN subject_jenjang_map jm ON jm.subject_id=s.id
-             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
-             LEFT JOIN electives e ON e.id = ec.elective_id
+             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id OR ec.subject_id = s.id
+             LEFT JOIN electives e ON e.id = ec.elective_id AND e.deleted_at IS NULL
              WHERE jm.jenjang=:j AND s.deleted_at IS NULL AND s.academic_year_id = :y ORDER BY s.kode"
         );
         $s->execute(['j'=>$current['jenjang'], 'y'=>$sc['year_id']]); $subjects = $s->fetchAll();
@@ -343,21 +343,85 @@ require __DIR__ . '/../../includes/header.php';
             <?= csrf_field() ?><input type="hidden" name="op" value="assign">
             <input type="hidden" name="current_rombel_id" value="<?= (int)$current['id'] ?>">
             <div class="field"><label class="label">Mapel *</label>
-              <select class="select" name="subject_id" required>
-                <option value="">— Pilih mapel —</option>
+              <input id="subject-combobox" class="input" list="subject-options" autocomplete="off"
+                     placeholder="Cari mapel / kode / kode pilihan" required>
+              <datalist id="subject-options">
                 <?php foreach ($subjects as $s): ?>
-                  <option value="<?= (int)$s['id'] ?>"><?= esc($s['kode'].' — '.elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></option>
+                  <?php $label = esc($s['kode'].' — '.elective_subject_label($s['nama'], $s['elective_kode'] ?? null)); ?>
+                  <option value="<?= $label ?>" data-id="<?= (int)$s['id'] ?>"></option>
                 <?php endforeach; ?>
-              </select>
+              </datalist>
+              <input type="hidden" name="subject_id" id="subject_id" value="">
             </div>
             <div class="field"><label class="label">Guru *</label>
-              <select class="select" name="teacher_id" required>
-                <option value="">— Pilih guru —</option>
+              <input id="teacher-combobox" class="input" list="teacher-options" autocomplete="off"
+                     placeholder="Cari guru / NIY" required>
+              <datalist id="teacher-options">
                 <?php foreach ($teachers as $t): ?>
-                  <option value="<?= (int)$t['id'] ?>"><?= esc($t['niy'].' — '.$t['nama']) ?></option>
+                  <?php $label = esc($t['niy'].' — '.$t['nama']); ?>
+                  <option value="<?= $label ?>" data-id="<?= (int)$t['id'] ?>"></option>
                 <?php endforeach; ?>
-              </select>
+              </datalist>
+              <input type="hidden" name="teacher_id" id="teacher_id" value="">
             </div>
+            <script>
+            (function () {
+              const form = document.querySelector('form[method="post"]');
+              const subjectInput = document.getElementById('subject-combobox');
+              const teacherInput = document.getElementById('teacher-combobox');
+              const subjectHidden = document.getElementById('subject_id');
+              const teacherHidden = document.getElementById('teacher_id');
+              const subjectOptions = Array.from(document.querySelectorAll('#subject-options option'));
+              const teacherOptions = Array.from(document.querySelectorAll('#teacher-options option'));
+
+              function updateHidden(input, hidden, options) {
+                const value = input.value.trim();
+                const match = options.find(opt => opt.value === value);
+                hidden.value = match ? match.dataset.id : '';
+                if (value === '') {
+                  input.setCustomValidity('');
+                } else if (!match) {
+                  input.setCustomValidity('Pilih dari daftar mapel yang tersedia.');
+                } else {
+                  input.setCustomValidity('');
+                }
+              }
+
+              function attachInput(input, hidden, options) {
+                input.addEventListener('input', function () {
+                  updateHidden(input, hidden, options);
+                });
+                input.addEventListener('change', function () {
+                  updateHidden(input, hidden, options);
+                });
+              }
+
+              if (subjectInput && subjectHidden) {
+                attachInput(subjectInput, subjectHidden, subjectOptions);
+              }
+              if (teacherInput && teacherHidden) {
+                attachInput(teacherInput, teacherHidden, teacherOptions);
+              }
+
+              if (form) {
+                form.addEventListener('submit', function (event) {
+                  updateHidden(subjectInput, subjectHidden, subjectOptions);
+                  updateHidden(teacherInput, teacherHidden, teacherOptions);
+
+                  if (subjectHidden.value === '') {
+                    event.preventDefault();
+                    subjectInput.reportValidity();
+                    return;
+                  }
+                  if (teacherHidden.value === '') {
+                    event.preventDefault();
+                    teacherInput.reportValidity();
+                    return;
+                  }
+                });
+              }
+            })();
+            </script>
             <div class="field"><label class="label">Rombel *</label>
               <div style="max-height:220px; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:0.5rem; background: var(--bg);">
                 <?php foreach ($rombels as $r): ?>
