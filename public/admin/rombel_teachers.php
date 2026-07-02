@@ -295,14 +295,18 @@ if ($rombelId) {
         );
         $teachers = $teachers->execute(['y' => $sc['year_id']]) ? $teachers->fetchAll() : [];
         $a = $pdo->prepare(
-               "SELECT rst.*, s.kode AS s_kode, s.nama AS s_nama, e.kode AS elective_kode, u.nama AS t_nama, u.niy AS t_niy
-                 FROM rombel_subject_teachers rst
-                 JOIN subjects s ON s.id=rst.subject_id AND s.academic_year_id = :y
-                 LEFT JOIN elective_classes ec ON (ec.id = s.elective_class_id OR ec.subject_id = s.id)
-                 LEFT JOIN electives e ON e.id = ec.elective_id
-                 JOIN teachers t ON t.id=rst.teacher_id
-                 JOIN users u ON u.id=t.user_id
-                 WHERE rst.rombel_id = :r ORDER BY s.kode, rst.semester"
+          "SELECT rst.*, s.kode AS s_kode, s.nama AS s_nama,
+            (SELECT e2.kode
+             FROM elective_classes ec2
+             JOIN electives e2 ON e2.id = ec2.elective_id
+             WHERE (ec2.id = s.elective_class_id OR ec2.subject_id = s.id)
+             LIMIT 1) AS elective_kode,
+            u.nama AS t_nama, u.niy AS t_niy
+           FROM rombel_subject_teachers rst
+           JOIN subjects s ON s.id=rst.subject_id AND s.academic_year_id = :y
+           JOIN teachers t ON t.id=rst.teacher_id
+           JOIN users u ON u.id=t.user_id
+           WHERE rst.rombel_id = :r ORDER BY s.kode, rst.semester"
         );
         $a->execute(['r'=>$rombelId,'y'=>$sc['year_id']]); $assignments = $a->fetchAll();
     }
