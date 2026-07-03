@@ -197,18 +197,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  (rombel_id, subject_id, semester, kode, judul, ranah, ranah_list, kategori, bobot, deskripsi, created_by) 
                  VALUES (:r, :s, :sem, :k, :j, :rn, :rl, :kat, :b, :d, :u)"
             );
+
+            $chkExists = $pdo->prepare(
+                "SELECT id FROM subject_topics 
+                 WHERE rombel_id=:r AND subject_id=:s AND kode=:k AND semester=:sem AND deleted_at IS NULL"
+            );
             
             $copiedCount = 0;
             $skippedCount = 0;
             
             foreach ($sourceTopics as $topic) {
                 // Check if topic with same kode already exists in target
-                $chkExists = $pdo->prepare(
-                    "SELECT id FROM subject_topics 
-                     WHERE rombel_id=:r AND subject_id=:s AND kode=:k AND semester=:sem AND deleted_at IS NULL"
-                );
                 $chkExists->execute(['r'=>$targetRid,'s'=>$targetSid,'k'=>$topic['kode'],'sem'=>$topic['semester']]);
-                
                 if ($chkExists->fetchColumn()) {
                     $skippedCount++;
                     continue; // Skip this topic if already exists
@@ -232,15 +232,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $copiedCount++;
             }
             
-            if ($copiedCount === 0) {
-                throw new RuntimeException('Tidak ada subjek yang berhasil dicopy (semua sudah ada di target).');
-            }
-            
             audit('copy_all', 'topics: ' . $copiedCount . ' copied, ' . $skippedCount . ' skipped');
             
-            $msg = 'Berhasil dicopy: ' . $copiedCount . ' subjek penilaian';
-            if ($skippedCount > 0) {
-                $msg .= ' (' . $skippedCount . ' subjek dilewati karena sudah ada)';
+            if ($copiedCount > 0) {
+                $msg = 'Berhasil dicopy: ' . $copiedCount . ' subjek penilaian';
+                if ($skippedCount > 0) {
+                    $msg .= ' (' . $skippedCount . ' subjek dilewati karena sudah ada)';
+                }
+            } else {
+                $msg = 'Tidak ada subjek baru yang dicopy; semua subjek sudah ada di target.';
             }
             flash('success', $msg);
             redirect('admin/subject_topics.php?rombel_id=' . $sourceRid . '&subject_id=' . $sourceSid);

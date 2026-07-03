@@ -209,18 +209,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Sync Options (Sub-Classes)
                 $existingClassIds = [];
-                $stmt = $pdo->prepare(
-                    "SELECT ec.id, s.kode AS subject_kode
-                     FROM elective_classes ec
-                     LEFT JOIN subjects s ON s.id = ec.subject_id
-                     WHERE ec.elective_id = :e AND ec.deleted_at IS NULL"
-                );
+                $stmt = $pdo->prepare("SELECT id, subject_kode FROM elective_classes WHERE elective_id = :e AND deleted_at IS NULL");
                 $stmt->execute(['e' => $id]);
                 $dbClasses = $stmt->fetchAll();
                 
                 $mapDbClasses = [];
                 foreach ($dbClasses as $dbc) {
-                    $mapDbClasses[(string)($dbc['subject_kode'] ?? '')] = (int)$dbc['id'];
+                    $mapDbClasses[$dbc['subject_kode']] = (int)$dbc['id'];
                     $existingClassIds[] = (int)$dbc['id'];
                 }
 
@@ -612,7 +607,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="text-xs text-muted">Kelola mapel pilihan dan lihat rombel yang sudah digabung.</div>
       </div>
       
-      <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; flex-shrink: 0;">
         <a href="?action=download_template" class="btn btn-secondary btn-sm">Template Import CSV</a>
         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('import-panel').style.display='block'">Import CSV</button>
         <a href="?action=export_xlsx" class="btn btn-secondary btn-sm" target="_blank">Export Data</a>
@@ -638,14 +633,14 @@ require __DIR__ . '/../../includes/header.php';
     </div>
 
     <div class="card-body" style="padding-bottom:0;">
-      <form method="get" class="row" style="display:grid; grid-template-columns: 1fr auto auto; gap:.5rem; align-items:flex-end;">
-        <div class="field" style="min-width:220px; margin:0;">
+      <form method="get" class="row" style="gap:.5rem; align-items:flex-end;">
+        <div class="field" style="flex:1; min-width:220px;">
           <label class="label">Search</label>
           <input class="input" type="search" name="q" value="<?= esc($search) ?>" placeholder="Cari kode, nama, kategori, jenjang, atau rombel">
         </div>
-        <button class="btn btn-primary" type="submit" style="align-self:flex-end;">Cari</button>
+        <button class="btn btn-primary" type="submit">Cari</button>
         <?php if ($search !== ''): ?>
-          <a class="btn btn-ghost" href="<?= esc(url('admin/electives.php')) ?>" style="align-self:flex-end;">Reset</a>
+          <a class="btn btn-ghost" href="<?= esc(url('admin/electives.php')) ?>">Reset</a>
         <?php endif; ?>
       </form>
 
