@@ -70,10 +70,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                VALUES (:n,:nm,:e,:h,:r,:j,:a,1)")
                     ->execute(['n'=>$niy,'nm'=>$nama,'e'=>$email,'h'=>password_hash($pw, PASSWORD_DEFAULT),'r'=>$role,'j'=>$jenj,'a'=>$active]);
                 $id = (int)$pdo->lastInsertId();
-                if ($role === 'guru') {
-                    $pdo->prepare("INSERT INTO teachers (user_id) VALUES (:u)")->execute(['u'=>$id]);
-                }
             }
+
+            // Guru & Kepsek dapat ditugaskan mengajar (rombel_subject_teachers), jadi
+            // keduanya butuh baris di `teachers`. Dibuat kalau belum ada — baik saat
+            // akun baru dibuat, maupun saat role akun lama diubah menjadi guru/kepsek.
+            if (in_array($role, ['guru', 'kepsek'], true)) {
+                $chk = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
+                $chk->execute(['u' => $id]);
+                $teacherId = (int)($chk->fetchColumn() ?: 0);
+                if (!$teacherId) {
+                    $pdo->prepare("INSERT INTO teachers (user_id) VALUES (:u)")->execute(['u' => $id]);
+                    $teacherId = (int)$pdo->lastInsertId();
+                }
+                $pdo->prepare("INSERT IGNORE INTO teacher_years (teacher_id, academic_year_id) VALUES (:t,:y)")
+                    ->execute(['t' => $teacherId, 'y' => active_scope()['year_id']]);
+            }
+
             audit('save', 'user:' . $id);
             flash('success', 'Akun pegawai disimpan.');
             redirect('admin/users.php');

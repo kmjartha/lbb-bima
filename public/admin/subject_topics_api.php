@@ -38,7 +38,7 @@ try {
         $me = require_view('subject_topics');
         
         // Fetch subjects based on user role
-        if ($me['role'] === 'guru') {
+        if (in_array($me['role'], ['guru','kepsek'], true)) {
             $s = $pdo->prepare(
                 "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
                  FROM subjects s

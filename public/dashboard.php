@@ -49,6 +49,8 @@ if ($role === 'guru') {
         ['label' => 'Rapor Siswa', 'href' => url('rapor.php')],
         ['label' => 'Rekap Absensi', 'href' => url('attendance_recap.php')],
         ['label' => 'Penilaian Karakter', 'href' => url('character_eval.php')],
+        ['label' => 'Nilai Harian (Mengajar)', 'href' => url('grades_daily.php')],
+        ['label' => 'Subjek Penilaian (Mengajar)', 'href' => url('admin/subject_topics.php')],
     ];
 } elseif ($role !== 'administrator') {
     $quickLinks = [
@@ -56,6 +58,32 @@ if ($role === 'guru') {
         ['label' => 'Absensi', 'href' => url('attendance.php')],
         ['label' => 'Nilai Akhir', 'href' => url('final_grades.php')],
     ];
+}
+
+// Untuk role guru (termasuk guru wali) & kepsek (saat mengajar) — ambil daftar mata
+// pelajaran yang diampu, dikelompokkan per rombel. Dihitung di awal karena dipakai
+// baik di teks selamat datang maupun di kartu "Mata Pelajaran yang Diampu" di bawah.
+$my_subjects_by_rombel = [];
+if (in_array($role, ['guru', 'kepsek'], true)) {
+    $st = $pdo->prepare(
+        "SELECT r.id AS rombel_id, r.jenjang, r.tingkat, r.nama AS rombel_nama,
+                s.id AS subj_id, s.nama AS subj_nama, s.kode AS subj_kode
+           FROM rombel_subject_teachers rst
+           JOIN rombel r ON r.id = rst.rombel_id
+           JOIN subjects s ON s.id = rst.subject_id
+           JOIN teachers t ON t.id = rst.teacher_id
+          WHERE t.user_id = :uid AND r.academic_year_id = :y
+            AND r.deleted_at IS NULL AND s.deleted_at IS NULL
+          GROUP BY r.id, s.id
+          ORDER BY r.jenjang, r.tingkat, r.nama, s.nama"
+    );
+    $st->execute(['uid' => $me['id'], 'y' => (int)$sc['year_id']]);
+    $subs = $st->fetchAll();
+    foreach ($subs as $s) {
+        $label = trim($s['jenjang'] . ' ' . $s['rombel_nama']);
+        if ($s['tingkat'] !== null && $s['tingkat'] !== '') $label .= ' · ' . (int)$s['tingkat'];
+        $my_subjects_by_rombel[$label][] = $s;
+    }
 }
 ?>
 
@@ -110,42 +138,16 @@ if ($role === 'guru') {
     <?php if ($role === 'guru'): ?>
       <p class="text-sm">Dashboard ini menampilkan <?= !empty($me['is_wali']) ? 'rombel wali, siswa, dan penilaian' : 'rombel, siswa, dan mapel yang Anda ampu' ?>; gunakan menu di bawah untuk langsung ke input absensi, nilai, atau evaluasi.</p>
     <?php elseif ($role === 'kepsek'): ?>
-      <p class="text-sm">Gunakan ringkasan jenjang dan daftar verifikasi rapor untuk memantau status nilai dan publikasi.</p>
+      <p class="text-sm">Gunakan ringkasan jenjang dan daftar verifikasi rapor untuk memantau status nilai dan publikasi.<?= !empty($my_subjects_by_rombel) ? ' Anda juga ditugaskan mengajar — lihat bagian "Mata Pelajaran yang Diampu" di bawah untuk input nilai harian & nilai akhir.' : '' ?></p>
     <?php elseif ($role !== 'administrator'): ?>
       <p class="text-sm">Tampilan ini difokuskan ke tugas harian Anda. Hanya Administrator yang melihat audit dan statistik global penuh.</p>
     <?php endif; ?>
   </div>
 </div>
 
-<?php
-// Untuk role guru (termasuk guru wali) — ambil daftar mata pelajaran yang diampu, dikelompokkan per rombel
-$my_subjects_by_rombel = [];
-if ($role === 'guru') {
-    $st = $pdo->prepare(
-        "SELECT r.id AS rombel_id, r.jenjang, r.tingkat, r.nama AS rombel_nama,
-                s.id AS subj_id, s.nama AS subj_nama, s.kode AS subj_kode
-           FROM rombel_subject_teachers rst
-           JOIN rombel r ON r.id = rst.rombel_id
-           JOIN subjects s ON s.id = rst.subject_id
-           JOIN teachers t ON t.id = rst.teacher_id
-          WHERE t.user_id = :uid AND r.academic_year_id = :y
-            AND r.deleted_at IS NULL AND s.deleted_at IS NULL
-          GROUP BY r.id, s.id
-          ORDER BY r.jenjang, r.tingkat, r.nama, s.nama"
-    );
-    $st->execute(['uid' => $me['id'], 'y' => (int)$sc['year_id']]);
-    $subs = $st->fetchAll();
-    foreach ($subs as $s) {
-        $label = trim($s['jenjang'] . ' ' . $s['rombel_nama']);
-        if ($s['tingkat'] !== null && $s['tingkat'] !== '') $label .= ' · ' . (int)$s['tingkat'];
-        $my_subjects_by_rombel[$label][] = $s;
-    }
-}
-?>
-
-<?php if ($role === 'guru'): ?>
+<?php if (in_array($role, ['guru', 'kepsek'], true)): ?>
 <div class="card mt-4">
-  <div class="card-header"><h3 class="card-title">Mata Pelajaran yang Diampu</h3></div>
+  <div class="card-header"><h3 class="card-title">Mata Pelajaran yang Diampu<?= $role === 'kepsek' ? ' (Mengajar)' : '' ?></h3></div>
   <div class="card-body">
     <?php if (empty($my_subjects_by_rombel)): ?>
       <div class="text-muted">Belum ada mata pelajaran yang diampu.</div>

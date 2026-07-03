@@ -38,7 +38,12 @@ if ($rid) {
     // Cek apakah rombel ini TK (dari jenjang atau nama)
     $isTK     = (stripos($rombel['jenjang'] ?? '', 'TK') !== false) || (stripos($rombel['nama'] ?? '', 'TK') !== false);
     
-    $subjects = accessible_subjects_for_rombel($user, $rid);
+    // Penilaian harian adalah fitur "mengajar": guru & kepsek hanya melihat mapel yang
+    // benar-benar mereka ampu di rombel ini (bukan seluruh mapel jenjang seperti pada
+    // halaman review kepsek lainnya).
+    $subjects = in_array($user['role'], ['guru', 'kepsek'], true)
+        ? teaching_subjects_for_rombel($user, $rid)
+        : accessible_subjects_for_rombel($user, $rid);
     if ($sid) {
         $validSubject = false;
         foreach ($subjects as $s) {
@@ -53,7 +58,7 @@ if ($rid) {
     }
     if (!$sid && $subjects) $sid = (int)$subjects[0]['id'];
     if ($sid) {
-        assert_can_grade_subject($user, $rid, $sid);
+        assert_can_access_subject_list($subjects, $sid);
         $topics = topics_for($rid, $sid, $sc['semester']);
         if (!$tid && $topics) $tid = (int)$topics[0]['id'];
         if ($tid) {

@@ -88,60 +88,136 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
     $pdo = db();
     $role = $user['role'] ?? '';
 
-    if (in_array($role, ['administrator','admin','kepsek'], true)) {
-        $st = $pdo->prepare(
-            "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
-             FROM subjects s
-             LEFT JOIN rombel_subject_teachers rst
-                    ON rst.subject_id = s.id
-                   AND rst.rombel_id  = :r
-                   AND (rst.semester IS NULL OR rst.semester = :sem)
-             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
-             LEFT JOIN electives e ON e.id = ec.elective_id
-             WHERE s.deleted_at IS NULL
-               AND s.academic_year_id = :y
-             ORDER BY s.nama"
-        );
-        $st->execute(['r' => $rombelId, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
-        return $st->fetchAll();
-    }
+        if (in_array($role, ['administrator','admin'], true)) {
+                $st = $pdo->prepare(
+                        "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+                         FROM subjects s
+                         LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+                         LEFT JOIN electives e ON e.id = ec.elective_id
+                         WHERE s.deleted_at IS NULL
+                             AND s.academic_year_id = :y
+                         ORDER BY s.nama"
+                );
+                $st->execute(['y' => $sc['year_id']]);
+                return $st->fetchAll();
+        }
+
+        // Kepsek: special rules:
+        // - If the rombel's jenjang matches the kepsek's jenjang, show all subjects
+        //   mapped to that jenjang (kepsek oversight of their jenjang).
+        // - Otherwise (kepsek viewing another jenjang), show only subjects the
+        //   kepsek personally teaches in that rombel.
+        if ($role === 'kepsek') {
+            // get rombel jenjang
+            $sr = $pdo->prepare("SELECT jenjang FROM rombel WHERE id = :r LIMIT 1");
+            $sr->execute(['r' => $rombelId]);
+            $rrow = $sr->fetch();
+            $rombelJen = $rrow['jenjang'] ?? null;
+            $myJen = $user['jenjang'] ?? null;
+
+            if ($rombelJen && $myJen && $rombelJen === $myJen) {
+                // show all subjects mapped to this jenjang
+                $sql = "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+                    FROM subjects s
+                    LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
+                    LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+                    LEFT JOIN electives e ON e.id = ec.elective_id
+                    WHERE s.deleted_at IS NULL
+                      AND s.academic_year_id = :y
+                      AND jm.jenjang = :jen
+                    ORDER BY s.nama";
+                $st = $pdo->prepare($sql);
+                $st->execute(['y' => $sc['year_id'], 'jen' => $myJen]);
+                return $st->fetchAll();
+            }
+
+            // different jenjang — restrict to subjects kepsek teaches in this rombel
+            return teaching_subjects_for_rombel($user, $rombelId);
+        }
 
     if ($role === 'guru') {
-        // resolve teacher_id
-        $stt = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
-        $stt->execute(['u' => $user['id']]);
-        $tid = (int)($stt->fetchColumn() ?: 0);
-
-        // Get ALL subjects that this teacher is assigned to in this rombel
-        // (includes both regular AND elective shadow subjects via rombel_subject_teachers)
-        $st = $pdo->prepare(
-            "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
-             FROM rombel_subject_teachers rst
-             JOIN subjects s ON s.id = rst.subject_id
-             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
-             LEFT JOIN electives e ON e.id = ec.elective_id
-             WHERE rst.rombel_id = :r
-               AND rst.teacher_id = :t
-               AND (rst.semester IS NULL OR rst.semester = :sem)
-               AND s.deleted_at IS NULL
-               AND s.academic_year_id = :y
-             ORDER BY s.nama"
-        );
-        $st->execute(['r' => $rombelId, 't' => $tid, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
-        return $st->fetchAll();
+        return teaching_subjects_for_rombel($user, $rombelId);
     }
 
     return [];
 }
 
+/**
+ * Subjects the user is *personally assigned to teach* (via rombel_subject_teachers)
+ * in this rombel for the active scope — includes regular AND elective shadow subjects.
+ *
+ * Works for any role that has a row in `teachers` (guru, and — since Kepsek can now
+ * also mengajar — kepsek too). This is intentionally narrower than
+ * accessible_subjects_for_rombel(), which for kepsek/admin returns the whole jenjang
+ * catalogue for oversight purposes.
+ */
+function teaching_subjects_for_rombel(array $user, int $rombelId): array
+{
+    $sc  = active_scope();
+    $pdo = db();
+
+    // resolve teacher_id
+    $stt = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
+    $stt->execute(['u' => $user['id']]);
+    $tid = (int)($stt->fetchColumn() ?: 0);
+    if (!$tid) return [];
+
+    $st = $pdo->prepare(
+        "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+         FROM rombel_subject_teachers rst
+         JOIN subjects s ON s.id = rst.subject_id
+         LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+         LEFT JOIN electives e ON e.id = ec.elective_id
+         WHERE rst.rombel_id = :r
+           AND rst.teacher_id = :t
+           AND (rst.semester IS NULL OR rst.semester = :sem)
+           AND s.deleted_at IS NULL
+           AND s.academic_year_id = :y
+         ORDER BY s.nama"
+    );
+    $st->execute(['r' => $rombelId, 't' => $tid, 'sem' => $sc['semester'], 'y' => $sc['year_id']]);
+    return $st->fetchAll();
+}
+
+/** True if the given subject is in the given subject list (by id). */
+function subject_in_list(array $subjects, int $subjectId): bool
+{
+    foreach ($subjects as $s) {
+        if ((int)$s['id'] === $subjectId) return true;
+    }
+    return false;
+}
+
+/** Throws 403 if subject is not present in the given (already-scoped) subject list. */
+function assert_can_access_subject_list(array $subjects, int $subjectId): void
+{
+    if (subject_in_list($subjects, $subjectId)) return;
+    http_response_code(403);
+    die('403 — Anda tidak memiliki akses untuk mapel ini di rombel tsb.');
+}
+
 /** Throws 403 if subject is not accessible for the user/rombel. */
 function assert_can_grade_subject(array $user, int $rombelId, int $subjectId): void
 {
-    foreach (accessible_subjects_for_rombel($user, $rombelId) as $s) {
-        if ((int)$s['id'] === $subjectId) return;
-    }
-    http_response_code(403);
-    die('403 — Anda tidak memiliki akses untuk menilai mata pelajaran ini di rombel tsb.');
+    assert_can_access_subject_list(accessible_subjects_for_rombel($user, $rombelId), $subjectId);
+}
+
+/**
+ * True if the user personally teaches this subject in this rombel (active scope).
+ * - administrator: always true (blanket override, consistent with its full-access role).
+ * - guru / kepsek: true only if actually assigned via rombel_subject_teachers.
+ * - anyone else: false.
+ *
+ * Used to scope "menginput" (write) rights for kepsek on pages where kepsek also has
+ * a broader read-only oversight view (final_grades, grades_topic_recap) — the subject
+ * dropdown there still lists the whole jenjang, but only taught subjects are editable.
+ */
+function user_teaches_subject_in_rombel(array $user, int $rombelId, int $subjectId): bool
+{
+    $role = $user['role'] ?? '';
+    if ($role === 'administrator') return true;
+    if (!in_array($role, ['guru', 'kepsek'], true)) return false;
+    return subject_in_list(teaching_subjects_for_rombel($user, $rombelId), $subjectId);
 }
 
 /** All non-deleted topics for rombel/subject in active semester. */

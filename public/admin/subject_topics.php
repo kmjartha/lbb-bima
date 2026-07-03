@@ -54,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($kategori, ['tugas','ulangan','proyek','praktek','portofolio','produk','teori','lainnya'], true)) throw new RuntimeException('Kategori invalid.');
             if (!$rid || !$sid) throw new RuntimeException('Rombel & mapel wajib.');
 
-                // Guru hanya boleh menambah/edit subjek penilaian untuk mapel yang diaampu di rombel ini.
-            if ($me['role'] === 'guru') {
+                // Guru & Kepsek (saat mengajar) hanya boleh menambah/edit subjek penilaian untuk mapel yang diampu di rombel ini.
+            if (in_array($me['role'], ['guru','kepsek'], true)) {
                 // Check if it's a regular subject or shadow subject from elective
                 $subjChk = $pdo->prepare("SELECT elective_class_id FROM subjects WHERE id=:s AND deleted_at IS NULL");
                 $subjChk->execute(['s'=>$sid]);
@@ -106,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id  = (int)($_POST['id'] ?? 0);
             $rid = (int)($_POST['rombel_id'] ?? 0);
             $sid = (int)($_POST['subject_id'] ?? 0);
-            if ($me['role'] === 'guru') {
+            if (in_array($me['role'], ['guru','kepsek'], true)) {
                 // Check if it's a regular subject or shadow subject from elective
                 $subjChk = $pdo->prepare("SELECT elective_class_id FROM subjects WHERE id=:s AND deleted_at IS NULL");
                 $subjChk->execute(['s'=>$sid]);
@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Permission check
-            if ($me['role'] === 'guru') {
+            if (in_array($me['role'], ['guru','kepsek'], true)) {
                 // Check source access
                 $stmt = $pdo->prepare(
                     "SELECT 1 FROM rombel_subject_teachers rst
@@ -248,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
-if ($me['role'] === 'guru') {
+if (in_array($me['role'], ['guru','kepsek'], true)) {
     // Hanya ambil rombel di mana guru ini ditugaskan mengajar minimal 1 mapel
     $rombels = $pdo->prepare(
         "SELECT DISTINCT r.id, r.jenjang, r.tingkat, r.nama 
@@ -282,7 +282,7 @@ if ($rombelId) {
     $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
     $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
     if ($current) {
-            if ($me['role'] === 'guru') {
+            if (in_array($me['role'], ['guru','kepsek'], true)) {
                 // Get teacher_id for the logged-in user
                 $tStmt = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
                 $tStmt->execute(['u'=>$me['id']]);

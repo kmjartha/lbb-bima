@@ -10,6 +10,13 @@
  *   - kepsek        : Per-jenjang. Full on Verifikasi Nilai (jenjang). View-only
  *                     (jenjang) on rombel & anggota, guru pengampu, attendance recap,
  *                     daily-grade recap, final PTS/PAS grades.
+ *                     ALSO: can mengajar (teach) like a guru — full on subjek
+ *                     penilaian, penilaian harian, and nilai akhir PTS/PAS, but ONLY
+ *                     for rombel/mapel where kepsek is personally assigned as guru
+ *                     pengampu (rombel_subject_teachers). This is additive on top of
+ *                     the jenjang-wide view-only access above, and is enforced at the
+ *                     page level (see grading_helpers.php: teaching_subjects_for_rombel,
+ *                     user_teaches_subject_in_rombel).
  *   - guru          : Single-view, scoped by assignment. Full on subjek penilaian,
  *                     penilaian harian, rekap nilai harian, nilai akhir PTS/PAS.
  *   - guru (wali=1) : All of guru, plus full access to absensi harian, rekap absensi,
@@ -47,7 +54,7 @@ function _permission_matrix(): array
         // Rombel & Anggota: admin full; kepsek view (jenjang); guru/wali view (assigned)
         'rombel'            => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','admin']],
         'rombel_teachers'   => ['view' => ['administrator','admin','kepsek'],        'edit' => ['administrator','admin']],
-        'subject_topics'    => ['view' => ['administrator','admin','guru'],          'edit' => ['administrator','admin','guru']],
+        'subject_topics'    => ['view' => ['administrator','admin','kepsek','guru'],  'edit' => ['administrator','admin','kepsek','guru']],
         'electives'         => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
         'elective_assignment'=>['view' => ['administrator','guru'],                 'edit' => ['administrator','guru']],
 
@@ -56,9 +63,13 @@ function _permission_matrix(): array
         // only for rombel in his own jenjang via the attendance helpers scope.
         'attendance'        => ['view' => ['administrator','kepsek','guru'],          'edit' => ['administrator','kepsek','guru']],
         'attendance_recap'  => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
-        'grades_daily'      => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
+        // grades_daily / final_grades: kepsek's edit right is additive (mengajar) and
+        // scoped to only the subjects/rombel he/she is personally assigned to teach —
+        // see teaching_subjects_for_rombel()/user_teaches_subject_in_rombel() usage in
+        // grades_daily.php and final_grades.php.
+        'grades_daily'      => ['view' => ['administrator','kepsek','guru'],          'edit' => ['administrator','kepsek','guru']],
         'grades_topic_recap'=> ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
-        'final_grades'      => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
+        'final_grades'      => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','kepsek','guru']],
         'final_grades_review'=>['view' => ['administrator','kepsek'],                'edit' => ['administrator','kepsek']],
 
         // ---------- Catatan & Karakter (Wali only + Administrator) ----------

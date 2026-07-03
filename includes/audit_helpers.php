@@ -217,7 +217,7 @@ function dashboard_counters_for(array $user, ?int $yearId = null): array
         $base['published'] = (int)$st->fetchColumn();
     }
 
-    if ($role === 'guru') {
+    if (in_array($role, ['guru', 'kepsek'], true)) {
         // rombel di mana user adalah wali atau pengampu via teachers
         $st = $pdo->prepare(
             "SELECT COUNT(DISTINCT r.id) FROM rombel r

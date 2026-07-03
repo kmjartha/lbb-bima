@@ -286,11 +286,11 @@ if ($rombelId) {
         );
         $s->execute(['j'=>$current['jenjang'], 'y'=>$sc['year_id']]); $subjects = $s->fetchAll();
         $teachers = $pdo->prepare(
-            "SELECT t.id, u.niy, u.nama
+            "SELECT t.id, u.niy, u.nama, u.role
              FROM teachers t
              JOIN users u ON u.id=t.user_id
              JOIN teacher_years ty ON ty.teacher_id = t.id AND ty.academic_year_id = :y
-             WHERE u.deleted_at IS NULL AND u.is_active=1 AND u.role='guru'
+             WHERE u.deleted_at IS NULL AND u.is_active=1 AND u.role IN ('guru','kepsek')
              ORDER BY u.nama"
         );
         $teachers = $teachers->execute(['y' => $sc['year_id']]) ? $teachers->fetchAll() : [];
@@ -362,7 +362,7 @@ require __DIR__ . '/../../includes/header.php';
                      placeholder="Cari guru / NIY" required>
               <datalist id="teacher-options">
                 <?php foreach ($teachers as $t): ?>
-                  <?php $label = esc($t['niy'].' — '.$t['nama']); ?>
+                  <?php $label = esc($t['niy'].' — '.$t['nama'].(($t['role'] ?? '') === 'kepsek' ? ' (Kepsek)' : '')); ?>
                   <option value="<?= $label ?>" data-id="<?= (int)$t['id'] ?>"></option>
                 <?php endforeach; ?>
               </datalist>

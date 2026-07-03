@@ -26,6 +26,7 @@ $sid = int_or_null($_GET['subject_id'] ?? null);
 if (!$rid && $rombels) $rid = (int)$rombels[0]['id'];
 
 $rombel = null; $subjects = []; $members = []; $existing = [];
+$canWriteFinalGrades = false;
 $counts = ['draft'=>0,'submitted'=>0,'revised'=>0,'approved'=>0,'published'=>0];
 $isTK = false;
 $tkSyncData = [];
@@ -51,6 +52,10 @@ if ($rid) {
     
     if ($sid) {
         assert_can_grade_subject($user, $rid, $sid);
+        // Kepsek's edit right on nilai akhir is additive (mengajar) and only applies to
+        // subjects he/she is personally assigned to teach in this rombel; for other
+        // roles this simply mirrors can_edit('final_grades').
+        $canWriteFinalGrades = can_edit('final_grades', $user) && user_teaches_subject_in_rombel($user, $rid, $sid);
         $members  = rombel_members_for_subject($rid, $sid, $sc['semester']);
         $existing = final_grades_for($rid, $sid, $sc['semester'], $sc['period']);
 
@@ -98,7 +103,7 @@ if ($rid) {
         }
 
         // SPK / TK auto-sync saat halaman dimuat
-        if (can_edit('final_grades', $user) && !scope_is_locked() && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+        if ($canWriteFinalGrades && !scope_is_locked() && $_SERVER['REQUEST_METHOD'] !== 'POST') {
             $autoCount = 0;
             foreach ($members as $m) {
                 $msid = (int)$m['id'];
@@ -158,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
     try {
         csrf_check();
         if (!can_edit('final_grades')) throw new RuntimeException('Anda hanya memiliki akses lihat untuk fitur ini.');
-        if (is_view_only('final_grades', $user)) throw new RuntimeException('Kepsek tidak menginput nilai akhir; gunakan halaman Verifikasi.');
+        if (!$canWriteFinalGrades) throw new RuntimeException('Anda tidak mengajar mapel ini di rombel tersebut; gunakan halaman Verifikasi Nilai untuk meninjau.');
 
         $op = (string)($_POST['op'] ?? '');
 
@@ -349,7 +354,7 @@ $fgStatuses = fg_statuses();
     </div>
   </div>
   <div class="card-body">
-    <?php $ro = (is_view_only('final_grades', $user)) || scope_is_locked(); ?>
+    <?php $ro = !$canWriteFinalGrades || scope_is_locked(); ?>
 
     <?php if (!$ro): ?>
       <div class="alert alert-info" style="margin-bottom:.75rem">
