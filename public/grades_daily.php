@@ -39,6 +39,18 @@ if ($rid) {
     $isTK     = (stripos($rombel['jenjang'] ?? '', 'TK') !== false) || (stripos($rombel['nama'] ?? '', 'TK') !== false);
     
     $subjects = accessible_subjects_for_rombel($user, $rid);
+    if ($sid) {
+        $validSubject = false;
+        foreach ($subjects as $s) {
+            if ((int)$s['id'] === $sid) {
+                $validSubject = true;
+                break;
+            }
+        }
+        if (!$validSubject) {
+            $sid = null;
+        }
+    }
     if (!$sid && $subjects) $sid = (int)$subjects[0]['id'];
     if ($sid) {
         assert_can_grade_subject($user, $rid, $sid);

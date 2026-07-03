@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $bobot     = (float)($_POST['bobot'] ?? 1);
             $deskripsi = opt_str($_POST, 'deskripsi', 1000);
             if (!in_array($semester, ['ganjil','genap'], true)) throw new RuntimeException('Semester invalid.');
-            if (!in_array($kategori, ['tugas','ulangan','proyek','praktek','portofolio','produk','lainnya'], true)) throw new RuntimeException('Kategori invalid.');
+            if (!in_array($kategori, ['tugas','ulangan','proyek','praktek','portofolio','produk','teori','lainnya'], true)) throw new RuntimeException('Kategori invalid.');
             if (!$rid || !$sid) throw new RuntimeException('Rombel & mapel wajib.');
 
                 // Guru hanya boleh menambah/edit subjek penilaian untuk mapel yang diaampu di rombel ini.
@@ -417,7 +417,7 @@ require __DIR__ . '/../../includes/header.php';
         <div class="row">
           <div class="field"><label class="label">Kategori *</label>
             <select class="select" name="kategori" required>
-              <?php foreach (['tugas','ulangan','proyek','praktek','portofolio','produk','lainnya'] as $k): ?>
+              <?php foreach (['tugas','ulangan','proyek','praktek','portofolio','produk','teori','lainnya'] as $k): ?>
                 <option value="<?= $k ?>" <?= $editTopic && $editTopic['kategori'] === $k ? 'selected' : '' ?>><?= ucfirst($k) ?></option>
               <?php endforeach; ?>
             </select>
