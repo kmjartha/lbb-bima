@@ -343,7 +343,7 @@ require __DIR__ . '/../../includes/header.php';
       <div class="card">
         <div class="card-header"><h3 class="card-title">Tambah / Ubah Mapping</h3></div>
         <div class="card-body">
-          <form method="post">
+          <form method="post" id="assignForm">
             <?= csrf_field() ?><input type="hidden" name="op" value="assign">
             <input type="hidden" name="current_rombel_id" value="<?= (int)$current['id'] ?>">
             <div class="field"><label class="label">Mapel *</label>
@@ -370,7 +370,7 @@ require __DIR__ . '/../../includes/header.php';
             </div>
             <script>
             (function () {
-              const form = document.querySelector('form[method="post"]');
+              const form = document.getElementById('assignForm');
               const subjectInput = document.getElementById('subject-combobox');
               const teacherInput = document.getElementById('teacher-combobox');
               const subjectHidden = document.getElementById('subject_id');
@@ -542,17 +542,34 @@ require __DIR__ . '/../../includes/header.php';
 
 <script>
 function editMapping(button, subjectId, teacherId, semester) {
-  // Populate form fields with the mapping data
-  document.querySelector('select[name="subject_id"]').value = subjectId;
-  document.querySelector('select[name="teacher_id"]').value = teacherId;
-  document.querySelector('select[name="semester"]').value = semester;
-  
-  // Show reset button and scroll to form
+  const subjectInput = document.getElementById('subject-combobox');
+  const teacherInput = document.getElementById('teacher-combobox');
+  const subjectHidden = document.getElementById('subject_id');
+  const teacherHidden = document.getElementById('teacher_id');
+  const semesterSelect = document.querySelector('#assignForm select[name="semester"]');
+
+  function setInputValue(input, hidden, datalistId, id) {
+    if (!input || !hidden) return;
+    const option = document.querySelector(`#${datalistId} option[data-id="${id}"]`);
+    input.value = option ? option.value : '';
+    hidden.value = id ? id : '';
+  }
+
+  setInputValue(subjectInput, subjectHidden, 'subject-options', subjectId);
+  setInputValue(teacherInput, teacherHidden, 'teacher-options', teacherId);
+  if (semesterSelect) {
+    semesterSelect.value = semester || '';
+  }
+
   document.getElementById('resetForm').style.display = 'inline-block';
-  document.querySelector('form').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  
-  // Focus on the form
-  document.querySelector('select[name="subject_id"]').focus();
+  const form = document.getElementById('assignForm');
+  if (form) {
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  if (subjectInput) {
+    subjectInput.focus();
+  }
 }
 
 function filterMappingTable() {
