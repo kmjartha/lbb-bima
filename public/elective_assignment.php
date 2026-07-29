@@ -14,7 +14,21 @@ $semester = $sc['semester']; // ganjil | genap
 $err = null;
 
 // Wali rombels visible to current user (admin sees all; guru wali sees own)
-$myRombels = accessible_wali_rombel($user);
+// Determine which rombels this user can use for assigning electives.
+// Admin/administrator should be able to access all rombels; previously this
+// page used `accessible_wali_rombel()` which limited access to walikelas.
+if (($user['role'] ?? '') === 'administrator' || ($user['role'] ?? '') === 'admin') {
+  $st = $pdo->prepare(
+    "SELECT id, jenjang, tingkat, nama
+     FROM rombel
+     WHERE academic_year_id = :y AND deleted_at IS NULL
+     ORDER BY FIELD(jenjang,'SD','SMP','SMA'), tingkat, nama"
+  );
+  $st->execute(['y' => $sc['year_id']]);
+  $myRombels = $st->fetchAll();
+} else {
+  $myRombels = accessible_wali_rombel($user);
+}
 $myRombelIds = array_map(fn($r) => (int)$r['id'], $myRombels);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

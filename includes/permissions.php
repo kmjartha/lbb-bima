@@ -56,7 +56,7 @@ function _permission_matrix(): array
         'rombel_teachers'   => ['view' => ['administrator','admin','kepsek'],        'edit' => ['administrator','admin']],
         'subject_topics'    => ['view' => ['administrator','admin','kepsek','guru'],  'edit' => ['administrator','admin','kepsek','guru']],
         'electives'         => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
-        'elective_assignment'=>['view' => ['administrator','guru'],                 'edit' => ['administrator','guru']],
+        'elective_assignment'=>['view' => ['administrator','admin'],                'edit' => ['administrator','admin']],
 
         // ---------- Penilaian ----------
         // Absensi harian: administrator/admin? and guru wali can input; kepsek can input
@@ -91,7 +91,6 @@ function _wali_only_features(): array
         'attendance', 'attendance_recap',
         'character_eval', 'general_eval',
         'leger', 'rapor',
-        'elective_assignment',
     ];
 }
 
