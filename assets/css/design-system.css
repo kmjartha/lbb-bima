@@ -483,6 +483,10 @@ small, .text-sm { font-size: var(--fs-12); }
   color: #334155;
 }
 
+/* KKM highlight: mark cells/text below KKM threshold */
+.cell-kkm-below { background: #fee2e2; }
+.text-kkm-below { color: #dc2626; font-weight: 700; }
+
 /* Optional manual page break inside rapor. */
 .rapor-pagebreak { break-before: page; page-break-before: always; }
 
