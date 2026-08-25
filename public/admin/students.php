@@ -174,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $dob = new DateTime($tgl);
                 $pw  = $dob->format('dmY');
                 $pdo->prepare("INSERT INTO parents_auth (student_id, password_hash, must_change_pw)
-                               VALUES (:s,:h,1)")
+                               VALUES (:s,:h,0)")
                     ->execute(['s'=>$id,'h'=>password_hash($pw, PASSWORD_DEFAULT)]);
             }
             $pdo->commit();
@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                               VALUES (:y, :nis, :nisn, :nama, :jenjang, :tingkat, :jk, :tempat, :tgl, :alamat, :a_ayah, :a_ibu, :p_ayah, :p_ibu, :telp)";
                 $stmtStudent = $pdo->prepare($sqlInsert);
                 
-                $sqlAuth = "INSERT INTO parents_auth (student_id, password_hash, must_change_pw) VALUES (:s, :h, 1)";
+                $sqlAuth = "INSERT INTO parents_auth (student_id, password_hash, must_change_pw) VALUES (:s, :h, 0)";
                 $stmtAuth = $pdo->prepare($sqlAuth);
 
                 while (($row = fgetcsv($handle, 1000, ',')) !== false) {

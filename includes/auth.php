@@ -82,14 +82,14 @@ function parent_login(string $nis, string $password, bool $remember = false): ar
         }
 
         $hash = password_hash($defaultPassword, PASSWORD_DEFAULT);
-        db()->prepare("INSERT INTO parents_auth (student_id, password_hash, must_change_pw) VALUES (:sid, :hash, 1)")
+        db()->prepare("INSERT INTO parents_auth (student_id, password_hash, must_change_pw) VALUES (:sid, :hash, 0)")
             ->execute(['sid' => (int)$student['id'], 'hash' => $hash]);
 
         $row = [
             'id' => (int)db()->lastInsertId(),
             'student_id' => (int)$student['id'],
             'password_hash' => $hash,
-            'must_change_pw' => 1,
+            'must_change_pw' => 0,
             'nama' => $student['nama'],
             'jenjang' => $student['jenjang'],
             'tingkat' => (int)$student['tingkat'],

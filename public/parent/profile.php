@@ -2,8 +2,7 @@
 /**
  * Stage 9 — Parent profile + change password.
  *
- * When ?force=1 (or must_change_pw=1) the page becomes a mandatory password
- * change form, gated by the parent shell.
+ * Parents can change their password from this page at any time.
  */
 declare(strict_types=1);
 
@@ -16,7 +15,6 @@ $sc      = active_scope();
 $rombel  = parent_rombel_for_year((int)$student['id'], (int)$sc['year_id']);
 $wali    = $rombel ? rombel_wali_user((int)$rombel['id']) : null;
 
-$force = !empty($p['must_change_pw']) || (($_GET['force'] ?? '') === '1');
 $err = null; $ok = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,13 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $cur  = (string)($_POST['current_password'] ?? '');
             $new  = (string)($_POST['new_password']     ?? '');
             $new2 = (string)($_POST['confirm_password'] ?? '');
-            if (!$force) {
-                // Verify current password
-                $st = db()->prepare("SELECT password_hash FROM parents_auth WHERE id = :i");
-                $st->execute(['i' => $p['id']]);
-                $hash = (string)$st->fetchColumn();
-                if (!$hash || !password_verify($cur, $hash)) throw new RuntimeException('Password lama salah.');
-            }
+            $st = db()->prepare("SELECT password_hash FROM parents_auth WHERE id = :i");
+            $st->execute(['i' => $p['id']]);
+            $hash = (string)$st->fetchColumn();
+            if (!$hash || !password_verify($cur, $hash)) throw new RuntimeException('Password lama salah.');
             if ($new !== $new2) throw new RuntimeException('Konfirmasi password tidak sama.');
             parent_change_password((int)$p['id'], $new);
             flash('success', 'Password berhasil diperbarui.');
@@ -46,12 +41,6 @@ $page_title  = 'Profil';
 $current_nav = 'profil';
 include __DIR__ . '/_layout.php';
 ?>
-
-<?php if ($force): ?>
-  <div class="p-card">
-    <div class="p-locked-banner">Untuk keamanan, Anda wajib mengganti password sebelum melanjutkan.</div>
-  </div>
-<?php endif; ?>
 
 <div class="p-card">
   <h3>Profil Anak</h3>
@@ -73,10 +62,8 @@ include __DIR__ . '/_layout.php';
   <form method="post">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="change_pw">
-    <?php if (!$force): ?>
-      <div class="field"><label class="label">Password Saat Ini</label>
-        <input class="input" type="password" name="current_password" required autocomplete="current-password"></div>
-    <?php endif; ?>
+    <div class="field"><label class="label">Password Saat Ini</label>
+      <input class="input" type="password" name="current_password" required autocomplete="current-password"></div>
     <div class="field"><label class="label">Password Baru</label>
       <input class="input" type="password" name="new_password" required minlength="8" autocomplete="new-password">
       <small class="muted">Minimal 8 karakter, gabungan huruf dan angka.</small></div>

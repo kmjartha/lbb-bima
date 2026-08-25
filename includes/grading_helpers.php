@@ -79,8 +79,9 @@ function active_bucket(): string
 
 /**
  * Subjects the user can grade in this rombel for the active scope.
- * - administrator/admin/kepsek: every subject mapped via rombel_subject_teachers (or all subjects).
- * - guru: subjects where they are mapped via rombel_subject_teachers, PLUS shadow subjects from electives assigned to this rombel.
+ * Source of truth is the actual rombel-subject assignment table, not jenjang-wide
+ * catalogues. This keeps admin/administrator/kepsek aligned with the subject
+ * assignments for the selected rombel while leaving guru behavior unchanged.
  */
 function accessible_subjects_for_rombel(array $user, int $rombelId): array
 {
@@ -88,52 +89,26 @@ function accessible_subjects_for_rombel(array $user, int $rombelId): array
     $pdo = db();
     $role = $user['role'] ?? '';
 
-        if (in_array($role, ['administrator','admin'], true)) {
-                $st = $pdo->prepare(
-                        "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
-                         FROM subjects s
-                         LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
-                         LEFT JOIN electives e ON e.id = ec.elective_id
-                         WHERE s.deleted_at IS NULL
-                             AND s.academic_year_id = :y
-                         ORDER BY s.nama"
-                );
-                $st->execute(['y' => $sc['year_id']]);
-                return $st->fetchAll();
-        }
-
-        // Kepsek: special rules:
-        // - If the rombel's jenjang matches the kepsek's jenjang, show all subjects
-        //   mapped to that jenjang (kepsek oversight of their jenjang).
-        // - Otherwise (kepsek viewing another jenjang), show only subjects the
-        //   kepsek personally teaches in that rombel.
-        if ($role === 'kepsek') {
-            // get rombel jenjang
-            $sr = $pdo->prepare("SELECT jenjang FROM rombel WHERE id = :r LIMIT 1");
-            $sr->execute(['r' => $rombelId]);
-            $rrow = $sr->fetch();
-            $rombelJen = $rrow['jenjang'] ?? null;
-            $myJen = $user['jenjang'] ?? null;
-
-            if ($rombelJen && $myJen && $rombelJen === $myJen) {
-                // show all subjects mapped to this jenjang
-                $sql = "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
-                    FROM subjects s
-                    LEFT JOIN subject_jenjang_map jm ON jm.subject_id = s.id
-                    LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
-                    LEFT JOIN electives e ON e.id = ec.elective_id
-                    WHERE s.deleted_at IS NULL
-                      AND s.academic_year_id = :y
-                      AND jm.jenjang = :jen
-                    ORDER BY s.nama";
-                $st = $pdo->prepare($sql);
-                $st->execute(['y' => $sc['year_id'], 'jen' => $myJen]);
-                return $st->fetchAll();
-            }
-
-            // different jenjang — restrict to subjects kepsek teaches in this rombel
-            return teaching_subjects_for_rombel($user, $rombelId);
-        }
+    if (in_array($role, ['administrator','admin','kepsek'], true)) {
+        $st = $pdo->prepare(
+            "SELECT DISTINCT s.id, s.kode, s.nama, e.kode AS elective_kode
+             FROM rombel_subject_teachers rst
+             JOIN subjects s ON s.id = rst.subject_id
+             LEFT JOIN elective_classes ec ON ec.id = s.elective_class_id
+             LEFT JOIN electives e ON e.id = ec.elective_id
+             WHERE rst.rombel_id = :r
+               AND s.deleted_at IS NULL
+               AND s.academic_year_id = :y
+               AND (rst.semester IS NULL OR rst.semester = :sem)
+             ORDER BY s.nama"
+        );
+        $st->execute([
+            'r' => $rombelId,
+            'y' => $sc['year_id'],
+            'sem' => $sc['semester'],
+        ]);
+        return $st->fetchAll();
+    }
 
     if ($role === 'guru') {
         return teaching_subjects_for_rombel($user, $rombelId);

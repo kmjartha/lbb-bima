@@ -120,7 +120,7 @@ require __DIR__ . '/../includes/header.php';
                   <th rowspan="2" style="min-width:160px">Nama Siswa</th>
                   <th rowspan="2" style="width:90px">NIS</th>
                   <?php foreach ($matrix['subjects'] as $s): ?>
-                    <th colspan="3" style="text-align:center" title="<?= esc(elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?>"><?= esc($s['kode']) ?></th>
+                    <th colspan="3" style="text-align:center" title="<?= esc(elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?>"><?= esc(elective_subject_label($s['nama'], $s['elective_kode'] ?? null)) ?></th>
                   <?php endforeach; ?>
                   <th colspan="4" style="text-align:center">Rata-rata</th>
                   <th rowspan="2">Rank Kelas</th>

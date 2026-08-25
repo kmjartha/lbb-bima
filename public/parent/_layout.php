@@ -23,23 +23,6 @@ if (!isset($p) || !isset($student)) {
 $page_title = $page_title ?? 'Parent Portal';
 $current_nav = $current_nav ?? 'home';
 
-// Force change-pw guard (except when already on profile page).
-if (!empty($p['id'])) {
-    $st = db()->prepare("SELECT must_change_pw FROM parents_auth WHERE id = :id LIMIT 1");
-    $st->execute(['id' => (int)$p['id']]);
-    $parentPwState = $st->fetch();
-    if ($parentPwState) {
-        $p['must_change_pw'] = (int)$parentPwState['must_change_pw'];
-        if (isset($_SESSION['parent'])) {
-            $_SESSION['parent']['must_change_pw'] = $p['must_change_pw'];
-        }
-    }
-}
-
-if (!empty($p['must_change_pw']) && ($current_nav !== 'profil')) {
-    redirect('parent/profile.php?force=1');
-}
-
 $sc_label = parent_scope_label(active_scope());
 $studentName = (string)($student['nama'] ?? 'Orang Tua');
 $studentMetaParts = array_filter([
