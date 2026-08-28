@@ -42,23 +42,11 @@ function accessible_rombel(array $user): array
 
     if ($role === 'kepsek') {
         $jen = $user['jenjang'] ?? null;
-        // Kepsek: normally scoped by their jenjang, but also allow rombel where
-        // the kepsek personally teaches (via rombel_subject_teachers).
-        // Resolve teacher_id (kepsek may also have a teachers row if they teach).
-        $stt = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
-        $stt->execute(['u' => $user['id']]);
-        $tid = (int)($stt->fetchColumn() ?: 0);
-
-        $sql = "SELECT DISTINCT r.*, u.nama AS wali_nama
-            FROM rombel r
-            LEFT JOIN users u ON u.id = r.wali_id
-            LEFT JOIN rombel_subject_teachers rst
-                   ON rst.rombel_id = r.id
-                  AND rst.teacher_id = :tid
-                  AND (rst.semester IS NULL OR rst.semester = :sem)
-            WHERE r.academic_year_id = :y AND r.deleted_at IS NULL";
-        $params = ['y' => $sc['year_id'], 'tid' => $tid, 'sem' => $sc['semester']];
-        if ($jen) { $sql .= " AND (r.jenjang = :j OR rst.id IS NOT NULL)"; $params['j'] = $jen; }
+        $sql = "SELECT r.*, u.nama AS wali_nama
+                FROM rombel r LEFT JOIN users u ON u.id = r.wali_id
+                WHERE r.academic_year_id = :y AND r.deleted_at IS NULL";
+        $params = ['y' => $sc['year_id']];
+        if ($jen) { $sql .= " AND r.jenjang = :j"; $params['j'] = $jen; }
         $sql .= " ORDER BY FIELD(r.jenjang,'SD','SMP','SMA'), r.tingkat, r.nama";
         $st = $pdo->prepare($sql);
         $st->execute($params);
@@ -123,22 +111,12 @@ function accessible_attendance_rombel(array $user): array
     }
 
     if ($role === 'kepsek') {
-        // Similar to accessible_rombel: include rombels kepsek teaches.
         $jen = $user['jenjang'] ?? null;
-        $stt = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
-        $stt->execute(['u' => $user['id']]);
-        $tid = (int)($stt->fetchColumn() ?: 0);
-
-        $sql = "SELECT DISTINCT r.*, u.nama AS wali_nama
-            FROM rombel r
-            LEFT JOIN users u ON u.id = r.wali_id
-            LEFT JOIN rombel_subject_teachers rst
-                   ON rst.rombel_id = r.id
-                  AND rst.teacher_id = :tid
-                  AND (rst.semester IS NULL OR rst.semester = :sem)
-            WHERE r.academic_year_id = :y AND r.deleted_at IS NULL";
-        $params = ['y' => $sc['year_id'], 'tid' => $tid, 'sem' => $sc['semester']];
-        if ($jen) { $sql .= " AND (r.jenjang = :j OR rst.id IS NOT NULL)"; $params['j'] = $jen; }
+        $sql = "SELECT r.*, u.nama AS wali_nama
+                FROM rombel r LEFT JOIN users u ON u.id = r.wali_id
+                WHERE r.academic_year_id = :y AND r.deleted_at IS NULL";
+        $params = ['y' => $sc['year_id']];
+        if ($jen) { $sql .= " AND r.jenjang = :j"; $params['j'] = $jen; }
         $sql .= " ORDER BY FIELD(r.jenjang,'SD','SMP','SMA'), r.tingkat, r.nama";
         $st = $pdo->prepare($sql);
         $st->execute($params);
