@@ -33,6 +33,7 @@ if (($_GET['action'] ?? '') === 'download_template') {
     
     // Contoh data (baris panduan)
     fputcsv($output, ['1234567', '1234567890', 'Budi Santoso', 'SD', '1', 'L', 'Denpasar', '2015-05-20', 'Jl. Merdeka No 1', 'Bapak Budi', 'Ibu Budi', 'Wiraswasta', 'PNS', '081234567890']);
+    fputcsv($output, ['7654321', '0987654321', 'Siti Aisyah', 'SMP', '7', 'P', 'Badung', '2012-08-15', 'Jl. Raya No 2', 'Bapak Siti', 'Ibu Siti', 'PNS', 'Ibu Rumah Tangga', '081298765432']);
     
     fclose($output);
     exit;

@@ -189,6 +189,13 @@ require __DIR__ . '/../includes/header.php';
     </div>
     <div class="text-xs text-muted">Semester aktif: <strong><?= esc(ucfirst($semester)) ?></strong></div>
   </div>
+  <?php if (!$canEdit): ?>
+    <div class="card-body" style="border-top:1px solid var(--border); background: rgba(255,193,7,0.06);">
+      <div class="alert alert-info" style="margin:0;">
+        <strong>Mode lihat saja:</strong> Anda hanya dapat melihat data penempatan mapel pilihan untuk kelas yang diwalikan. Jika ingin mengubah data, silakan hubungi admin.
+      </div>
+    </div>
+  <?php endif; ?>
   <div class="card-body">
     <?php if (!$myRombels): ?>
       <div class="alert alert-info">Tidak ada rombel walikan untuk akun ini.</div>

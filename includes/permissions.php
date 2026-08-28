@@ -56,7 +56,7 @@ function _permission_matrix(): array
         'rombel_teachers'   => ['view' => ['administrator','admin','kepsek'],        'edit' => ['administrator','admin']],
         'subject_topics'    => ['view' => ['administrator','admin','kepsek','guru'],  'edit' => ['administrator','admin','kepsek','guru']],
         'electives'         => ['view' => ['administrator','admin'],                 'edit' => ['administrator','admin']],
-        'elective_assignment'=>['view' => ['administrator','admin'],                'edit' => ['administrator','admin']],
+        'elective_assignment'=>['view' => ['administrator','admin','guru'],        'edit' => ['administrator','admin']],
 
         // ---------- Penilaian ----------
         // Absensi harian: administrator/admin? and guru wali can input; kepsek can input
@@ -71,6 +71,10 @@ function _permission_matrix(): array
         'grades_topic_recap'=> ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
         'final_grades'      => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','kepsek','guru']],
         'final_grades_review'=>['view' => ['administrator','kepsek'],                'edit' => ['administrator','kepsek']],
+        // Review Pengisian Nilai Harian: read-only monitoring tool for Kepsek
+        // (own jenjang) and Admin/Administrator (semua jenjang). No edit rights —
+        // this page never writes to grades_daily, it only reports on it.
+        'teacher_grading_review'=>['view' => ['administrator','admin','kepsek'],     'edit' => []],
 
         // ---------- Catatan & Karakter (Wali only + Administrator) ----------
         'character_eval'    => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
@@ -90,6 +94,7 @@ function _wali_only_features(): array
     return [
         'attendance', 'attendance_recap',
         'character_eval', 'general_eval',
+        'elective_assignment',
         'leger', 'rapor',
     ];
 }

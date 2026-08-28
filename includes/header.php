@@ -150,6 +150,7 @@ if (!empty($_SESSION['_fresh_login'])) {
           ['attendance_recap',   'attendance_recap.php',   'Rekap Absensi',       'list'],
           ['grades_daily',       'grades_daily.php',       'Penilaian Harian',    'edit'],
           ['grades_topic_recap', 'grades_topic_recap.php', 'Rekap Nilai Harian',  'list'],
+          ['teacher_grading_review','teacher_grading_review.php','Review Pengisian Guru','pulse'],
           ['elective_assignment','elective_assignment.php','Penempatan Mapel Pilihan','star'],
           ['final_grades',       'final_grades.php',       'Nilai Akhir PTS/PAS', 'medal'],
           ['final_grades_review','final_grades_review.php','Verifikasi Nilai',    'verify'],
