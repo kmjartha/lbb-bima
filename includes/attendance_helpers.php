@@ -124,6 +124,7 @@ function accessible_attendance_rombel(array $user): array
 
     if ($role === 'kepsek') {
         // Similar to accessible_rombel: include rombels kepsek teaches.
+        $jen = $user['jenjang'] ?? null;
         $stt = $pdo->prepare("SELECT id FROM teachers WHERE user_id=:u");
         $stt->execute(['u' => $user['id']]);
         $tid = (int)($stt->fetchColumn() ?: 0);
