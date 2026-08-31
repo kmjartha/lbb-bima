@@ -14,13 +14,16 @@ require_once __DIR__ . '/../includes/attendance_helpers.php';
 require_once __DIR__ . '/../includes/grading_helpers.php';
 require_once __DIR__ . '/../includes/final_grades_helpers.php';
 require_once __DIR__ . '/../includes/report_helpers.php'; // Digunakan untuk save_image_upload()
+require_once __DIR__ . '/../includes/kepsek_scope.php';
 
 $user = require_view('final_grades');
 $pdo  = db();
 $sc   = active_scope();
 $err  = null;
 
-$rombels = accessible_rombel($user);
+// Nilai Akhir PTS/PAS needs a combined scope for Kepsek: their whole jenjang
+// (oversight) UNION any rombel elsewhere they personally teach.
+$rombels = $user['role'] === 'kepsek' ? kepsek_combined_rombels($user) : accessible_rombel($user);
 $rid = int_or_null($_GET['rombel_id'] ?? null);
 $sid = int_or_null($_GET['subject_id'] ?? null);
 if (!$rid && $rombels) $rid = (int)$rombels[0]['id'];
@@ -32,10 +35,17 @@ $isTK = false;
 $tkSyncData = [];
 
 if ($rid) {
-    $rombel   = assert_can_access_rombel($user, $rid);
+    // Validate against the same combined scope used to build the dropdown,
+    // not the generic accessible_rombel()/assert_can_access_rombel().
+    $rombel   = assert_rombel_in_list($rombels, $rid);
     $isTK     = (stripos($rombel['jenjang'] ?? '', 'TK') !== false) || (stripos($rombel['nama'] ?? '', 'TK') !== false);
-    
-    $subjects = accessible_subjects_for_rombel($user, $rid);
+
+    // For Kepsek, a rombel outside their own jenjang is only visible here
+    // because they personally teach there — so only their taught subjects
+    // are shown/selectable for it. Rombel inside their jenjang keep the
+    // existing full oversight subject list. Write access is still further
+    // restricted below by user_teaches_subject_in_rombel() either way.
+    $subjects = combined_scope_subjects_for_rombel($user, $rombel);
     if ($sid) {
         $validSubject = false;
         foreach ($subjects as $s) {
@@ -51,7 +61,7 @@ if ($rid) {
     if (!$sid && $subjects) $sid = (int)$subjects[0]['id'];
     
     if ($sid) {
-        assert_can_grade_subject($user, $rid, $sid);
+        assert_can_access_subject_list($subjects, $sid);
         // Kepsek's edit right on nilai akhir is additive (mengajar) and only applies to
         // subjects he/she is personally assigned to teach in this rombel; for other
         // roles this simply mirrors can_edit('final_grades').
