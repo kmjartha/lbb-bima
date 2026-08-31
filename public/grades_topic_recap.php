@@ -13,12 +13,15 @@ require_once __DIR__ . '/../includes/scope.php';
 require_once __DIR__ . '/../includes/admin_helpers.php';
 require_once __DIR__ . '/../includes/attendance_helpers.php';
 require_once __DIR__ . '/../includes/grading_helpers.php';
+require_once __DIR__ . '/../includes/kepsek_scope.php';
 
 $user = require_view('grades_topic_recap');
 $sc   = active_scope();
 $pdo  = db(); // Instance DB untuk query custom TK
 
-$rombels = accessible_rombel($user);
+// Rekap Nilai Harian needs a combined scope for Kepsek: their whole jenjang
+// (oversight) UNION any rombel elsewhere they personally teach.
+$rombels = $user['role'] === 'kepsek' ? kepsek_combined_rombels($user) : accessible_rombel($user);
 $rid     = int_or_null($_GET['rombel_id'] ?? null);
 $sid     = int_or_null($_GET['subject_id'] ?? null);
 $topicId = int_or_null($_GET['topic_id'] ?? null); // null/0 = "Semua Topik"
@@ -32,11 +35,17 @@ $tkOverall = [];
 $subjectKkm = null; // KKM untuk subject+tingkat aktif; null = belum diset, tidak ada highlight
 
 if ($rid) {
-    $rombel   = assert_can_access_rombel($user, $rid);
+    // Validate against the same combined scope used to build the dropdown,
+    // not the generic accessible_rombel()/assert_can_access_rombel().
+    $rombel   = assert_rombel_in_list($rombels, $rid);
     // Deteksi mode TK seperti di grade_daily
     $isTK     = (stripos($rombel['jenjang'] ?? '', 'TK') !== false) || (stripos($rombel['nama'] ?? '', 'TK') !== false);
-    
-    $subjects = accessible_subjects_for_rombel($user, $rid);
+
+    // For Kepsek, a rombel outside their own jenjang is only visible here
+    // because they personally teach there — so only their taught subjects
+    // are shown for it. Rombel inside their jenjang keep the existing
+    // full oversight subject list.
+    $subjects = combined_scope_subjects_for_rombel($user, $rombel);
     if ($sid) {
         $validSubject = false;
         foreach ($subjects as $s) {
@@ -51,7 +60,7 @@ if ($rid) {
     }
     if (!$sid && $subjects) $sid = (int)$subjects[0]['id'];
     if ($sid) {
-        assert_can_grade_subject($user, $rid, $sid);
+        assert_can_access_subject_list($subjects, $sid);
         $members = rombel_members_for_subject($rid, $sid, $sc['semester']);
         $rec     = recap_topics($rid, $sid, $sc['semester']);
         if (!$isTK) $subjectKkm = subject_kkm_for($sid, (int)$rombel['tingkat']);

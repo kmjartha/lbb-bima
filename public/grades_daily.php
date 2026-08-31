@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/scope.php';
 require_once __DIR__ . '/../includes/admin_helpers.php';
 require_once __DIR__ . '/../includes/attendance_helpers.php';
 require_once __DIR__ . '/../includes/grading_helpers.php';
+require_once __DIR__ . '/../includes/kepsek_scope.php';
 
 $user   = require_view('grades_daily');
 $pdo    = db();
@@ -20,7 +21,10 @@ $sc     = active_scope();
 $bucket = active_bucket();
 $err    = null;
 
-$rombels = accessible_rombel($user);
+// Penilaian Harian is a "mengajar" (teaching) feature: Kepsek only sees the
+// rombel where they are personally assigned as a subject teacher (any
+// jenjang), never the whole jenjang-wide catalogue.
+$rombels = $user['role'] === 'kepsek' ? kepsek_teaching_rombels($user) : accessible_rombel($user);
 $rid     = int_or_null($_GET['rombel_id'] ?? null);
 $sid     = int_or_null($_GET['subject_id'] ?? null);
 $tid     = int_or_null($_GET['topic_id'] ?? null);
@@ -34,7 +38,10 @@ $existing = []; $att = []; $topic = null;
 $isTK = false;
 
 if ($rid) {
-    $rombel   = assert_can_access_rombel($user, $rid);
+    // Validate against the same scope used to build the dropdown above (not
+    // the generic accessible_rombel()), so a manually-edited ?rombel_id=
+    // can never escape the Kepsek's teaching scope.
+    $rombel   = assert_rombel_in_list($rombels, $rid);
     // Cek apakah rombel ini TK (dari jenjang atau nama)
     $isTK     = (stripos($rombel['jenjang'] ?? '', 'TK') !== false) || (stripos($rombel['nama'] ?? '', 'TK') !== false);
     

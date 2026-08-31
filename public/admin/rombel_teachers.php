@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/guard.php';
 require_once __DIR__ . '/../../includes/admin_helpers.php';
 require_once __DIR__ . '/../../includes/scope.php';
 require_once __DIR__ . '/../../includes/elective_helpers.php';
+require_once __DIR__ . '/../../includes/kepsek_scope.php';
 $me = require_view('rombel_teachers');
 $canEdit = can_edit('rombel_teachers', $me);
 
@@ -263,18 +264,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
-$rombels = $pdo->prepare(
-    "SELECT id, jenjang, tingkat, nama FROM rombel
-     WHERE academic_year_id = :y AND deleted_at IS NULL
-     ORDER BY FIELD(jenjang,'SD','SMP','SMA'), tingkat, nama"
-);
-$rombels->execute(['y'=>$sc['year_id']]);
-$rombels = $rombels->fetchAll();
+// Guru Pengampu = structural/managerial view: Kepsek sees rombel in their own
+// jenjang only, never filtered by their personal teaching assignments.
+if ($me['role'] === 'kepsek') {
+    $rombels = kepsek_jenjang_rombels($me);
+} else {
+    $rombels = $pdo->prepare(
+        "SELECT id, jenjang, tingkat, nama FROM rombel
+         WHERE academic_year_id = :y AND deleted_at IS NULL
+         ORDER BY FIELD(jenjang,'SD','SMP','SMA'), tingkat, nama"
+    );
+    $rombels->execute(['y'=>$sc['year_id']]);
+    $rombels = $rombels->fetchAll();
+}
 
 $current = null; $assignments = []; $subjects = []; $teachers = [];
 if ($rombelId) {
-    $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
-    $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
+    // Server-side authorization must mirror the dropdown scope: a Kepsek
+    // must not be able to view another jenjang's mapping by editing
+    // ?rombel_id= manually.
+    if ($me['role'] === 'kepsek') {
+        $current = assert_rombel_in_list($rombels, $rombelId);
+    } else {
+        $stmt = $pdo->prepare("SELECT * FROM rombel WHERE id=:id AND academic_year_id=:y AND deleted_at IS NULL");
+        $stmt->execute(['id'=>$rombelId,'y'=>$sc['year_id']]); $current = $stmt->fetch();
+    }
     if ($current) {
         $s = $pdo->prepare(
             "SELECT s.id, s.kode, s.nama, e.kode AS elective_kode
