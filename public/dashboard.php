@@ -46,6 +46,7 @@ if ($role === 'guru') {
 } elseif ($role === 'kepsek') {
     $quickLinks = [
         ['label' => 'Verifikasi Rapor', 'href' => url('final_grades_review.php')],
+        ['label' => 'Publish Rapor', 'href' => url('publish_rapor.php')],
         ['label' => 'Rapor Siswa', 'href' => url('rapor.php')],
         ['label' => 'Rekap Absensi', 'href' => url('attendance_recap.php')],
         ['label' => 'Penilaian Karakter', 'href' => url('character_eval.php')],

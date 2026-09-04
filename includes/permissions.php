@@ -7,7 +7,8 @@
  *   - admin         : Operational data entry. Full on master data (incl. Login Pegawai
  *                     except viewing administrator credentials). Global view-only on
  *                     attendance recap, daily-grade recap, final PTS/PAS grades.
- *   - kepsek        : Per-jenjang. Full on Verifikasi Nilai (jenjang). View-only
+ *   - kepsek        : Per-jenjang. Full on Verifikasi Nilai and Publish Rapor
+ *                     (both jenjang-scoped, on separate pages). View-only
  *                     (jenjang) on rombel & anggota, guru pengampu, attendance recap,
  *                     daily-grade recap, final PTS/PAS grades.
  *                     ALSO: can mengajar (teach) like a guru — full on subjek
@@ -71,6 +72,9 @@ function _permission_matrix(): array
         'grades_topic_recap'=> ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
         'final_grades'      => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','kepsek','guru']],
         'final_grades_review'=>['view' => ['administrator','kepsek'],                'edit' => ['administrator','kepsek']],
+        // Publish Rapor: split out from Verifikasi Nilai. Same role gating —
+        // only Administrator/Kepsek publish, Kepsek is scoped to jenjang.
+        'publish_rapor'      =>['view' => ['administrator','kepsek'],                'edit' => ['administrator','kepsek']],
         // Review Pengisian Nilai Harian: read-only monitoring tool for Kepsek
         // (own jenjang) and Admin/Administrator (semua jenjang). No edit rights —
         // this page never writes to grades_daily, it only reports on it.

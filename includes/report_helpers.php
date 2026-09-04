@@ -377,19 +377,213 @@ function student_by_id(int $sid): ?array
     return $r ?: null;
 }
 
-/** Whether the given (rombel, semester, period) has at least one published row. */
+/* =====================================================================
+ * Rapor-level publish (Stage 8b — menggantikan publish per-baris
+ * final_grades). Sumber kebenaran: tabel rapor_publications.
+ *
+ * final_grades.status TIDAK LAGI dipakai untuk menentukan visibilitas ke
+ * ortu (nilai 'published' pada kolom itu sudah dihentikan penggunaannya
+ * per migrasi 2026_09_rapor_level_publish.sql). 'approved' adalah status
+ * akhir yang wajar untuk sebuah nilai mapel; publish adalah keputusan
+ * TERPISAH di level rapor (per siswa, per semester x periode), boleh
+ * dilakukan walau belum semua mapel siswa itu approved (partial publish
+ * disengaja — kepsek yang menimbang, sistem tidak blokir).
+ * ===================================================================== */
+
+/** Apakah rapor siswa ini published (tampil di Parent Portal)? */
 function rapor_is_published(int $rombelId, int $studentId, string $semester, string $period, int $yearId): bool
 {
     $st = db()->prepare(
-        "SELECT 1 FROM final_grades fg
-         JOIN rombel r ON r.id = fg.rombel_id
-         WHERE fg.rombel_id = :r AND fg.student_id = :st
-           AND fg.semester = :sem AND fg.period_kind = :p
-           AND fg.status = 'published'
-           AND r.academic_year_id = :y LIMIT 1"
+        "SELECT 1 FROM rapor_publications
+         WHERE student_id = :st AND rombel_id = :r
+           AND semester = :sem AND period_kind = :p
+           AND academic_year_id = :y AND status = 'published' LIMIT 1"
     );
     $st->execute(['r'=>$rombelId,'st'=>$studentId,'sem'=>$semester,'p'=>$period,'y'=>$yearId]);
     return (bool)$st->fetchColumn();
+}
+
+/**
+ * Matrix publish per siswa untuk SATU tahun ajaran, dipakai oleh
+ * parent_publish_matrix() di parent_helpers.php (delegasi tipis, supaya
+ * signature lama yang dipakai rapor.php tidak perlu berubah).
+ * Return: ['ganjil'=>['PTS'=>bool,'PAS'=>bool], 'genap'=>['PTS'=>bool,'PAS'=>bool]]
+ */
+function rapor_publish_matrix_for_student(int $studentId, int $yearId): array
+{
+    $out = [
+        'ganjil' => ['PTS' => false, 'PAS' => false],
+        'genap'  => ['PTS' => false, 'PAS' => false],
+    ];
+    $st = db()->prepare(
+        "SELECT semester, period_kind FROM rapor_publications
+         WHERE student_id = :st AND academic_year_id = :y AND status = 'published'"
+    );
+    $st->execute(['st' => $studentId, 'y' => $yearId]);
+    foreach ($st->fetchAll() as $row) {
+        $sem = $row['semester'];
+        $pk  = $row['period_kind'];
+        if (isset($out[$sem][$pk])) $out[$sem][$pk] = true;
+    }
+    return $out;
+}
+
+/**
+ * Publish rapor untuk sekumpulan siswa dalam satu (rombel, semester,
+ * period, tahun ajaran). Upsert idempoten — memanggil ulang untuk siswa
+ * yang sudah published tidak masalah (published_at/by ter-refresh).
+ * TIDAK mengecek kelengkapan approval mapel (partial publish diizinkan
+ * secara sadar). Return: array student_id yang benar-benar diproses.
+ */
+function rapor_publish_students(array $studentIds, int $rombelId, string $semester, string $period, int $yearId, int $publishedBy): array
+{
+    $studentIds = array_values(array_unique(array_map('intval', $studentIds)));
+    if (!$studentIds) return [];
+    $sql = "INSERT INTO rapor_publications
+                (student_id, rombel_id, academic_year_id, semester, period_kind, status, published_by, published_at)
+            VALUES (:st, :r, :y, :sem, :p, 'published', :by, NOW())
+            ON DUPLICATE KEY UPDATE
+                status = 'published', published_by = VALUES(published_by), published_at = VALUES(published_at)";
+    $stmt = db()->prepare($sql);
+    foreach ($studentIds as $sid) {
+        $stmt->execute(['st' => $sid, 'r' => $rombelId, 'y' => $yearId, 'sem' => $semester, 'p' => $period, 'by' => $publishedBy]);
+    }
+    return $studentIds;
+}
+
+/**
+ * Batal-publish (kembalikan ke draft) untuk sekumpulan siswa. Baris di
+ * rapor_publications TIDAK dihapus (dipertahankan sebagai jejak
+ * publish_by/published_at terakhir) — hanya status yang berubah, supaya
+ * ortu langsung tidak bisa lihat rapor itu lagi.
+ * Return: array student_id yang sebelumnya published dan baru saja
+ * di-set balik ke draft (siswa yang memang belum pernah published
+ * otomatis dilewati / tidak dihitung).
+ */
+function rapor_unpublish_students(array $studentIds, int $rombelId, string $semester, string $period, int $yearId): array
+{
+    $studentIds = array_values(array_unique(array_map('intval', $studentIds)));
+    if (!$studentIds) return [];
+    $ph = implode(',', array_fill(0, count($studentIds), '?'));
+    $find = db()->prepare(
+        "SELECT student_id FROM rapor_publications
+         WHERE rombel_id = ? AND academic_year_id = ? AND semester = ? AND period_kind = ?
+           AND status = 'published' AND student_id IN ($ph)"
+    );
+    $find->execute(array_merge([$rombelId, $yearId, $semester, $period], $studentIds));
+    $affected = array_map('intval', array_column($find->fetchAll(), 'student_id'));
+    if (!$affected) return [];
+
+    $ph2 = implode(',', array_fill(0, count($affected), '?'));
+    db()->prepare(
+        "UPDATE rapor_publications SET status = 'draft'
+         WHERE rombel_id = ? AND academic_year_id = ? AND semester = ? AND period_kind = ?
+           AND student_id IN ($ph2)"
+    )->execute(array_merge([$rombelId, $yearId, $semester, $period], $affected));
+    return $affected;
+}
+
+/**
+ * Set publish/draft untuk SEMUA siswa yang punya rapor (>=1 baris
+ * final_grades) dalam satu scope (semester x period x tahun ajaran),
+ * opsional dipersempit ke satu rombel, dan (untuk kepsek) otomatis
+ * dipersempit ke jenjangnya. Dipakai oleh tombol "Publish/Batal Publish
+ * Semua". Tidak mensyaratkan status mapel apapun (partial diizinkan).
+ * Return: ['student_ids' => int[], 'rombel_ids' => int[]] yang diproses.
+ */
+function rapor_publish_scope(array $user, string $semester, string $period, int $yearId, ?int $rombelId, bool $publish, int $actorId): array
+{
+    $sql = "SELECT DISTINCT fg.student_id, fg.rombel_id
+            FROM final_grades fg
+            JOIN rombel r ON r.id = fg.rombel_id
+            WHERE fg.semester = :sem AND fg.period_kind = :p AND r.academic_year_id = :y";
+    $params = ['sem' => $semester, 'p' => $period, 'y' => $yearId];
+    if ($rombelId !== null) {
+        $sql .= " AND fg.rombel_id = :rid";
+        $params['rid'] = $rombelId;
+    } elseif (($user['role'] ?? '') === 'kepsek' && !empty($user['jenjang'])) {
+        $sql .= " AND r.jenjang = :j";
+        $params['j'] = $user['jenjang'];
+    }
+    $st = db()->prepare($sql);
+    $st->execute($params);
+    $rows = $st->fetchAll();
+
+    $byRombel = [];
+    foreach ($rows as $row) {
+        $byRombel[(int)$row['rombel_id']][] = (int)$row['student_id'];
+    }
+
+    $allStudentIds = [];
+    foreach ($byRombel as $rid => $studentIds) {
+        $done = $publish
+            ? rapor_publish_students($studentIds, $rid, $semester, $period, $yearId, $actorId)
+            : rapor_unpublish_students($studentIds, $rid, $semester, $period, $yearId);
+        $allStudentIds = array_merge($allStudentIds, $done);
+    }
+    return ['student_ids' => array_values(array_unique($allStudentIds)), 'rombel_ids' => array_keys($byRombel)];
+}
+
+/**
+ * Peta student_id => bool published untuk satu (rombel, semester, period,
+ * tahun ajaran). Dipakai untuk menggabungkan status publish rapor dengan
+ * info kelengkapan mapel (dari publish_student_summary()) di halaman
+ * Publish Rapor.
+ */
+function rapor_published_map(int $rombelId, string $semester, string $period, int $yearId): array
+{
+    $st = db()->prepare(
+        "SELECT student_id FROM rapor_publications
+         WHERE rombel_id = :r AND semester = :sem AND period_kind = :p
+           AND academic_year_id = :y AND status = 'published'"
+    );
+    $st->execute(['r' => $rombelId, 'sem' => $semester, 'p' => $period, 'y' => $yearId]);
+    $out = [];
+    foreach ($st->fetchAll() as $row) $out[(int)$row['student_id']] = true;
+    return $out;
+}
+
+/**
+ * Ringkasan publish per rombel untuk satu scope (semester x period x
+ * tahun ajaran), dipersempit ke jenjang kepsek bila relevan. Dipakai di
+ * Level 1 (Daftar Kelas) Publish Rapor — n_students di sini dihitung dari
+ * siswa yang PUNYA rapor (>=1 baris final_grades), bukan dari kelengkapan
+ * approval (itu tanggung jawab publish_class_summary()).
+ */
+function rapor_class_publish_summary(array $user, string $semester, string $period, int $yearId): array
+{
+    $params = ['sem' => $semester, 'p' => $period, 'y' => $yearId];
+    $jenjangFilter = '';
+    if (($user['role'] ?? '') === 'kepsek' && !empty($user['jenjang'])) {
+        $jenjangFilter = " AND r.jenjang = :j";
+        $params['j'] = $user['jenjang'];
+    }
+    $sql = "SELECT fg.rombel_id, r.jenjang, r.tingkat, r.nama AS rombel_nama,
+                   COUNT(DISTINCT fg.student_id) AS n_students,
+                   COUNT(DISTINCT CASE WHEN rp.status = 'published' THEN fg.student_id END) AS n_published
+            FROM final_grades fg
+            JOIN rombel r ON r.id = fg.rombel_id
+            LEFT JOIN rapor_publications rp
+                   ON rp.student_id = fg.student_id AND rp.rombel_id = fg.rombel_id
+                  AND rp.academic_year_id = r.academic_year_id
+                  AND rp.semester = fg.semester AND rp.period_kind = fg.period_kind
+            WHERE fg.semester = :sem AND fg.period_kind = :p AND r.academic_year_id = :y"
+            . $jenjangFilter
+            . " GROUP BY fg.rombel_id, r.jenjang, r.tingkat, r.nama";
+    $st = db()->prepare($sql);
+    $st->execute($params);
+
+    $out = [];
+    foreach ($st->fetchAll() as $row) {
+        $out[(int)$row['rombel_id']] = [
+            'rombel_id'    => (int)$row['rombel_id'],
+            'label'        => $row['jenjang'] . ' ' . $row['tingkat'] . ' · ' . $row['rombel_nama'],
+            'n_students'   => (int)$row['n_students'],
+            'n_published'  => (int)$row['n_published'],
+            'n_draft'      => (int)$row['n_students'] - (int)$row['n_published'],
+        ];
+    }
+    return $out;
 }
 
 /** KKM scale rows for a jenjang ordered desc by min_val. */

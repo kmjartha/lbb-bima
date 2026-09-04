@@ -1,7 +1,9 @@
 <?php
 /**
  * Stage 6 — Verifikasi Nilai Akhir oleh Kepsek (filtered jenjang) / Admin.
- * Aksi: Approve, Revisi (kembalikan ke Guru), Publish, Bulk Approve, Lock periode.
+ * Aksi: Approve, Revisi (kembalikan ke Guru), Bulk Approve, Lock periode.
+ * Publish rapor ke Parent Portal sekarang di halaman terpisah, lihat
+ * publish_rapor.php (juga per Semester × PTS/PAS).
  */
 declare(strict_types=1);
 
@@ -48,6 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              WHERE fg.id=:i AND r.academic_year_id = :y"
         );
 
+        if (!in_array($op, ['approve', 'revise'], true)) throw new RuntimeException('Aksi tidak dikenal.');
+
+        $total   = count($ids);
         $changed = 0;
         foreach ($ids as $id) {
             $check->execute(['i'=>$id, 'y'=>$sc['year_id']]);
@@ -55,32 +60,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$row) continue;
             if ($user['role']==='kepsek' && !empty($user['jenjang']) && $row['jenjang'] !== $user['jenjang']) continue;
 
-            switch ($op) {
-                case 'approve':
-                    if (in_array($row['status'], ['submitted','revised'], true)) {
-                        final_grade_set_status($id, 'approved', (int)$user['id']); $changed++;
-                    }
-                    break;
-                case 'revise':
-                    if (in_array($row['status'], ['submitted','approved','published'], true)) {
-                        final_grade_set_status($id, 'revised', (int)$user['id']); $changed++;
-                    }
-                    break;
-                case 'publish':
-                    if ($row['status'] === 'approved') {
-                        final_grade_set_status($id, 'published', (int)$user['id']); $changed++;
-                    }
-                    break;
-                case 'unpublish':
-                    if ($row['status'] === 'published') {
-                        final_grade_set_status($id, 'approved', (int)$user['id']); $changed++;
-                    }
-                    break;
-                default: throw new RuntimeException('Aksi tidak dikenal.');
+            if ($op === 'approve' && in_array($row['status'], ['submitted','revised'], true)) {
+                final_grade_set_status($id, 'approved', (int)$user['id']); $changed++;
+            } elseif ($op === 'revise' && in_array($row['status'], ['submitted','approved'], true)) {
+                final_grade_set_status($id, 'revised', (int)$user['id']); $changed++;
             }
         }
         audit("review_{$op}_final_grades", null, ['n'=>$changed,'sem'=>$sc['semester'],'period'=>$sc['period']]);
-        flash('success', "$changed baris diproses ($op).");
+
+        // Pesan hasil menjelaskan apa yang berubah DAN apa yang dilewati, supaya
+        // kepsek tidak bingung kalau jumlah "diproses" lebih kecil dari jumlah
+        // baris yang dia centang (mis. karena statusnya sudah tidak relevan
+        // untuk aksi ini, atau di luar akses jenjangnya).
+        $opLabel = $op === 'approve' ? 'disetujui' : 'dikembalikan untuk revisi';
+        $msg = "$changed dari $total baris terpilih $opLabel.";
+        $skipped = $total - $changed;
+        if ($skipped > 0) {
+            $reason = $op === 'approve'
+                ? 'sudah berstatus Disetujui, atau di luar akses jenjang Anda'
+                : 'masih berstatus Draft, atau di luar akses jenjang Anda';
+            $msg .= " $skipped baris dilewati ($reason).";
+        }
+        flash($changed > 0 ? 'success' : 'error', $msg);
         redirect('final_grades_review.php');
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
@@ -110,7 +111,10 @@ $fgStatuses = fg_statuses();
 <div class="card">
   <div class="card-header">
     <h3 class="card-title">Verifikasi <?= esc($sc['period']) ?> · Semester <?= esc($sc['semester']) ?></h3>
-    <a class="btn btn-ghost btn-sm" href="<?= esc(url('final_grades.php')) ?>">← Kembali ke Input</a>
+    <div class="row" style="gap:.5rem">
+      <a class="btn btn-ghost btn-sm" href="<?= esc(url('final_grades.php')) ?>">← Kembali ke Input</a>
+      <a class="btn btn-primary btn-sm" href="<?= esc(url('publish_rapor.php')) ?>">📣 Publish Rapor →</a>
+    </div>
   </div>
   <div class="card-body">
     <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.75rem">
@@ -143,15 +147,16 @@ $fgStatuses = fg_statuses();
   <?= csrf_field() ?>
   <div class="card mt-4">
     <div class="card-body">
-      <div class="row mb-3" style="gap:.5rem; flex-wrap:wrap">
-        <button class="btn btn-success btn-sm"  type="submit" name="op" value="approve">✅ Setujui Terpilih</button>
-        <button class="btn btn-warning btn-sm"  type="submit" name="op" value="revise"
-                onclick="return confirm('Kirim balik untuk revisi?')">↩ Minta Revisi</button>
-        <button class="btn btn-primary btn-sm"  type="submit" name="op" value="publish"
-                onclick="return confirm('Publish nilai? (status approved → published)')">📣 Publish Terpilih</button>
-        <button class="btn btn-secondary btn-sm" type="submit" name="op" value="unpublish"
-                onclick="return confirm('Batalkan publikasi nilai? (status published → approved)')">↺ Batal Publish Terpilih</button>
-        <span class="text-sm text-muted" style="align-self:center">Publish hanya untuk baris ber-status <em>approved</em>; batal publish hanya untuk <em>published</em>; minta revisi bisa dari <em>approved</em> atau <em>published</em>.</span>
+      <div class="row mb-2" style="gap:.5rem; flex-wrap:wrap">
+        <button class="btn btn-success btn-sm" type="submit" name="op" value="approve" id="btnApprove">✅ Setujui Terpilih</button>
+        <button class="btn btn-warning btn-sm" type="submit" name="op" value="revise" id="btnRevise">↩ Minta Revisi</button>
+        <span class="text-sm text-muted" style="align-self:center">Setujui hanya untuk baris ber-status <em>diajukan/revisi</em>; minta revisi bisa dari <em>disetujui</em>. Mengubah status di sini <strong>tidak</strong> memengaruhi rapor yang sudah terbit ke ortu — visibilitas rapor diatur terpisah di <a href="<?= esc(url('publish_rapor.php')) ?>">Publish Rapor →</a>.</span>
+      </div>
+      <div class="row mb-3" style="gap:.5rem; flex-wrap:wrap; align-items:center">
+        <span class="text-xs text-muted">Pilih cepat:</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-quicksel="submitted,revised">Yang perlu disetujui</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-quicksel="approved">Yang sudah disetujui</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-quicksel="">Kosongkan pilihan</button>
       </div>
 
       <?php foreach ($queueBySubmitter as $group): ?>
@@ -188,7 +193,7 @@ $fgStatuses = fg_statuses();
                   $stInfo = $fgStatuses[$r['status']] ?? $fgStatuses['draft'];
                 ?>
                   <tr>
-                    <td class="text-center"><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" class="rowSel"></td>
+                    <td class="text-center"><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" class="rowSel" data-status="<?= esc($r['status']) ?>"></td>
                     <td><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['rombel_nama']) ?></td>
                     <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').elective_subject_label($r['subj_nama'], $r['elective_kode'] ?? null)) ?></td>
                     <td>
@@ -220,12 +225,58 @@ $fgStatuses = fg_statuses();
 
 <script>
 (function(){
+  const form = document.getElementById('rvForm');
+
   document.querySelectorAll('.selAll').forEach(all => {
     const table = all.closest('table');
     all.addEventListener('change', () => {
       if (!table) return;
       table.querySelectorAll('.rowSel').forEach(cb => cb.checked = all.checked);
     });
+  });
+
+  // Tombol "pilih cepat": mencentang hanya baris dengan status yang relevan,
+  // di SEMUA tabel/mapel sekaligus — supaya kepsek tidak perlu klik satu-satu
+  // dan tidak salah pilih baris yang statusnya sudah tidak actionable.
+  document.querySelectorAll('[data-quicksel]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const wanted = btn.dataset.quicksel ? btn.dataset.quicksel.split(',') : [];
+      form.querySelectorAll('.rowSel').forEach(cb => {
+        cb.checked = wanted.includes(cb.dataset.status);
+      });
+    });
+  });
+
+  // Validasi sebelum submit: kalau ada baris terpilih yang statusnya sudah
+  // tidak relevan untuk aksi yang ditekan, beri tahu di muka alih-alih
+  // membiarkannya dilewati diam-diam di server.
+  let lastOp = null;
+  document.getElementById('btnApprove')?.addEventListener('click', () => { lastOp = 'approve'; });
+  document.getElementById('btnRevise')?.addEventListener('click', () => { lastOp = 'revise'; });
+
+  form?.addEventListener('submit', function (e) {
+    const selected = Array.from(form.querySelectorAll('.rowSel:checked'));
+    if (!selected.length) {
+      alert('Pilih minimal satu baris terlebih dahulu.');
+      e.preventDefault();
+      return;
+    }
+    const actionable = lastOp === 'approve'
+      ? ['submitted', 'revised']
+      : ['submitted', 'approved'];
+    const eligible = selected.filter(cb => actionable.includes(cb.dataset.status));
+
+    let msg = lastOp === 'revise' ? 'Kirim balik untuk revisi?' : null;
+    if (eligible.length === 0) {
+      msg = lastOp === 'approve'
+        ? 'Tidak ada satupun baris terpilih yang berstatus Diajukan/Revisi — tidak akan ada yang disetujui. Tetap lanjut?'
+        : 'Tidak ada satupun baris terpilih yang bisa dikembalikan untuk revisi. Tetap lanjut?';
+    } else if (eligible.length < selected.length) {
+      const skip = selected.length - eligible.length;
+      const base = lastOp === 'revise' ? 'Kirim balik untuk revisi?' : 'Setujui baris terpilih?';
+      msg = `${base} (${skip} dari ${selected.length} baris terpilih berstatus tidak relevan dan akan dilewati.)`;
+    }
+    if (msg && !confirm(msg)) e.preventDefault();
   });
 })();
 </script>

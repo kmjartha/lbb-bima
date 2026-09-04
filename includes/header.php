@@ -119,6 +119,7 @@ if (!empty($_SESSION['_fresh_login'])) {
           'rapor'     => '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h5M9 9h3"/>',
           'template'  => '<rect x="3" y="3" width="18" height="6" rx="1"/><rect x="3" y="11" width="8" height="10" rx="1"/><rect x="13" y="11" width="8" height="10" rx="1"/>',
           'audit'     => '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+          'send'      => '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
         ];
         $p = $paths[$name] ?? $paths['list'];
         return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' . $p . '</svg>';
@@ -154,6 +155,7 @@ if (!empty($_SESSION['_fresh_login'])) {
           ['elective_assignment','elective_assignment.php','Penempatan Mapel Pilihan','star'],
           ['final_grades',       'final_grades.php',       'Nilai Akhir PTS/PAS', 'medal'],
           ['final_grades_review','final_grades_review.php','Verifikasi Nilai',    'verify'],
+          ['publish_rapor',      'publish_rapor.php',      'Publish Rapor',       'send'],
         ],
         'Catatan & Karakter' => [
           ['character_eval',         'character_eval.php',         'Character Evaluation', 'shield'],
