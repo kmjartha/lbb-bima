@@ -215,7 +215,7 @@ $fgStatuses = fg_statuses();
         <thead>
           <tr>
             <th>Kelas</th>
-            <th style="width:220px">Status Mapel (info)</th>
+            <th style="width:220px">Status Mapel</th>
             <th style="width:200px">Status Publish Rapor</th>
             <th style="width:200px"></th>
           </tr>
