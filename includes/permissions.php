@@ -19,6 +19,9 @@
  *                     the jenjang-wide view-only access above, and is enforced at the
  *                     page level (see grading_helpers.php: teaching_subjects_for_rombel,
  *                     user_teaches_subject_in_rombel).
+ *                     ALSO: view-only on Rapor Siswa (jenjang) — can select
+ *                     a rombel/student and view/print/download the report,
+ *                     but not edit it.
  *   - guru          : Single-view, scoped by assignment. Full on subjek penilaian,
  *                     penilaian harian, rekap nilai harian, nilai akhir PTS/PAS.
  *   - guru (wali=1) : All of guru, plus full access to absensi harian, rekap absensi,
@@ -91,7 +94,11 @@ function _permission_matrix(): array
 
         // ---------- Rapor & Leger ----------
         'leger'             => ['view' => ['administrator','admin','kepsek','guru'], 'edit' => ['administrator','guru']],
-        'rapor'             => ['view' => ['administrator','guru'],                  'edit' => ['administrator','guru']],
+        // Rapor Siswa: kepsek boleh lihat & download/print (read-only, tidak
+        // edit data rapor), dibatasi ke rombel jenjang-nya sendiri via
+        // accessible_rombel() (lihat attendance_helpers.php). Guru tetap
+        // full akses (wali-only, lihat _wali_only_features()).
+        'rapor'             => ['view' => ['administrator','kepsek','guru'],         'edit' => ['administrator','guru']],
 
 
     ];
