@@ -51,9 +51,11 @@ if (in_array($__role, ['kepsek','administrator','admin'], true)) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= esc($__title) ?> · <?= esc(cfg()['app_name']) ?></title>
-<link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>">
+<?php $__css_path = __DIR__ . '/../assets/css/design-system.css'; ?>
+<link rel="stylesheet" href="<?= esc(url('../assets/css/design-system.css')) ?>?v=<?= file_exists($__css_path) ? filemtime($__css_path) : time() ?>">
 <link rel="icon" type="image/x-icon" href="<?= esc(url('../assets/img/logo.png')) ?>">
-<script defer src="<?= esc(url('../assets/js/app.js')) ?>"></script>
+<?php $__js_path = __DIR__ . '/../assets/js/app.js'; ?>
+<script defer src="<?= esc(url('../assets/js/app.js')) ?>?v=<?= file_exists($__js_path) ? filemtime($__js_path) : time() ?>"></script>
 <?php
 // Set flag in sessionStorage on fresh login so sidebar scrolls to top
 if (!empty($_SESSION['_fresh_login'])) {
