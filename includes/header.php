@@ -159,7 +159,10 @@ if (!empty($_SESSION['_fresh_login'])) {
           ['teacher_grading_review','teacher_grading_review.php','Review Pengisian Guru','pulse'],
           ['elective_assignment','elective_assignment.php','Penempatan Mapel Pilihan','star'],
           ['final_grades',       'final_grades.php',       'Nilai Akhir PTS/PAS', 'medal'],
-          ['final_grades_review','final_grades_review.php','Verifikasi Nilai',    'verify'],
+          ['verifikasi', null, 'Verifikasi', 'verify', [
+            ['final_grades_review',  'final_grades_review.php',  'Nilai',           'medal'],
+            ['general_eval_review',  'general_eval_review.php',  'Deskripsi Umum',  'note'],
+          ]],
           ['publish_rapor',      'publish_rapor.php',      'Publish Rapor',       'send'],
         ],
         'Catatan & Karakter' => [
@@ -177,21 +180,62 @@ if (!empty($_SESSION['_fresh_login'])) {
         ],
       ];
       foreach ($__nav as $group => $items):
-        $visible = array_values(array_filter($items, fn($it) => can_view($it[0], $__user)));
+        // Resolve visibility for both plain items ([feat,href,label,icon])
+        // and grouped items with a sub-menu ([key,null,label,icon,children]),
+        // e.g. "Verifikasi" -> Nilai / Deskripsi Umum. A grouped item is
+        // visible if the user can view at least one of its children.
+        $visible = [];
+        foreach ($items as $it) {
+          if (isset($it[4]) && is_array($it[4])) {
+            $children = array_values(array_filter($it[4], fn($c) => can_view($c[0], $__user)));
+            if ($children) $visible[] = [$it[0], $it[1], $it[2], $it[3], $children];
+          } elseif (can_view($it[0], $__user)) {
+            $visible[] = $it;
+          }
+        }
         if (!$visible) continue;
     ?>
       <div class="nav-group"><?= esc($group) ?></div>
-      <?php foreach ($visible as $it):
-        [$feat, $href, $label, $ikey] = $it;
-        $needle = basename($href);
-      ?>
-        <a class="nav-item <?= nav_active($needle) ?>" href="<?= esc(url($href)) ?>">
-          <?= $icon($ikey) ?>
-          <span class="nav-label"><?= esc($label) ?></span>
-          <?php if (is_view_only($feat, $__user)): ?>
-            <span class="badge badge-info" style="margin-left:.4rem; font-size:10px">view</span>
-          <?php endif; ?>
-        </a>
+      <?php foreach ($visible as $it): ?>
+        <?php if (isset($it[4]) && is_array($it[4])):
+          $children = $it[4];
+          $childActive = false;
+          foreach ($children as $c) { if (nav_active(basename($c[1])) === 'is-active') { $childActive = true; break; } }
+          $groupKey = 'navgrp_' . $it[0];
+        ?>
+          <div class="nav-collapsible<?= $childActive ? ' is-open' : '' ?>" data-nav-collapsible="<?= esc($groupKey) ?>">
+            <button type="button" class="nav-item nav-item-parent<?= $childActive ? ' is-active' : '' ?>" data-nav-toggle aria-expanded="<?= $childActive ? 'true' : 'false' ?>">
+              <?= $icon($it[3]) ?>
+              <span class="nav-label"><?= esc($it[2]) ?></span>
+              <svg class="ico nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+            <div class="nav-children">
+              <?php foreach ($children as $c):
+                [$cfeat, $chref, $clabel, $cikey] = $c;
+                $cneedle = basename($chref);
+              ?>
+                <a class="nav-item nav-child <?= nav_active($cneedle) ?>" href="<?= esc(url($chref)) ?>">
+                  <?= $icon($cikey) ?>
+                  <span class="nav-label"><?= esc($clabel) ?></span>
+                  <?php if (is_view_only($cfeat, $__user)): ?>
+                    <span class="badge badge-info" style="margin-left:.4rem; font-size:10px">view</span>
+                  <?php endif; ?>
+                </a>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php else:
+          [$feat, $href, $label, $ikey] = $it;
+          $needle = basename($href);
+        ?>
+          <a class="nav-item <?= nav_active($needle) ?>" href="<?= esc(url($href)) ?>">
+            <?= $icon($ikey) ?>
+            <span class="nav-label"><?= esc($label) ?></span>
+            <?php if (is_view_only($feat, $__user)): ?>
+              <span class="badge badge-info" style="margin-left:.4rem; font-size:10px">view</span>
+            <?php endif; ?>
+          </a>
+        <?php endif; ?>
       <?php endforeach; ?>
     <?php endforeach; ?>
   </nav>

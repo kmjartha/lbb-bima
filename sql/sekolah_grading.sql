@@ -1592,7 +1592,13 @@ CREATE TABLE `general_evaluations` (
   `student_id` int(10) UNSIGNED NOT NULL,
   `semester` enum('ganjil','genap') NOT NULL,
   `period_kind` enum('PTS','PAS') NOT NULL,
-  `narasi` text DEFAULT NULL
+  `narasi` text DEFAULT NULL,
+  `status` enum('draft','submitted','revised','approved') NOT NULL DEFAULT 'draft',
+  `submitted_by` int(10) UNSIGNED DEFAULT NULL,
+  `reviewed_by` int(10) UNSIGNED DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -8533,7 +8539,9 @@ ALTER TABLE `final_grades`
 ALTER TABLE `general_evaluations`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_ge` (`rombel_id`,`student_id`,`semester`,`period_kind`),
-  ADD KEY `fk_ge_s` (`student_id`);
+  ADD KEY `fk_ge_s` (`student_id`),
+  ADD KEY `fk_ge_u` (`reviewed_by`),
+  ADD KEY `fk_ge_submitted_by` (`submitted_by`);
 
 --
 -- Indexes for table `grades_daily`
@@ -9007,7 +9015,9 @@ ALTER TABLE `final_grades`
 --
 ALTER TABLE `general_evaluations`
   ADD CONSTRAINT `fk_ge_r` FOREIGN KEY (`rombel_id`) REFERENCES `rombel` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_ge_s` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_ge_s` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_ge_submitted_by` FOREIGN KEY (`submitted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_ge_u` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `grades_daily`

@@ -82,21 +82,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg .= " $skipped baris dilewati ($reason).";
         }
         flash($changed > 0 ? 'success' : 'error', $msg);
-        redirect('final_grades_review.php');
+        $backTo = 'final_grades_review.php';
+        $backGuru = (string)($_POST['guru'] ?? '');
+        if ($backGuru !== '') $backTo .= '?guru=' . urlencode($backGuru);
+        redirect($backTo);
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
 
 $queue = review_queue($user, $sc['semester'], $sc['period'], $sc['year_id']);
 $queueBySubmitter = [];
 foreach ($queue as $r) {
-    $uid = $r['submitted_by'] ? 'user_'.$r['submitted_by'] : 'unknown';
+    $uid = $r['guru_pengampu_id'] ? 'guru_'.$r['guru_pengampu_id'] : 'unknown';
     if (!isset($queueBySubmitter[$uid])) {
-        $label = $r['submitted_by_name']
-            ? $r['submitted_by_name'] . ($r['submitted_by_niy'] ? ' · '.$r['submitted_by_niy'] : '')
-            : 'Pengaju tidak diketahui';
+        $label = $r['guru_pengampu_nama']
+            ? $r['guru_pengampu_nama'] . ($r['guru_pengampu_niy'] ? ' · '.$r['guru_pengampu_niy'] : '')
+            : 'Guru pengampu tidak diketahui';
         $queueBySubmitter[$uid] = ['label'=>$label, 'rows'=>[]];
     }
     $queueBySubmitter[$uid]['rows'][] = $r;
+}
+
+// Flow: tampilkan daftar guru pengampu (yang mengajukan nilai) dulu, baru
+// setelah klik "Detail" tampilkan tabel siswa untuk guru tersebut.
+$selectedGuru = (string)($_GET['guru'] ?? '');
+if ($selectedGuru !== '' && !isset($queueBySubmitter[$selectedGuru])) {
+    $selectedGuru = ''; // sudah tidak ada baris menunggu utk guru ini
 }
 
 // Lock state — now per-semester (PTS/PAS no longer lockable separately)
@@ -142,143 +152,182 @@ $fgStatuses = fg_statuses();
 
 <?php if (!$queue): ?>
   <div class="card mt-4"><div class="card-body"><div class="empty">Tidak ada nilai akhir yang sedang menunggu verifikasi atau publikasi pada periode &amp; semester aktif.</div></div></div>
-<?php else: ?>
-<form method="post" id="rvForm">
-  <?= csrf_field() ?>
+
+<?php elseif ($selectedGuru === ''): ?>
+  <!-- Langkah 1: daftar guru pengampu yang mengajukan nilai -->
   <div class="card mt-4">
     <div class="card-body">
-      <div class="row mb-2" style="gap:.5rem; flex-wrap:wrap">
-        <button class="btn btn-success btn-sm" type="submit" name="op" value="approve" id="btnApprove">✅ Setujui Terpilih</button>
-        <button class="btn btn-warning btn-sm" type="submit" name="op" value="revise" id="btnRevise">↩ Minta Revisi</button>
-        <span class="text-sm text-muted" style="align-self:center">Setujui hanya untuk baris ber-status <em>diajukan/revisi</em>; minta revisi bisa dari <em>disetujui</em>. Mengubah status di sini <strong>tidak</strong> memengaruhi rapor yang sudah terbit ke ortu — visibilitas rapor diatur terpisah di <a href="<?= esc(url('publish_rapor.php')) ?>">Publish Rapor →</a>.</span>
-      </div>
-      <div class="row mb-3" style="gap:.5rem; flex-wrap:wrap; align-items:center">
-        <span class="text-xs text-muted">Pilih cepat:</span>
-        <button type="button" class="btn btn-ghost btn-sm" data-quicksel="submitted,revised">Yang perlu disetujui</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-quicksel="approved">Yang sudah disetujui</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-quicksel="">Kosongkan pilihan</button>
-      </div>
-
-      <?php foreach ($queueBySubmitter as $group): ?>
-        <div class="card mb-4">
-          <div class="card-body">
-            <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem">
-              <div>
-                <strong>Diajukan oleh</strong>: <?= esc($group['label']) ?>
-                <span class="text-xs text-muted">(<?= count($group['rows']) ?> baris)</span>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table class="t">
-                <thead>
-                  <tr>
-                    <th style="width:36px"><input type="checkbox" class="selAll"></th>
-                    <th>Rombel</th>
-                    <th>Mapel</th>
-                    <th>Siswa</th>
-                    <th style="width:70px"><span class="badge badge-info">Sikap</span></th>
-                    <th style="width:90px"><span class="badge badge-primary">Pengetahuan</span></th>
-                    <th style="width:90px"><span class="badge badge-success">Keterampilan</span></th>
-                    <th style="width:80px">Σ</th>
-                    <th style="width:100px">Status</th>
-                    <th>Catatan Guru</th>
-                  </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($group['rows'] as $r):
-                  $vals = array_filter([$r['nilai_sikap'],$r['nilai_pengetahuan'],$r['nilai_keterampilan']], fn($x)=>$x!==null);
-                  $avg  = $vals ? array_sum(array_map('floatval',$vals))/count($vals) : null;
-                  $pk   = kkm_predikat($r['jenjang'], $avg);
-                  $rowKkm = subject_kkm_for((int)$r['subject_id'], (int)$r['tingkat']);
-                  $stInfo = $fgStatuses[$r['status']] ?? $fgStatuses['draft'];
+      <div class="table-wrap">
+        <table class="t">
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th style="width:110px" class="text-center">Jumlah Baris</th>
+              <th style="width:260px">Status</th>
+              <th style="width:100px"></th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php foreach ($queueBySubmitter as $uid => $group):
+            $counts = ['submitted' => 0, 'revised' => 0, 'approved' => 0];
+            foreach ($group['rows'] as $r) { if (isset($counts[$r['status']])) $counts[$r['status']]++; }
+          ?>
+            <tr>
+              <td><strong><?= esc($group['label']) ?></strong></td>
+              <td class="text-center"><?= count($group['rows']) ?></td>
+              <td>
+                <?php foreach (['submitted', 'revised', 'approved'] as $stKey): if (!$counts[$stKey]) continue;
+                  $stInfo = $fgStatuses[$stKey];
                 ?>
-                  <tr>
-                    <td class="text-center"><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" class="rowSel" data-status="<?= esc($r['status']) ?>"></td>
-                    <td><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['rombel_nama']) ?></td>
-                    <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').elective_subject_label($r['subj_nama'], $r['elective_kode'] ?? null)) ?></td>
-                    <td>
-                      <strong><?= esc($r['student_nama']) ?></strong>
-                      <div class="text-xs text-muted"><?= esc($r['nis']) ?></div>
-                    </td>
-                    <td class="text-center"><?= $r['nilai_sikap']!==null?esc((string)(float)$r['nilai_sikap']):'—' ?></td>
-                    <td class="text-center"><?= $r['nilai_pengetahuan']!==null?esc((string)(float)$r['nilai_pengetahuan']):'—' ?></td>
-                    <td class="text-center"><?= $r['nilai_keterampilan']!==null?esc((string)(float)$r['nilai_keterampilan']):'—' ?></td>
-                    <td class="text-center<?= kkm_below($avg, $rowKkm) ? ' cell-kkm-below' : '' ?>">
-                      <?php if ($avg !== null): ?>
-                        <strong class="<?= kkm_below($avg, $rowKkm) ? 'text-kkm-below' : '' ?>"><?= esc((string)round($avg,2)) ?></strong>
-                        <div class="text-xs text-muted"><?= esc($pk['grade']) ?></div>
-                      <?php else: ?>—<?php endif; ?>
-                    </td>
-                    <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
-                    <td class="text-sm"><?= esc((string)$r['catatan_guru']) ?></td>
-                  </tr>
+                  <span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?> <?= (int)$counts[$stKey] ?></span>
                 <?php endforeach; ?>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      <?php endforeach; ?>
+              </td>
+              <td class="text-right">
+                <a class="btn btn-primary btn-sm" href="<?= esc(url('final_grades_review.php?guru=' . urlencode((string)$uid))) ?>">Detail →</a>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-</form>
 
-<script>
-(function(){
-  const form = document.getElementById('rvForm');
+<?php else: ?>
+  <!-- Langkah 2: detail siswa untuk 1 guru pengampu terpilih -->
+  <?php $group = $queueBySubmitter[$selectedGuru]; ?>
+  <div class="row mb-3">
+    <a class="btn btn-ghost btn-sm" href="<?= esc(url('final_grades_review.php')) ?>">← Kembali ke daftar guru</a>
+  </div>
+  <form method="post" id="rvForm">
+    <?= csrf_field() ?>
+    <input type="hidden" name="guru" value="<?= esc($selectedGuru) ?>">
+    <div class="card">
+      <div class="card-body">
+        <div class="row mb-2" style="gap:.5rem; flex-wrap:wrap">
+          <button class="btn btn-success btn-sm" type="submit" name="op" value="approve" id="btnApprove">✅ Setujui Terpilih</button>
+          <button class="btn btn-warning btn-sm" type="submit" name="op" value="revise" id="btnRevise">↩ Minta Revisi</button>
+          <span class="text-sm text-muted" style="align-self:center">Setujui hanya untuk baris ber-status <em>diajukan/revisi</em>; minta revisi bisa dari <em>disetujui</em>. Mengubah status di sini <strong>tidak</strong> memengaruhi rapor yang sudah terbit ke ortu — visibilitas rapor diatur terpisah di <a href="<?= esc(url('publish_rapor.php')) ?>">Publish Rapor →</a>.</span>
+        </div>
+        <div class="row mb-3" style="gap:.5rem; flex-wrap:wrap; align-items:center">
+          <span class="text-xs text-muted">Pilih cepat:</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-quicksel="submitted,revised">Yang perlu disetujui</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-quicksel="approved">Yang sudah disetujui</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-quicksel="">Kosongkan pilihan</button>
+        </div>
 
-  document.querySelectorAll('.selAll').forEach(all => {
-    const table = all.closest('table');
-    all.addEventListener('change', () => {
-      if (!table) return;
-      table.querySelectorAll('.rowSel').forEach(cb => cb.checked = all.checked);
-    });
-  });
+        <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem">
+          <div>
+            <strong><?= esc($group['label']) ?></strong>
+            <span class="text-xs text-muted">(<?= count($group['rows']) ?> baris)</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="t">
+            <thead>
+              <tr>
+                <th style="width:36px"><input type="checkbox" class="selAll"></th>
+                <th>Rombel</th>
+                <th>Mapel</th>
+                <th>Siswa</th>
+                <th style="width:70px"><span class="badge badge-info">Sikap</span></th>
+                <th style="width:90px"><span class="badge badge-primary">Pengetahuan</span></th>
+                <th style="width:90px"><span class="badge badge-success">Keterampilan</span></th>
+                <th style="width:80px">Σ</th>
+                <th style="width:100px">Status</th>
+                <th>Catatan Guru</th>
+              </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($group['rows'] as $r):
+              $vals = array_filter([$r['nilai_sikap'],$r['nilai_pengetahuan'],$r['nilai_keterampilan']], fn($x)=>$x!==null);
+              $avg  = $vals ? array_sum(array_map('floatval',$vals))/count($vals) : null;
+              $pk   = kkm_predikat($r['jenjang'], $avg);
+              $rowKkm = subject_kkm_for((int)$r['subject_id'], (int)$r['tingkat']);
+              $stInfo = $fgStatuses[$r['status']] ?? $fgStatuses['draft'];
+            ?>
+              <tr>
+                <td class="text-center"><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" class="rowSel" data-status="<?= esc($r['status']) ?>"></td>
+                <td><?= esc($r['jenjang'].' '.$r['tingkat'].' · '.$r['rombel_nama']) ?></td>
+                <td><?= esc(($r['subj_kode']?$r['subj_kode'].' · ':'').elective_subject_label($r['subj_nama'], $r['elective_kode'] ?? null)) ?></td>
+                <td>
+                  <strong><?= esc($r['student_nama']) ?></strong>
+                  <div class="text-xs text-muted"><?= esc($r['nis']) ?></div>
+                </td>
+                <td class="text-center"><?= $r['nilai_sikap']!==null?esc((string)(float)$r['nilai_sikap']):'—' ?></td>
+                <td class="text-center"><?= $r['nilai_pengetahuan']!==null?esc((string)(float)$r['nilai_pengetahuan']):'—' ?></td>
+                <td class="text-center"><?= $r['nilai_keterampilan']!==null?esc((string)(float)$r['nilai_keterampilan']):'—' ?></td>
+                <td class="text-center<?= kkm_below($avg, $rowKkm) ? ' cell-kkm-below' : '' ?>">
+                  <?php if ($avg !== null): ?>
+                    <strong class="<?= kkm_below($avg, $rowKkm) ? 'text-kkm-below' : '' ?>"><?= esc((string)round($avg,2)) ?></strong>
+                    <div class="text-xs text-muted"><?= esc($pk['grade']) ?></div>
+                  <?php else: ?>—<?php endif; ?>
+                </td>
+                <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
+                <td class="text-sm"><?= esc((string)$r['catatan_guru']) ?></td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </form>
 
-  // Tombol "pilih cepat": mencentang hanya baris dengan status yang relevan,
-  // di SEMUA tabel/mapel sekaligus — supaya kepsek tidak perlu klik satu-satu
-  // dan tidak salah pilih baris yang statusnya sudah tidak actionable.
-  document.querySelectorAll('[data-quicksel]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const wanted = btn.dataset.quicksel ? btn.dataset.quicksel.split(',') : [];
-      form.querySelectorAll('.rowSel').forEach(cb => {
-        cb.checked = wanted.includes(cb.dataset.status);
+  <script>
+  (function(){
+    const form = document.getElementById('rvForm');
+
+    document.querySelectorAll('.selAll').forEach(all => {
+      const table = all.closest('table');
+      all.addEventListener('change', () => {
+        if (!table) return;
+        table.querySelectorAll('.rowSel').forEach(cb => cb.checked = all.checked);
       });
     });
-  });
 
-  // Validasi sebelum submit: kalau ada baris terpilih yang statusnya sudah
-  // tidak relevan untuk aksi yang ditekan, beri tahu di muka alih-alih
-  // membiarkannya dilewati diam-diam di server.
-  let lastOp = null;
-  document.getElementById('btnApprove')?.addEventListener('click', () => { lastOp = 'approve'; });
-  document.getElementById('btnRevise')?.addEventListener('click', () => { lastOp = 'revise'; });
+    // Tombol "pilih cepat": mencentang hanya baris dengan status yang relevan.
+    document.querySelectorAll('[data-quicksel]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const wanted = btn.dataset.quicksel ? btn.dataset.quicksel.split(',') : [];
+        form.querySelectorAll('.rowSel').forEach(cb => {
+          cb.checked = wanted.includes(cb.dataset.status);
+        });
+      });
+    });
 
-  form?.addEventListener('submit', function (e) {
-    const selected = Array.from(form.querySelectorAll('.rowSel:checked'));
-    if (!selected.length) {
-      alert('Pilih minimal satu baris terlebih dahulu.');
-      e.preventDefault();
-      return;
-    }
-    const actionable = lastOp === 'approve'
-      ? ['submitted', 'revised']
-      : ['submitted', 'approved'];
-    const eligible = selected.filter(cb => actionable.includes(cb.dataset.status));
+    // Validasi sebelum submit: kalau ada baris terpilih yang statusnya sudah
+    // tidak relevan untuk aksi yang ditekan, beri tahu di muka alih-alih
+    // membiarkannya dilewati diam-diam di server.
+    let lastOp = null;
+    document.getElementById('btnApprove')?.addEventListener('click', () => { lastOp = 'approve'; });
+    document.getElementById('btnRevise')?.addEventListener('click', () => { lastOp = 'revise'; });
 
-    let msg = lastOp === 'revise' ? 'Kirim balik untuk revisi?' : null;
-    if (eligible.length === 0) {
-      msg = lastOp === 'approve'
-        ? 'Tidak ada satupun baris terpilih yang berstatus Diajukan/Revisi — tidak akan ada yang disetujui. Tetap lanjut?'
-        : 'Tidak ada satupun baris terpilih yang bisa dikembalikan untuk revisi. Tetap lanjut?';
-    } else if (eligible.length < selected.length) {
-      const skip = selected.length - eligible.length;
-      const base = lastOp === 'revise' ? 'Kirim balik untuk revisi?' : 'Setujui baris terpilih?';
-      msg = `${base} (${skip} dari ${selected.length} baris terpilih berstatus tidak relevan dan akan dilewati.)`;
-    }
-    if (msg && !confirm(msg)) e.preventDefault();
-  });
-})();
-</script>
+    form?.addEventListener('submit', function (e) {
+      const selected = Array.from(form.querySelectorAll('.rowSel:checked'));
+      if (!selected.length) {
+        alert('Pilih minimal satu baris terlebih dahulu.');
+        e.preventDefault();
+        return;
+      }
+      const actionable = lastOp === 'approve'
+        ? ['submitted', 'revised']
+        : ['submitted', 'approved'];
+      const eligible = selected.filter(cb => actionable.includes(cb.dataset.status));
+
+      let msg = lastOp === 'revise' ? 'Kirim balik untuk revisi?' : null;
+      if (eligible.length === 0) {
+        msg = lastOp === 'approve'
+          ? 'Tidak ada satupun baris terpilih yang berstatus Diajukan/Revisi — tidak akan ada yang disetujui. Tetap lanjut?'
+          : 'Tidak ada satupun baris terpilih yang bisa dikembalikan untuk revisi. Tetap lanjut?';
+      } else if (eligible.length < selected.length) {
+        const skip = selected.length - eligible.length;
+        const base = lastOp === 'revise' ? 'Kirim balik untuk revisi?' : 'Setujui baris terpilih?';
+        msg = `${base} (${skip} dari ${selected.length} baris terpilih berstatus tidak relevan dan akan dilewati.)`;
+      }
+      if (msg && !confirm(msg)) e.preventDefault();
+    });
+  })();
+  </script>
 <?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

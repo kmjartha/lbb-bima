@@ -141,7 +141,9 @@ function review_queue(array $user, string $semester, string $period, ?int $yearI
                r.jenjang, r.tingkat, r.nama AS rombel_nama,
                sb.kode AS subj_kode, sb.nama AS subj_nama, e.kode AS elective_kode,
                st.nis, st.nisn, st.nama AS student_nama,
-               u.nama AS submitted_by_name, u.niy AS submitted_by_niy
+               u.nama AS submitted_by_name, u.niy AS submitted_by_niy,
+               COALESCE(ec.teacher_id, rst_sem.teacher_id, rst_any.teacher_id) AS guru_pengampu_id,
+               gu.nama AS guru_pengampu_nama, gu.niy AS guru_pengampu_niy
         FROM final_grades fg
         JOIN rombel   r  ON r.id  = fg.rombel_id
         JOIN subjects sb ON sb.id = fg.subject_id
@@ -149,6 +151,18 @@ function review_queue(array $user, string $semester, string $period, ?int $yearI
         LEFT JOIN electives e ON e.id = ec.elective_id
         JOIN students st ON st.id = fg.student_id
         LEFT JOIN users u ON u.id = fg.submitted_by
+        -- Guru pengampu yang sebenarnya (bukan sekadar siapa yang submit):
+        -- untuk mapel pilihan pakai elective_classes.teacher_id, untuk mapel
+        -- reguler pakai rombel_subject_teachers (prioritaskan baris khusus
+        -- semester berjalan, baru fallback ke baris berlaku-semua-semester).
+        LEFT JOIN rombel_subject_teachers rst_sem
+               ON rst_sem.rombel_id = fg.rombel_id AND rst_sem.subject_id = fg.subject_id
+              AND rst_sem.semester = fg.semester
+        LEFT JOIN rombel_subject_teachers rst_any
+               ON rst_any.rombel_id = fg.rombel_id AND rst_any.subject_id = fg.subject_id
+              AND rst_any.semester IS NULL
+        LEFT JOIN teachers gt ON gt.id = COALESCE(ec.teacher_id, rst_sem.teacher_id, rst_any.teacher_id)
+        LEFT JOIN users gu ON gu.id = gt.user_id
         WHERE fg.semester=:sem AND fg.period_kind=:p
           AND fg.status IN ('submitted','revised','approved')
           AND r.academic_year_id = :y";
@@ -158,7 +172,7 @@ function review_queue(array $user, string $semester, string $period, ?int $yearI
         $params['j'] = $user['jenjang'];
     }
     $sql .= " ORDER BY CASE fg.status WHEN 'submitted' THEN 0 WHEN 'revised' THEN 1 WHEN 'approved' THEN 2 ELSE 3 END,
-                      COALESCE(u.nama, 'zzz'), r.jenjang, r.tingkat, r.nama, sb.nama, st.nama";
+                      COALESCE(gu.nama, 'zzz'), r.jenjang, r.tingkat, r.nama, sb.nama, st.nama";
     $st = db()->prepare($sql);
     $st->execute($params);
     return $st->fetchAll();
