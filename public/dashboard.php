@@ -30,6 +30,7 @@ if ($role === 'administrator') {
 }
 
 $kepsekPending = ($role === 'kepsek') ? notif_pending_review_list($me['jenjang'] ?? null, 6, (int)$sc['year_id']) : [];
+$guruRevised   = ($role === 'guru') ? notif_revised_list($me, 6, (int)$sc['year_id']) : [];
 $todayByAction = ($role === 'administrator') ? audit_today_by_action(8) : [];
 
 $page_title = 'Dashboard';
@@ -203,6 +204,36 @@ if (in_array($role, ['guru', 'kepsek'], true)) {
             <td><strong><?= esc($n['subj_nama']) ?></strong> <span class="text-xs text-muted">· <?= esc($n['subj_kode']) ?></span></td>
             <td><span class="badge"><?= esc(ucfirst($n['semester']) . ' ' . $n['period_kind']) ?></span></td>
             <td style="text-align:right"><strong><?= (int)$n['n_rows'] ?></strong></td>
+            <td class="text-sm text-muted"><?= esc(date('d M Y H:i', strtotime($n['last_at']))) ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
+
+<!-- ============== Guru/Guru Wali: nilai perlu revisi ============== -->
+<?php if ($role === 'guru'): ?>
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">↩ Nilai PTS/PAS Perlu Direvisi</h3>
+    <a class="btn btn-ghost btn-sm" href="<?= esc(url('final_grades.php')) ?>">Buka Nilai Akhir →</a>
+  </div>
+  <div class="table-wrap">
+    <table class="t">
+      <thead><tr><th>Rombel</th><th>Mata Pelajaran</th><th>Periode</th><th style="text-align:right">Siswa</th><th>Direvisi Oleh</th><th>Waktu</th></tr></thead>
+      <tbody>
+        <?php if (!$guruRevised): ?>
+          <tr><td colspan="6"><div class="empty">🎉 Tidak ada nilai yang dikembalikan untuk revisi.</div></td></tr>
+        <?php endif; ?>
+        <?php foreach ($guruRevised as $n): ?>
+          <tr>
+            <td><?= esc($n['jenjang'] . ' ' . $n['rombel_nama']) ?></td>
+            <td><strong><?= esc($n['subj_nama']) ?></strong> <span class="text-xs text-muted">· <?= esc($n['subj_kode']) ?></span></td>
+            <td><span class="badge badge-warning"><?= esc(ucfirst($n['semester']) . ' ' . $n['period_kind']) ?></span></td>
+            <td style="text-align:right"><strong><?= (int)$n['n_rows'] ?></strong></td>
+            <td class="text-sm text-muted"><?= esc($n['reviewer_nama'] ?? '—') ?></td>
             <td class="text-sm text-muted"><?= esc(date('d M Y H:i', strtotime($n['last_at']))) ?></td>
           </tr>
         <?php endforeach; ?>

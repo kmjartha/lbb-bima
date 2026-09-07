@@ -257,15 +257,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel && $sid) {
                 $ca = $ca === '' ? null : mb_substr($ca, 0, 1000);
 
                 $shouldRequireNote = false;
-                if ($cur && !in_array($cur['status'], ['approved','published'], true)) {
-                    $shouldRequireNote = true;
-                } elseif ($si !== null || $pe !== null || $ke !== null || (!empty($_FILES['img']['tmp_name'][$msid]) && !empty($_FILES['img']['tmp_name'][$msid]))) {
-                    $shouldRequireNote = true;
-                } elseif ($op === 'submit' && !empty($sel[$msid])) {
+                if ($op === 'submit') {
+                    // Di titik ini baris yang tidak dicentang sudah di-skip
+                    // (lihat continue di atas), jadi kalau op==='submit' berarti
+                    // siswa ini memang sedang diajukan dan wajib punya catatan.
                     $shouldRequireNote = true;
                 }
                 if ($shouldRequireNote && $ca === null) {
-                    throw new RuntimeException('Catatan guru wajib diisi untuk siswa ' . $m['nama'] . '.');
+                    throw new RuntimeException('Catatan guru wajib diisi untuk siswa ' . $m['nama'] . ' sebelum diajukan ke Kepsek.');
                 }
 
                 // Proses Upload Gambar
@@ -487,7 +486,7 @@ $fgStatuses = fg_statuses();
 
       <?php if (!$ro): ?>
         <div class="between mt-4">
-          <span class="text-sm text-muted">Catatan guru wajib diisi untuk siswa yang akan disimpan atau diajukan. Centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek" — hanya baris yang dicentang yang diwajibkan melengkapi catatan. "Simpan" hanya menyimpan draft tanpa ubah status. File foto (opsional) akan langsung tersimpan.</span>
+          <span class="text-sm text-muted">"Simpan Draft" boleh sebagian/satu per satu — catatan guru tidak wajib dan tidak memengaruhi siswa lain. Catatan guru baru diwajibkan saat mengajukan ke Kepsek: centang baris yang akan diajukan, lalu klik "Ajukan ke Kepsek" — hanya baris yang dicentang yang wajib melengkapi catatan. File foto (opsional) akan langsung tersimpan.</span>
           <div class="row" style="gap:.5rem">
             <button class="btn btn-secondary" type="submit" name="op" value="save">💾 Simpan Draft</button>
             <button class="btn btn-primary"   type="submit" name="op" value="submit">📤 Ajukan ke Kepsek</button>

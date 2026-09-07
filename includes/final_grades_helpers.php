@@ -197,10 +197,75 @@ function publish_overview_rows(array $user, string $semester, string $period, ?i
         $sql .= " AND fg.rombel_id = :rid";
         $params['rid'] = $rombelId;
     }
-    $sql .= " ORDER BY r.jenjang, r.tingkat, r.nama, st.nama, sb.nama";
     $st = db()->prepare($sql);
     $st->execute($params);
-    return $st->fetchAll();
+    $rows = $st->fetchAll();
+
+    $existing = [];
+    foreach ($rows as $r) {
+        $existing[$r['rombel_id'] . '-' . $r['subject_id'] . '-' . $r['student_id']] = true;
+    }
+
+    // Tambahan: mapel-siswa yang SEHARUSNYA ada (berdasarkan penugasan mapel
+    // ke rombel + keanggotaan siswa, difilter elective) tapi belum PERNAH
+    // disimpan sama sekali oleh guru (tidak ada baris final_grades). Baris ini
+    // ditambahkan sebagai semu (id null, status 'draft') supaya "rincian
+    // mapel" dan hitungan X/Y per siswa juga mencakup mapel yang belum
+    // digarap guru, bukan cuma yang sudah sempat tersimpan sebagai draft.
+    $sql2 =
+       "SELECT rst.rombel_id, rst.subject_id, rm.student_id,
+               r.jenjang, r.tingkat, r.nama AS rombel_nama,
+               sb.kode AS subj_kode, sb.nama AS subj_nama, e.kode AS elective_kode,
+               st.nis, st.nisn, st.nama AS student_nama
+        FROM rombel_subject_teachers rst
+        JOIN rombel   r  ON r.id = rst.rombel_id AND r.academic_year_id = :y
+        JOIN subjects sb ON sb.id = rst.subject_id AND sb.deleted_at IS NULL AND sb.academic_year_id = :y2
+        LEFT JOIN elective_classes ec ON ec.id = sb.elective_class_id
+        LEFT JOIN electives e ON e.id = ec.elective_id
+        JOIN rombel_members rm ON rm.rombel_id = rst.rombel_id
+        JOIN students st ON st.id = rm.student_id AND st.deleted_at IS NULL
+        LEFT JOIN elective_assignments ea ON ea.student_id = rm.student_id
+               AND ea.elective_class_id = sb.elective_class_id AND ea.semester = :sem
+        WHERE (rst.semester IS NULL OR rst.semester = :sem2)
+          AND (sb.elective_class_id IS NULL OR ea.student_id IS NOT NULL)";
+    $params2 = ['y' => $yearId, 'y2' => $yearId, 'sem' => $semester, 'sem2' => $semester];
+    if (($user['role'] ?? '') === 'kepsek' && !empty($user['jenjang'])) {
+        $sql2 .= " AND r.jenjang = :j";
+        $params2['j'] = $user['jenjang'];
+    }
+    if ($rombelId !== null) {
+        $sql2 .= " AND rst.rombel_id = :rid";
+        $params2['rid'] = $rombelId;
+    }
+    $sql2 .= " GROUP BY rst.rombel_id, rst.subject_id, rm.student_id";
+    $st2 = db()->prepare($sql2);
+    $st2->execute($params2);
+
+    foreach ($st2->fetchAll() as $r) {
+        $key = $r['rombel_id'] . '-' . $r['subject_id'] . '-' . $r['student_id'];
+        if (isset($existing[$key])) continue; // sudah punya baris nyata di final_grades
+        $rows[] = [
+            'id'         => null,
+            'rombel_id'  => $r['rombel_id'],
+            'subject_id' => $r['subject_id'],
+            'student_id' => $r['student_id'],
+            'status'     => 'draft', // belum pernah disimpan guru == tampil sbg draft
+            'jenjang'      => $r['jenjang'],
+            'tingkat'      => $r['tingkat'],
+            'rombel_nama'  => $r['rombel_nama'],
+            'subj_kode'    => $r['subj_kode'],
+            'subj_nama'    => $r['subj_nama'],
+            'elective_kode'=> $r['elective_kode'],
+            'nis'          => $r['nis'],
+            'nisn'         => $r['nisn'],
+            'student_nama' => $r['student_nama'],
+        ];
+    }
+
+    usort($rows, fn($a, $b) => [$a['jenjang'], $a['tingkat'], $a['rombel_nama'], $a['student_nama'], $a['subj_nama']]
+                     <=> [$b['jenjang'], $b['tingkat'], $b['rombel_nama'], $b['student_nama'], $b['subj_nama']]);
+
+    return $rows;
 }
 
 /**
