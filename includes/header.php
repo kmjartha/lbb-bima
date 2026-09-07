@@ -34,11 +34,16 @@ function nav_active(string $needle): string {
 $__role = $__user['role'] ?? '';
 
 // Stage 10 — bell notifications (kepsek shows own jenjang only; admin/administrator see all).
-$__notif_count = 0; $__notif_list = [];
+// Guru/Guru Wali dapat bell terpisah: nilai PTS/PAS yang dikembalikan kepsek untuk revisi.
+$__notif_count = 0; $__notif_list = []; $__notif_kind = 'review';
 if (in_array($__role, ['kepsek','administrator','admin'], true)) {
     $__nf_jenjang = ($__role === 'kepsek') ? ($__user['jenjang'] ?? null) : null;
     $__notif_count = notif_pending_review_count($__nf_jenjang, (int)$__scope['year_id']);
     $__notif_list  = $__notif_count > 0 ? notif_pending_review_list($__nf_jenjang, 8, (int)$__scope['year_id']) : [];
+} elseif ($__role === 'guru') {
+    $__notif_kind  = 'revised';
+    $__notif_count = notif_revised_count($__user, (int)$__scope['year_id']);
+    $__notif_list  = $__notif_count > 0 ? notif_revised_list($__user, 8, (int)$__scope['year_id']) : [];
 }
 ?><!doctype html>
 <html lang="id">
@@ -119,6 +124,7 @@ if (!empty($_SESSION['_fresh_login'])) {
           'rapor'     => '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h5M9 9h3"/>',
           'template'  => '<rect x="3" y="3" width="18" height="6" rx="1"/><rect x="3" y="11" width="8" height="10" rx="1"/><rect x="13" y="11" width="8" height="10" rx="1"/>',
           'audit'     => '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+          'send'      => '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
         ];
         $p = $paths[$name] ?? $paths['list'];
         return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' . $p . '</svg>';
@@ -153,7 +159,11 @@ if (!empty($_SESSION['_fresh_login'])) {
           ['teacher_grading_review','teacher_grading_review.php','Review Pengisian Guru','pulse'],
           ['elective_assignment','elective_assignment.php','Penempatan Mapel Pilihan','star'],
           ['final_grades',       'final_grades.php',       'Nilai Akhir PTS/PAS', 'medal'],
-          ['final_grades_review','final_grades_review.php','Verifikasi Nilai',    'verify'],
+          ['verifikasi', null, 'Verifikasi', 'verify', [
+            ['final_grades_review',  'final_grades_review.php',  'Nilai',           'medal'],
+            ['general_eval_review',  'general_eval_review.php',  'Deskripsi Umum',  'note'],
+          ]],
+          ['publish_rapor',      'publish_rapor.php',      'Publish Rapor',       'send'],
         ],
         'Catatan & Karakter' => [
           ['character_eval',         'character_eval.php',         'Character Evaluation', 'shield'],
@@ -170,21 +180,62 @@ if (!empty($_SESSION['_fresh_login'])) {
         ],
       ];
       foreach ($__nav as $group => $items):
-        $visible = array_values(array_filter($items, fn($it) => can_view($it[0], $__user)));
+        // Resolve visibility for both plain items ([feat,href,label,icon])
+        // and grouped items with a sub-menu ([key,null,label,icon,children]),
+        // e.g. "Verifikasi" -> Nilai / Deskripsi Umum. A grouped item is
+        // visible if the user can view at least one of its children.
+        $visible = [];
+        foreach ($items as $it) {
+          if (isset($it[4]) && is_array($it[4])) {
+            $children = array_values(array_filter($it[4], fn($c) => can_view($c[0], $__user)));
+            if ($children) $visible[] = [$it[0], $it[1], $it[2], $it[3], $children];
+          } elseif (can_view($it[0], $__user)) {
+            $visible[] = $it;
+          }
+        }
         if (!$visible) continue;
     ?>
       <div class="nav-group"><?= esc($group) ?></div>
-      <?php foreach ($visible as $it):
-        [$feat, $href, $label, $ikey] = $it;
-        $needle = basename($href);
-      ?>
-        <a class="nav-item <?= nav_active($needle) ?>" href="<?= esc(url($href)) ?>">
-          <?= $icon($ikey) ?>
-          <span class="nav-label"><?= esc($label) ?></span>
-          <?php if (is_view_only($feat, $__user)): ?>
-            <span class="badge badge-info" style="margin-left:.4rem; font-size:10px">view</span>
-          <?php endif; ?>
-        </a>
+      <?php foreach ($visible as $it): ?>
+        <?php if (isset($it[4]) && is_array($it[4])):
+          $children = $it[4];
+          $childActive = false;
+          foreach ($children as $c) { if (nav_active(basename($c[1])) === 'is-active') { $childActive = true; break; } }
+          $groupKey = 'navgrp_' . $it[0];
+        ?>
+          <div class="nav-collapsible<?= $childActive ? ' is-open' : '' ?>" data-nav-collapsible="<?= esc($groupKey) ?>">
+            <button type="button" class="nav-item nav-item-parent<?= $childActive ? ' is-active' : '' ?>" data-nav-toggle aria-expanded="<?= $childActive ? 'true' : 'false' ?>">
+              <?= $icon($it[3]) ?>
+              <span class="nav-label"><?= esc($it[2]) ?></span>
+              <svg class="ico nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+            <div class="nav-children">
+              <?php foreach ($children as $c):
+                [$cfeat, $chref, $clabel, $cikey] = $c;
+                $cneedle = basename($chref);
+              ?>
+                <a class="nav-item nav-child <?= nav_active($cneedle) ?>" href="<?= esc(url($chref)) ?>">
+                  <?= $icon($cikey) ?>
+                  <span class="nav-label"><?= esc($clabel) ?></span>
+                  <?php if (is_view_only($cfeat, $__user)): ?>
+                    <span class="badge badge-info" style="margin-left:.4rem; font-size:10px">view</span>
+                  <?php endif; ?>
+                </a>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php else:
+          [$feat, $href, $label, $ikey] = $it;
+          $needle = basename($href);
+        ?>
+          <a class="nav-item <?= nav_active($needle) ?>" href="<?= esc(url($href)) ?>">
+            <?= $icon($ikey) ?>
+            <span class="nav-label"><?= esc($label) ?></span>
+            <?php if (is_view_only($feat, $__user)): ?>
+              <span class="badge badge-info" style="margin-left:.4rem; font-size:10px">view</span>
+            <?php endif; ?>
+          </a>
+        <?php endif; ?>
       <?php endforeach; ?>
     <?php endforeach; ?>
   </nav>
@@ -224,7 +275,7 @@ if (!empty($_SESSION['_fresh_login'])) {
     </form>
 
 
-    <?php if (in_array($__role, ['kepsek','administrator','admin'], true)): ?>
+    <?php if (in_array($__role, ['kepsek','administrator','admin','guru'], true)): ?>
       <div class="bell-wrap">
         <button type="button" class="bell-btn" id="btnBell" aria-label="Notifikasi" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
@@ -233,29 +284,57 @@ if (!empty($_SESSION['_fresh_login'])) {
           <?php endif; ?>
         </button>
         <div class="bell-pop" id="bellPop" role="menu" aria-hidden="true">
-          <div class="bell-head">
-            <strong>Notifikasi</strong>
-            <span class="text-xs text-muted"><?= (int)$__notif_count ?> menunggu verifikasi</span>
-          </div>
-          <?php if (!$__notif_list): ?>
-            <div class="bell-empty">🎉 Tidak ada yang menunggu verifikasi.</div>
+          <?php if ($__notif_kind === 'revised'): ?>
+            <div class="bell-head">
+              <strong>Notifikasi</strong>
+              <span class="text-xs text-muted"><?= (int)$__notif_count ?> nilai dikembalikan untuk revisi</span>
+            </div>
+            <?php if (!$__notif_list): ?>
+              <div class="bell-empty">🎉 Tidak ada nilai PTS/PAS yang perlu direvisi.</div>
+            <?php else: ?>
+              <ul class="bell-list">
+                <?php foreach ($__notif_list as $n): ?>
+                  <li>
+                    <a href="<?= esc(url('final_grades.php?rombel_id=' . (int)$n['rombel_id'] . '&subject_id=' . (int)$n['subject_id'])) ?>">
+                      <div class="t">↩ <?= esc($n['subj_kode']) ?> · <?= esc($n['subj_nama']) ?></div>
+                      <div class="b">
+                        <?= esc($n['jenjang'] . ' ' . $n['rombel_nama']) ?> ·
+                        <?= esc(ucfirst($n['semester']) . ' ' . $n['period_kind']) ?> ·
+                        <strong><?= (int)$n['n_rows'] ?> siswa</strong>
+                        <?= $n['reviewer_nama'] ? ' · direvisi oleh ' . esc($n['reviewer_nama']) : '' ?>
+                      </div>
+                      <div class="t-time"><?= esc(date('d M H:i', strtotime($n['last_at']))) ?></div>
+                    </a>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+              <a class="bell-foot" href="<?= esc(url('final_grades.php')) ?>">Buka semua →</a>
+            <?php endif; ?>
           <?php else: ?>
-            <ul class="bell-list">
-              <?php foreach ($__notif_list as $n): ?>
-                <li>
-                  <a href="<?= esc(url('final_grades_review.php?rombel_id=' . (int)$n['rombel_id'] . '&subject_id=' . (int)$n['subject_id'])) ?>">
-                    <div class="t"><?= esc($n['subj_kode']) ?> · <?= esc($n['subj_nama']) ?></div>
-                    <div class="b">
-                      <?= esc($n['jenjang'] . ' ' . $n['rombel_nama']) ?> ·
-                      <?= esc(ucfirst($n['semester']) . ' ' . $n['period_kind']) ?> ·
-                      <strong><?= (int)$n['n_rows'] ?> siswa</strong>
-                    </div>
-                    <div class="t-time"><?= esc(date('d M H:i', strtotime($n['last_at']))) ?></div>
-                  </a>
-                </li>
-              <?php endforeach; ?>
-            </ul>
-            <a class="bell-foot" href="<?= esc(url('final_grades_review.php')) ?>">Buka semua →</a>
+            <div class="bell-head">
+              <strong>Notifikasi</strong>
+              <span class="text-xs text-muted"><?= (int)$__notif_count ?> menunggu verifikasi</span>
+            </div>
+            <?php if (!$__notif_list): ?>
+              <div class="bell-empty">🎉 Tidak ada yang menunggu verifikasi.</div>
+            <?php else: ?>
+              <ul class="bell-list">
+                <?php foreach ($__notif_list as $n): ?>
+                  <li>
+                    <a href="<?= esc(url('final_grades_review.php?rombel_id=' . (int)$n['rombel_id'] . '&subject_id=' . (int)$n['subject_id'])) ?>">
+                      <div class="t"><?= esc($n['subj_kode']) ?> · <?= esc($n['subj_nama']) ?></div>
+                      <div class="b">
+                        <?= esc($n['jenjang'] . ' ' . $n['rombel_nama']) ?> ·
+                        <?= esc(ucfirst($n['semester']) . ' ' . $n['period_kind']) ?> ·
+                        <strong><?= (int)$n['n_rows'] ?> siswa</strong>
+                      </div>
+                      <div class="t-time"><?= esc(date('d M H:i', strtotime($n['last_at']))) ?></div>
+                    </a>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+              <a class="bell-foot" href="<?= esc(url('final_grades_review.php')) ?>">Buka semua →</a>
+            <?php endif; ?>
           <?php endif; ?>
         </div>
       </div>

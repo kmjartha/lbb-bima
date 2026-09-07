@@ -19,11 +19,12 @@ $rombels = accessible_wali_rombel($user);
 $rid     = int_or_null($_GET['rombel_id'] ?? null);
 if (!$rid && $rombels) $rid = (int)$rombels[0]['id'];
 
-$rombel = null; $members = []; $evals = [];
+$rombel = null; $members = []; $evals = []; $evalStatus = [];
 if ($rid) {
-    $rombel  = assert_wali_rombel($user, $rid);
-    $members = rombel_members($rid);
-    $evals   = general_evals_for($rid, $sc['semester'], $sc['period']);
+    $rombel     = assert_wali_rombel($user, $rid);
+    $members    = rombel_members($rid);
+    $evals      = general_evals_for($rid, $sc['semester'], $sc['period']);
+    $evalStatus = general_evals_status_for($rid, $sc['semester'], $sc['period']);
 }
 $readonly = $rombel ? wali_readonly($user, 'general_eval') : true;
 
@@ -37,11 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $rombel) {
         foreach ($members as $m) {
             $mid = (int)$m['id'];
             $val = isset($vals[$mid]) ? trim((string)$vals[$mid]) : '';
-            general_eval_upsert($rid, $mid, $sc['semester'], $sc['period'], $val !== '' ? $val : null);
+            general_eval_upsert($rid, $mid, $sc['semester'], $sc['period'], $val !== '' ? $val : null, (int)$user['id']);
             $count++;
         }
         audit('save_general_eval', "rombel:$rid", ['sem'=>$sc['semester'],'period'=>$sc['period'],'n'=>$count]);
-        flash('success', "General evaluation tersimpan untuk $count siswa.");
+        flash('success', "General evaluation tersimpan untuk $count siswa dan diajukan untuk verifikasi Kepsek.");
         redirect("general_eval.php?rombel_id=$rid");
     } catch (Throwable $e) { $err = $e->getMessage(); }
 }
@@ -83,11 +84,16 @@ require __DIR__ . '/../includes/header.php';
   <div class="table-wrap">
     <table class="t">
       <thead>
-        <tr><th style="width:36px">#</th><th style="min-width:160px">Siswa</th><th>Narasi (deskripsi umum / kesimpulan periode)</th></tr>
+        <tr><th style="width:36px">#</th><th style="min-width:160px">Siswa</th><th>Narasi (deskripsi umum / kesimpulan periode)</th><th style="width:100px">Status</th></tr>
       </thead>
       <tbody>
-      <?php if (!$members): ?><tr><td colspan="3"><div class="empty">Belum ada anggota.</div></td></tr><?php endif; ?>
-      <?php foreach ($members as $i => $m): $val = $evals[(int)$m['id']] ?? ''; ?>
+      <?php if (!$members): ?><tr><td colspan="4"><div class="empty">Belum ada anggota.</div></td></tr><?php endif; ?>
+      <?php $__geStatuses = ge_statuses(); ?>
+      <?php foreach ($members as $i => $m):
+        $val = $evals[(int)$m['id']] ?? '';
+        $st  = $evalStatus[(int)$m['id']] ?? 'draft';
+        $stInfo = $__geStatuses[$st] ?? $__geStatuses['draft'];
+      ?>
         <tr>
           <td><?= $i+1 ?></td>
           <td>
@@ -99,11 +105,17 @@ require __DIR__ . '/../includes/header.php';
               placeholder="Tuliskan narasi umum untuk rapor periode ini…"
               <?= $readonly?'disabled':'' ?>><?= esc($val) ?></textarea>
           </td>
+          <td><span class="badge <?= esc($stInfo['class']) ?>"><?= esc($stInfo['label']) ?></span></td>
         </tr>
       <?php endforeach; ?>
       </tbody>
     </table>
   </div>
+  <?php if ($rombel && $members): ?>
+    <div class="card-body">
+      <span class="text-xs text-muted">Menyimpan narasi akan mengajukannya (status <strong>Diajukan</strong>) untuk diverifikasi Kepsek. Menyimpan ulang setelah <strong>Disetujui</strong>/<strong>Revisi</strong> akan mengembalikan status ke <strong>Diajukan</strong> untuk direview ulang.</span>
+    </div>
+  <?php endif; ?>
   <?php if (!$readonly && $members): ?>
     <div class="card-body" style="text-align:right">
       <button class="btn btn-primary" type="submit">Simpan Semua Narasi</button>

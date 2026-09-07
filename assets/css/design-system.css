@@ -132,6 +132,30 @@ small, .text-sm { font-size: var(--fs-12); }
 .nav-item .badge { margin-left: auto; }
 .sidebar-foot { border-top: 1px solid var(--border); padding-top: var(--sp-3); }
 
+/* ---- Nav sub-menu (e.g. Verifikasi > Nilai / Deskripsi Umum) ---- */
+.nav-collapsible { display: flex; flex-direction: column; }
+.nav-item-parent {
+  cursor: pointer;
+  color: var(--c-n-700);
+  width: 100%;
+  background: none;
+  border: none;
+  font: inherit;
+}
+.nav-item-parent:hover { background: var(--c-n-100); color: var(--c-n-900); }
+.nav-item-parent.is-active { background: transparent; color: var(--c-n-900); }
+.nav-item-parent.is-active .ico { color: var(--c-n-600); }
+.nav-chevron { margin-left: auto; width: 15px; height: 15px; color: var(--c-n-400); transition: transform .18s ease; flex-shrink: 0; }
+.nav-collapsible.is-open .nav-chevron { transform: rotate(90deg); }
+.nav-collapsible:not(.is-open) .nav-children { display: none; }
+.nav-children {
+  display: flex; flex-direction: column; gap: 2px;
+  margin: 0 0 2px 23px;
+  padding-left: var(--sp-3);
+  border-left: 1px solid var(--border);
+}
+.nav-child { padding: 7px var(--sp-3); font-size: 13px; }
+
 
 /* ---- Nav Icons ---- */
 .nav-item .ico {

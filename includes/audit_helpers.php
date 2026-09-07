@@ -160,6 +160,69 @@ function notif_pending_review_list(?string $jenjang = null, int $limit = 10, ?in
     return $st->fetchAll();
 }
 
+/* =====================================================================
+ * Notification helpers — Guru/Guru Wali: nilai PTS/PAS yang dikembalikan
+ * (revisi) oleh Kepsek. Source of truth: final_grades.status = 'revised'.
+ * Guru diberitahu untuk mapel yang dia ampu sendiri (rombel_subject_teachers);
+ * Guru Wali juga diberitahu untuk SEMUA mapel di kelas yang dia wali-i,
+ * karena dia bertanggung jawab atas rapor kelas tersebut secara keseluruhan.
+ * ===================================================================== */
+
+/** Number of final-grade rows status 'revised' yang relevan untuk guru ini. */
+function notif_revised_count(array $user, ?int $yearId = null): int
+{
+    if (($user['role'] ?? '') !== 'guru') return 0;
+    if ($yearId === null) {
+        $yearId = active_scope()['year_id'];
+    }
+    $sql = "SELECT COUNT(*) FROM final_grades fg
+            JOIN rombel r ON r.id = fg.rombel_id
+            LEFT JOIN teachers t ON t.user_id = :uid1
+            LEFT JOIN rombel_subject_teachers rst
+                   ON rst.rombel_id = r.id AND rst.subject_id = fg.subject_id AND rst.teacher_id = t.id
+            WHERE fg.status = 'revised'
+              AND r.academic_year_id = :y
+              AND (r.wali_id = :uid2 OR rst.id IS NOT NULL)";
+    $st = db()->prepare($sql);
+    $st->execute(['uid1' => $user['id'], 'uid2' => $user['id'], 'y' => $yearId]);
+    return (int)$st->fetchColumn();
+}
+
+/**
+ * List baris nilai PTS/PAS yang dikembalikan kepsek untuk revisi, relevan
+ * untuk guru ini (mapel yang diampu, dan/atau kelas yang dia wali-i),
+ * dikelompokkan per (rombel, subject, semester, period).
+ */
+function notif_revised_list(array $user, int $limit = 10, ?int $yearId = null): array
+{
+    if (($user['role'] ?? '') !== 'guru') return [];
+    if ($yearId === null) {
+        $yearId = active_scope()['year_id'];
+    }
+    $sql = "
+        SELECT fg.rombel_id, fg.subject_id, fg.semester, fg.period_kind,
+               r.nama AS rombel_nama, r.jenjang, r.tingkat,
+               s.nama AS subj_nama, s.kode AS subj_kode,
+               COUNT(*) AS n_rows,
+               MAX(fg.reviewed_at) AS last_at,
+               MAX(u.nama) AS reviewer_nama
+          FROM final_grades fg
+          JOIN rombel r    ON r.id = fg.rombel_id
+          JOIN subjects s  ON s.id = fg.subject_id
+          LEFT JOIN users u ON u.id = fg.reviewed_by
+          LEFT JOIN teachers t ON t.user_id = :uid1
+          LEFT JOIN rombel_subject_teachers rst
+                 ON rst.rombel_id = r.id AND rst.subject_id = fg.subject_id AND rst.teacher_id = t.id
+         WHERE fg.status = 'revised'
+           AND r.academic_year_id = :y
+           AND (r.wali_id = :uid2 OR rst.id IS NOT NULL)
+         GROUP BY fg.rombel_id, fg.subject_id, fg.semester, fg.period_kind
+         ORDER BY last_at DESC LIMIT $limit";
+    $st = db()->prepare($sql);
+    $st->execute(['uid1' => $user['id'], 'uid2' => $user['id'], 'y' => $yearId]);
+    return $st->fetchAll();
+}
+
 /**
  * Per-role dashboard counters used by the upgraded dashboard widget.
  */

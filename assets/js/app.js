@@ -45,6 +45,32 @@
     window.addEventListener('beforeunload', saveSidebarScroll);
   }
 
+  // Collapsible nav sub-menus (e.g. "Verifikasi" > Nilai / Deskripsi Umum).
+  // Remembers open/closed state per group for the session so it doesn't
+  // collapse again after navigating to one of its own child pages.
+  (function () {
+    const STORAGE_PREFIX = 'sg_nav_open_';
+    document.querySelectorAll('[data-nav-collapsible]').forEach((wrap) => {
+      const key = wrap.getAttribute('data-nav-collapsible');
+      const btn = wrap.querySelector('[data-nav-toggle]');
+      if (!btn || !key) return;
+
+      const stored = sessionStorage.getItem(STORAGE_PREFIX + key);
+      if (stored !== null) {
+        const isOpen = stored === '1';
+        wrap.classList.toggle('is-open', isOpen);
+        btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      }
+
+      btn.addEventListener('click', () => {
+        const nowOpen = !wrap.classList.contains('is-open');
+        wrap.classList.toggle('is-open', nowOpen);
+        btn.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+        sessionStorage.setItem(STORAGE_PREFIX + key, nowOpen ? '1' : '0');
+      });
+    });
+  })();
+
   // Confirm-on-submit for forms with [data-confirm]
   document.addEventListener('submit', (e) => {
     const f = e.target;
