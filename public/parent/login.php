@@ -35,7 +35,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <label class="checkbox-row mb-4"><input type="checkbox" name="remember" value="1"> Ingat saya</label>
     <button class="btn btn-primary" type="submit" style="width:100%">Masuk</button>
   </form>
-  <div class="text-sm text-muted mt-4" style="text-align:center">
-    Pegawai? <a href="<?= esc(url('login.php')) ?>">Login Pegawai</a>
-  </div>
 </div></div></body></html>
