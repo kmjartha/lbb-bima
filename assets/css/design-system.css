@@ -482,6 +482,11 @@ small, .text-sm { font-size: var(--fs-12); }
   vertical-align: top;
 }
 
+.rapor-remarks-cell {
+  text-align: justify;
+  text-justify: inter-word;
+}
+
 .sig-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px; break-inside: avoid; page-break-inside: avoid; }
 .sig-cell {
   padding: 8px 6px 0;
