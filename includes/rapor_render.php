@@ -188,7 +188,7 @@ function rapor_render_body(array $args): string
                     <?php foreach ($items as $index => $ce): $scale = $ce['scale'] ?? ''; ?>
                     <tr>
                       <td class="category-cell<?= $index === 0 ? ' category-cell-first' : '' ?>"><?= esc($cat) ?></td>
-                      <td><?= esc(trim(($ce['aspek_nama'] ?? '') . (!empty($ce['remark']) ? ' — ' . $ce['remark'] : ''))) ?></td>
+                      <td class="rapor-remarks-cell"><?= esc(trim(($ce['aspek_nama'] ?? '') . (!empty($ce['remark']) ? ' — ' . $ce['remark'] : ''))) ?></td>
                       <td class="scale-cell"><?= $scale === 'NI' ? '&#10003;' : '' ?></td>
                       <td class="scale-cell"><?= $scale === 'SI' ? '&#10003;' : '' ?></td>
                       <td class="scale-cell"><?= $scale === 'WI' ? '&#10003;' : '' ?></td>
@@ -265,7 +265,7 @@ function rapor_render_body(array $args): string
                             <?php endif; ?>
                           </td>
                         <?php endif; ?>
-                        <td><?= esc($note ?? '—') ?></td>
+                        <td class="rapor-remarks-cell"><?= esc($note ?? '—') ?></td>
                         <td style="text-align:center"><strong><?= $overall !== null ? esc($pred['grade']) : '—' ?></strong></td>
                       </tr>
                     <?php endforeach; ?>

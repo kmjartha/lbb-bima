@@ -186,7 +186,7 @@ require __DIR__ . '/../includes/header.php';
               <?php if ($index === 0): ?>
                 <td class="category-cell" rowspan="<?= $total ?>"><?= esc($cat) ?></td>
               <?php endif; ?>
-              <td><?= esc(trim(($ce['aspek_nama'] ?? '') . (!empty($ce['remark']) ? ' — ' . $ce['remark'] : ''))) ?></td>
+              <td class="rapor-remarks-cell"><?= esc(trim(($ce['aspek_nama'] ?? '') . (!empty($ce['remark']) ? ' — ' . $ce['remark'] : ''))) ?></td>
               <td class="scale-cell"><?= $scale === 'NI' ? '✓' : '' ?></td>
               <td class="scale-cell"><?= $scale === 'SI' ? '✓' : '' ?></td>
               <td class="scale-cell"><?= $scale === 'WI' ? '✓' : '' ?></td>
@@ -262,7 +262,7 @@ require __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                   </td>
                 <?php endif; ?>
-                <td><?= esc($note ?? '—') ?></td>
+                <td class="rapor-remarks-cell"><?= esc($note ?? '—') ?></td>
                 <td style="text-align:center"><strong><?= $overall !== null ? esc($pred['grade']) : '—' ?></strong></td>
               </tr>
             <?php endforeach; ?>
